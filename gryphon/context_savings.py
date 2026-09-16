@@ -63,6 +63,41 @@ def estimate_file_tokens(repo_root: Path, files: Iterable[str]) -> int:
     return total
 
 
+def attach_file_savings(
+    result: dict[str, Any],
+    *,
+    repo_root: Path | str,
+    tool: str,
+    files: Iterable[str | None],
+    cf_kwargs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Attach savings for tools whose answer replaces reading ``files``.
+
+    Shared by result-shaping tools (query, search, flow) whose baseline is not
+    a changed-file set: what the agent would have opened instead is the set of
+    files behind the returned nodes/steps. ``files`` may mix absolute and
+    repo-relative paths and may contain ``None``, which is dropped.
+
+    ``cf_kwargs`` are forwarded to ``estimate_counterfactual_cost`` with the
+    computed baseline injected as ``file_tokens``.
+    """
+    baseline = estimate_file_tokens(
+        Path(repo_root), [f for f in dict.fromkeys(files) if f]
+    )
+    counterfactual = (
+        estimate_counterfactual_cost(file_tokens=baseline, **cf_kwargs)
+        if cf_kwargs is not None
+        else None
+    )
+    return attach_context_savings(
+        result,
+        original_tokens=baseline,
+        tool=tool,
+        repo_root=repo_root,
+        counterfactual=counterfactual,
+    )
+
+
 def estimate_counterfactual_cost(
     *,
     changed_functions: int = 0,
