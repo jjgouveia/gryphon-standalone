@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..graph import GraphStore
+from ..hints import get_session
 from ..incremental import (
     get_changed_files,
     get_db_path,
@@ -110,6 +111,8 @@ def get_minimal_context(
         missing, empty, or built at a commit that cannot be reconciled with
         the checkout.
     """
+    if task:
+        get_session().task = task
     root = _resolve_root(repo_root)
     db_path = get_db_path(root, read_only=True)
     if not db_path.is_file():

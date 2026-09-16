@@ -62,3 +62,45 @@ def test_format_context_savings_is_one_short_line():
     )
 
     assert text == "Estimated context saved: ~1,240 tokens (~18%)"
+
+
+def test_tool_call_log_entry_carries_session_task_as_ref(tmp_path):
+    from gryphon import hints
+    from gryphon.context_savings import attach_context_savings
+    from gryphon.savings_log import read_entries
+
+    hints.reset_session()
+    try:
+        hints.get_session().task = "review PR #208"
+        result = attach_context_savings(
+            {},
+            original_tokens=1000,
+            returned_context="{}",
+            tool="detect_changes_tool",
+            repo_root=tmp_path,
+        )
+    finally:
+        hints.reset_session()
+
+    assert result["context_savings"]["saved_tokens"] > 0
+    entry = read_entries(tmp_path)[-1]
+    assert entry["kind"] == "tool_call"
+    assert entry["tool"] == "detect_changes_tool"
+    assert entry["ref"] == "review PR #208"
+
+
+def test_tool_call_log_entry_omits_ref_without_session_task(tmp_path):
+    from gryphon import hints
+    from gryphon.context_savings import attach_context_savings
+    from gryphon.savings_log import read_entries
+
+    hints.reset_session()
+    attach_context_savings(
+        {},
+        original_tokens=1000,
+        returned_context="{}",
+        tool="detect_changes_tool",
+        repo_root=tmp_path,
+    )
+
+    assert "ref" not in read_entries(tmp_path)[-1]
