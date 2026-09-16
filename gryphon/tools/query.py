@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from ..config_keys import normalize_spring_config_key
-from ..context_savings import attach_context_savings, estimate_file_tokens
+from ..context_savings import (
+    attach_context_savings,
+    estimate_counterfactual_cost,
+    estimate_file_tokens,
+)
 from ..embeddings import EmbeddingStore
 from ..graph import (
     GraphNode,
@@ -169,10 +173,22 @@ def get_impact_radius(
             }
 
         # Resolve user-facing paths to the file paths stored in the graph.
-        original_tokens = estimate_file_tokens(root, changed_files)
         abs_files = _resolve_graph_file_paths(store, root, changed_files)
         result = store.get_impact_radius(
             abs_files, max_depth=max_depth, max_nodes=max_results
+        )
+
+        # Baseline: tokens an agent would read without the graph —
+        # the changed files plus every file in the blast radius.
+        original_tokens = estimate_file_tokens(
+            root, list(set(changed_files) | set(result["impacted_files"]))
+        )
+        counterfactual = estimate_counterfactual_cost(
+            changed_functions=len(result["changed_nodes"]),
+            impacted_nodes=len(result["impacted_nodes"]),
+            impacted_files=len(result["impacted_files"]),
+            trace_depth=max_depth,
+            file_tokens=original_tokens,
         )
 
         impact_scores = result.get("impact_scores", {})
@@ -238,6 +254,7 @@ def get_impact_radius(
                 original_tokens=original_tokens,
                 tool="get_impact_radius_tool",
                 repo_root=root,
+                counterfactual=counterfactual,
             )
             return minimal_response
 
@@ -260,6 +277,7 @@ def get_impact_radius(
             original_tokens=original_tokens,
             tool="get_impact_radius_tool",
             repo_root=root,
+            counterfactual=counterfactual,
         )
         return response
     finally:

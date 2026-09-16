@@ -15,7 +15,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
-from .context_savings import estimate_tokens
+from .context_savings import estimate_counterfactual_cost, estimate_tokens
 from .incremental import (
     get_changed_files,
     get_staged_and_unstaged,
@@ -190,6 +190,17 @@ def measure_savings(
         saved = max(0, baseline - returned)
         percent = round(saved * 100 / baseline) if baseline > 0 else 0
 
+        counterfactual = estimate_counterfactual_cost(
+            changed_functions=len(impact["changed_nodes"]),
+            impacted_nodes=len(impacted_dicts),
+            impacted_files=len(impacted_files),
+            trace_depth=max_depth,
+            file_tokens=baseline,
+        )
+        cf_total = counterfactual["total_counterfactual"]
+        cf_saved = max(0, cf_total - returned)
+        cf_pct = round(cf_saved * 100 / cf_total) if cf_total > 0 else 0
+
         result: dict[str, Any] = {
             "status": "ok",
             "ref": ref,
@@ -204,9 +215,12 @@ def measure_savings(
             "saved_percent": percent,
             "verified": enc is not None,
             "impacted_files_read": len(impacted_read),
+            "counterfactual": counterfactual,
+            "counterfactual_saved": cf_saved,
+            "counterfactual_saved_percent": cf_pct,
         }
 
-        if log and baseline > 0:
+        if log and (baseline > 0 or cf_total > 0):
             try:
                 log_savings(
                     root,
@@ -220,6 +234,9 @@ def measure_savings(
                     extra={
                         "changed_files": len(changed_files),
                         "impacted_files": len(impacted_files),
+                        "counterfactual": counterfactual,
+                        "total_saved_tokens": cf_saved,
+                        "total_saved_percent": cf_pct,
                     },
                 )
             except Exception:  # noqa: BLE001 - measurement must not fail on logging

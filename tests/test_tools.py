@@ -840,11 +840,9 @@ class TestGraphPathResolution:
         changed = result["context"]["graph"]["changed_nodes"]
         assert any(n["name"] == "handle" for n in changed)
         assert result["context_savings"]["estimated"] is True
-        assert set(result["context_savings"]) == {
-            "estimated",
-            "saved_tokens",
-            "saved_percent",
-        }
+        assert {"estimated", "saved_tokens", "saved_percent"} <= set(
+            result["context_savings"]
+        )
 
     def test_get_impact_radius_resolves_repo_relative_changed_file(self, tmp_path):
         repo = tmp_path / "fixtures" / "sample_repo"

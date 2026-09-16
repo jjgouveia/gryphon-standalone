@@ -12,6 +12,18 @@ from typing import Any, Iterable
 
 CHARS_PER_TOKEN = 4
 
+# Conservative per-operation token costs modelling what an agent would consume
+# without the graph. Each value is a defensible lower bound; the constants
+# live together so they are easy to audit and tune.
+SEARCH_COST_TOKENS = {
+    "grep_one": 200,          # one ripgrep search result (~20 matches)
+    "read_file_avg": 800,     # reading one average source file
+    "read_test_file": 600,    # reading one test file
+    "grep_and_read": 1000,    # grep + read the relevant file
+    "trace_one_hop": 400,     # tracing one dependency hop
+    "analysis_overhead": 100, # reasoning about one function's risk/coverage
+}
+
 
 def estimate_tokens(value: Any) -> int:
     """Estimate token count with a conservative 4 chars/token approximation."""
@@ -49,6 +61,55 @@ def estimate_file_tokens(repo_root: Path, files: Iterable[str]) -> int:
         except OSError:
             continue
     return total
+
+
+def estimate_counterfactual_cost(
+    *,
+    changed_functions: int = 0,
+    impacted_nodes: int = 0,
+    impacted_files: int = 0,
+    test_gaps: int = 0,
+    tested_functions: int = 0,
+    affected_flows: int = 0,
+    flow_avg_depth: float = 0.0,
+    callers_found: int = 0,
+    trace_depth: int = 2,
+    file_tokens: int = 0,
+) -> dict[str, int]:
+    """Model the tokens an agent would consume without the graph.
+
+    Returns a breakdown with four dimensions and their sum.  Every number
+    is a conservative estimate based on ``SEARCH_COST_TOKENS``.
+    """
+    c = SEARCH_COST_TOKENS
+
+    # A. Search/trace: the agent greps for callers of each changed function
+    #    (cheap even when empty), then reads files only for actual impacts.
+    search_trace = (
+        changed_functions * c["grep_one"] * min(trace_depth, 3)
+        + impacted_nodes * c["grep_and_read"]
+        + callers_found * c["grep_one"]
+    )
+
+    # B. Analysis: test-coverage verification + risk reasoning
+    analysis = (
+        (test_gaps + tested_functions) * (c["grep_one"] + c["read_test_file"])
+        + changed_functions * c["analysis_overhead"]
+        + int(affected_flows * flow_avg_depth * c["trace_one_hop"])
+    )
+
+    # C. Precision: whole-file reads the graph avoids by returning only
+    #    relevant nodes. Approximated as impacted_files * avg file cost.
+    precision = impacted_files * c["read_file_avg"]
+
+    total = search_trace + analysis + precision + file_tokens
+    return {
+        "search_trace_tokens": search_trace,
+        "analysis_tokens": analysis,
+        "precision_tokens": precision,
+        "file_tokens": file_tokens,
+        "total_counterfactual": total,
+    }
 
 
 def estimate_context_savings(
@@ -91,12 +152,17 @@ def attach_context_savings(
     returned_tokens: int | None = None,
     tool: str | None = None,
     repo_root: "Path | str | None" = None,
+    counterfactual: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Attach compact ``context_savings`` metadata when it can be estimated.
 
     When ``tool`` and ``repo_root`` are given, the estimate is also appended
     to the savings log (``.gryphon/savings.jsonl`` and the global
     ``$CRG_HOME/savings.jsonl``). Logging is best-effort and never raises.
+
+    When ``counterfactual`` is provided (from ``estimate_counterfactual_cost``),
+    the metadata includes the richer multi-dimensional baseline that models
+    grep/trace/analysis operations an agent would need without the graph.
     """
     baseline = (
         original_tokens
@@ -115,6 +181,14 @@ def attach_context_savings(
         returned_tokens=returned,
     )
     if estimate is not None:
+        if counterfactual is not None:
+            cf_total = counterfactual.get("total_counterfactual", 0)
+            cf_saved = max(0, cf_total - returned)
+            cf_pct = round(cf_saved * 100 / cf_total) if cf_total > 0 else 0
+            estimate["counterfactual_tokens"] = cf_total
+            estimate["counterfactual_breakdown"] = counterfactual
+            estimate["total_saved_tokens"] = cf_saved
+            estimate["total_saved_percent"] = cf_pct
         result["context_savings"] = estimate
         if tool is not None and repo_root is not None:
             _log_tool_savings(repo_root, tool, baseline, returned, estimate)
@@ -132,6 +206,14 @@ def _log_tool_savings(
     try:
         from .savings_log import log_savings
 
+        extra: dict[str, Any] | None = None
+        cf = estimate.get("counterfactual_breakdown")
+        if cf:
+            extra = {
+                "counterfactual": cf,
+                "total_saved_tokens": estimate.get("total_saved_tokens", 0),
+                "total_saved_percent": estimate.get("total_saved_percent", 0),
+            }
         log_savings(
             repo_root,
             kind="tool_call",
@@ -141,6 +223,7 @@ def _log_tool_savings(
             saved_tokens=int(estimate.get("saved_tokens", 0)),
             saved_percent=int(estimate.get("saved_percent", 0)),
             estimated=bool(estimate.get("estimated", True)),
+            extra=extra,
         )
     except Exception:  # noqa: BLE001 - logging must never break a tool call
         pass

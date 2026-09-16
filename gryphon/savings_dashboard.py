@@ -42,13 +42,6 @@ _PAGE = """<!doctype html>
   h2 { font-size:14px; margin:0 0 14px; color:var(--mut);
        text-transform:uppercase; letter-spacing:.06em; }
   #chart { display:flex; align-items:flex-end; gap:4px; height:140px; }
-  #chart .bar { flex:1; background:var(--acc); border-radius:3px 3px 0 0;
-                min-height:2px; position:relative; opacity:.85; }
-  #chart .bar:hover { opacity:1; }
-  #chart .bar span { position:absolute; bottom:100%; left:50%;
-      transform:translateX(-50%); font-size:10px; color:var(--mut);
-      white-space:nowrap; display:none; padding-bottom:2px; }
-  #chart .bar:hover span { display:block; }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th,td { text-align:left; padding:6px 8px; border-bottom:1px solid #242a36; }
   th { color:var(--mut); font-weight:500; }
@@ -76,6 +69,10 @@ _PAGE = """<!doctype html>
 
   <section>
     <h2>saved per day</h2>
+    <div id="chart-labels" style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;">
+      <span><span style="display:inline-block;width:10px;height:10px;background:var(--acc);border-radius:2px;margin-right:4px;"></span>file reads</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#7cc4ff;border-radius:2px;margin-right:4px;"></span>search + analysis</span>
+    </div>
     <div id="chart"></div>
   </section>
 
@@ -97,6 +94,7 @@ _PAGE = """<!doctype html>
         <th>when</th><th>kind</th><th>tool / ref</th><th>repo</th>
         <th class="r">baseline</th><th class="r">returned</th>
         <th class="r">saved</th><th class="r">%</th>
+        <th class="r">cf saved</th><th class="r">cf %</th>
       </tr></thead>
       <tbody></tbody>
     </table>
@@ -113,27 +111,53 @@ async function load() {
     fetch("/api/entries?limit=100").then(r => r.json()),
   ]);
 
+  const hasCf = sum.cf_total_saved > 0;
+  const mainSaved = hasCf ? sum.cf_total_saved : sum.total_saved_tokens;
+  const mainPct = hasCf ? sum.cf_total_saved_percent : sum.total_saved_percent;
+  const mainLabel = hasCf ? "tokens saved (counterfactual)" : "tokens saved";
   document.getElementById("cards").innerHTML = [
-    [fmt(sum.total_saved_tokens), "tokens saved"],
-    [sum.total_saved_percent + "%", "avg reduction"],
-    [fmt(sum.total_baseline_tokens), "naive baseline"],
+    [fmt(mainSaved), mainLabel],
+    [mainPct + "%", "avg reduction"],
+    [fmt(hasCf ? sum.cf_total_baseline : sum.total_baseline_tokens), "naive baseline"],
     [fmt(sum.count), "entries"],
   ].map(([n, l]) =>
     `<div class="card"><div class="num">${n}</div><div class="lbl">${l}</div></div>`
   ).join("");
 
-  const days = Object.entries(sum.by_day || {});
-  const max = Math.max(1, ...days.map(([, v]) => v));
-  document.getElementById("chart").innerHTML = days.length
-    ? days.map(([d, v]) =>
-        `<div class="bar" style="height:${Math.max(2, v / max * 100)}%">
-           <span>${d.slice(5)} · ${fmt(v)}</span></div>`
-      ).join("")
+  const cfDays = sum.cf_by_day || {};
+  const fileDays = sum.by_day || {};
+  const allDayKeys = [...new Set([...Object.keys(fileDays), ...Object.keys(cfDays)])].sort();
+  const dayData = allDayKeys.map(d => ({
+    day: d,
+    file: fileDays[d] || 0,
+    cf: Math.max(0, (cfDays[d] || 0) - (fileDays[d] || 0)),
+  }));
+  const maxDay = Math.max(1, ...dayData.map(d => d.file + d.cf));
+  document.getElementById("chart").innerHTML = dayData.length
+    ? dayData.map(d => {
+        const filePct = d.file / maxDay * 100;
+        const cfPct = d.cf / maxDay * 100;
+        const total = d.file + d.cf;
+        return `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;height:100%;position:relative;gap:0" class="bar-col">
+          <div style="height:${Math.max(0, cfPct)}%;background:#7cc4ff;border-radius:3px 3px 0 0;min-height:${d.cf ? 1 : 0}px;opacity:.85"></div>
+          <div style="height:${Math.max(0, filePct)}%;background:var(--acc);border-radius:${d.cf ? '0' : '3px 3px'} 0 0;min-height:${d.file ? 1 : 0}px;opacity:.85"></div>
+          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:10px;color:var(--mut);white-space:nowrap;display:none;padding-bottom:2px">${d.day.slice(5)} · ${fmt(total)}</span>
+        </div>`;
+      }).join("")
     : '<div class="empty">no data yet</div>';
 
+  // Hover for stacked bars
+  document.querySelectorAll(".bar-col").forEach(col => {
+    col.addEventListener("mouseenter", () => col.querySelector("span").style.display = "block");
+    col.addEventListener("mouseleave", () => col.querySelector("span").style.display = "none");
+  });
+
   const tbody = document.querySelector("#entries tbody");
-  tbody.innerHTML = entries.length ? entries.map(e => `
-    <tr>
+  tbody.innerHTML = entries.length ? entries.map(e => {
+    const ex = e.extra || {};
+    const cfSaved = ex.total_saved_tokens;
+    const cfPct = ex.total_saved_percent;
+    return `<tr>
       <td>${shortTime(e.ts)}</td>
       <td class="kind-${e.kind}">${e.kind || ""}</td>
       <td>${e.tool || e.ref || ""}</td>
@@ -142,8 +166,11 @@ async function load() {
       <td class="r">${fmt(e.returned_tokens)}</td>
       <td class="r">${fmt(e.saved_tokens)}</td>
       <td class="r">${e.saved_percent ?? ""}%</td>
-    </tr>`).join("")
-    : '<tr><td colspan="8" class="empty">no entries logged yet</td></tr>';
+      <td class="r">${cfSaved != null ? fmt(cfSaved) : "-"}</td>
+      <td class="r">${cfPct != null ? cfPct + "%" : "-"}</td>
+    </tr>`;
+  }).join("")
+    : '<tr><td colspan="10" class="empty">no entries logged yet</td></tr>';
 }
 
 document.getElementById("mform").addEventListener("submit", async ev => {
@@ -164,13 +191,20 @@ document.getElementById("mform").addEventListener("submit", async ev => {
     });
     const res = await r.json();
     if (res.status !== "ok") throw new Error(res.error || "measure failed");
+    const cf = res.counterfactual || {};
+    const cfLine = cf.total_counterfactual
+      ? `\\ncounterfactual baseline: ${fmt(cf.total_counterfactual)} ` +
+        `(search ${fmt(cf.search_trace_tokens)} + analysis ${fmt(cf.analysis_tokens)} + precision ${fmt(cf.precision_tokens)} + files ${fmt(cf.file_tokens)})` +
+        `\\ncounterfactual saved: ${fmt(res.counterfactual_saved)} (~${res.counterfactual_saved_percent}%)`
+      : "";
     out.textContent =
-      `saved ${fmt(res.saved_tokens)} tokens (~${res.saved_percent}%)\\n` +
+      `saved ${fmt(res.saved_tokens)} tokens (~${res.saved_percent}%) [file reads only]\\n` +
       `baseline ${fmt(res.baseline_tokens)} = ` +
       `${res.changed_files.length} changed (${fmt(res.changed_tokens)}) + ` +
       `${res.impacted_files.length} impacted (${fmt(res.impacted_tokens)})\\n` +
       `graph response: ${fmt(res.graph_tokens)} · ` +
-      (res.verified ? "tiktoken verified" : "chars/4 estimate");
+      (res.verified ? "tiktoken verified" : "chars/4 estimate") +
+      cfLine;
     load();
   } catch (e) {
     out.textContent = String(e.message || e);

@@ -114,6 +114,13 @@ def summarize(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
     by_day: dict[str, int] = defaultdict(int)
     by_tool: Counter[str] = Counter()
     by_repo: Counter[str] = Counter()
+
+    # Counterfactual aggregation (backward-compatible: missing fields → 0).
+    total_cf_saved = 0
+    total_cf_baseline = 0
+    cf_by_day: dict[str, int] = defaultdict(int)
+    cf_by_dimension: dict[str, int] = defaultdict(int)
+
     for e in entries:
         day = str(e.get("ts", ""))[:10]
         if day:
@@ -122,6 +129,21 @@ def summarize(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
             by_tool[e["tool"]] += e.get("saved_tokens", 0)
         if e.get("repo"):
             by_repo[e["repo"]] += e.get("saved_tokens", 0)
+
+        extra = e.get("extra") or {}
+        cf = extra.get("counterfactual")
+        if cf:
+            cf_baseline = cf.get("total_counterfactual", 0)
+            cf_saved = extra.get("total_saved_tokens", 0)
+            total_cf_baseline += cf_baseline
+            total_cf_saved += cf_saved
+            if day:
+                cf_by_day[day] += cf_saved
+            for dim in (
+                "search_trace_tokens", "analysis_tokens",
+                "precision_tokens", "file_tokens",
+            ):
+                cf_by_dimension[dim] += cf.get(dim, 0)
 
     return {
         "count": len(entries),
@@ -134,4 +156,12 @@ def summarize(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "by_day": dict(sorted(by_day.items())),
         "by_tool": dict(by_tool.most_common()),
         "by_repo": dict(by_repo.most_common()),
+        "cf_total_baseline": total_cf_baseline,
+        "cf_total_saved": total_cf_saved,
+        "cf_total_saved_percent": (
+            round(total_cf_saved * 100 / total_cf_baseline)
+            if total_cf_baseline > 0 else 0
+        ),
+        "cf_by_day": dict(sorted(cf_by_day.items())),
+        "cf_by_dimension": dict(cf_by_dimension),
     }

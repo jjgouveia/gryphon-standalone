@@ -125,6 +125,7 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 "gryphon/visualization.py" = ["E501"]  # embedded HTML/JS template
+"gryphon/savings_dashboard.py" = ["E501"]  # embedded HTML/JS template
 "gryphon/_legacy_instructions.py" = ["E501"]  # verbatim past output, must not be reflowed
 "tests/fixtures/sample_databricks_export.py" = ["F841", "W292"]  # intentional fixture patterns
 "tests/fixtures/sample_notebook.ipynb" = ["F401", "I001"]  # fixture imports: intentionally unused, split across cells

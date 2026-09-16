@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from ..changes import analyze_changes, parse_diff_ranges, parse_git_diff_ranges  # noqa: F401
-from ..context_savings import attach_context_savings, estimate_file_tokens
+from ..context_savings import (
+    attach_context_savings,
+    estimate_counterfactual_cost,
+    estimate_file_tokens,
+)
 from ..flows import get_affected_flows as _get_affected_flows
 from ..graph import edge_to_dict, node_to_dict
 from ..hints import generate_hints, get_session
@@ -159,8 +163,19 @@ def get_review_context(
             }
 
         graph_files = _resolve_graph_file_paths(store, root, changed_files)
-        original_tokens = estimate_file_tokens(root, changed_files)
         impact = store.get_impact_radius(graph_files, max_depth=max_depth)
+        # Baseline: tokens an agent would read without the graph —
+        # the changed files plus every file in the blast radius.
+        original_tokens = estimate_file_tokens(
+            root, list(set(changed_files) | set(impact["impacted_files"]))
+        )
+        counterfactual = estimate_counterfactual_cost(
+            changed_functions=len(impact["changed_nodes"]),
+            impacted_nodes=len(impact["impacted_nodes"]),
+            impacted_files=len(impact["impacted_files"]),
+            trace_depth=max_depth,
+            file_tokens=original_tokens,
+        )
 
         if detail_level == "minimal":
             impacted_count = len(impact["impacted_nodes"])
@@ -215,6 +230,7 @@ def get_review_context(
                 original_tokens=original_tokens,
                 tool="get_review_context_tool",
                 repo_root=root,
+                counterfactual=counterfactual,
             )
             return result
 
@@ -322,6 +338,7 @@ def get_review_context(
             original_tokens=original_tokens,
             tool="get_review_context_tool",
             repo_root=root,
+            counterfactual=counterfactual,
         )
         return result
     finally:
@@ -603,8 +620,6 @@ def detect_changes_func(
                 "review_priorities": [],
             }
 
-        original_tokens = estimate_file_tokens(root, changed_files)
-
         # Convert to absolute paths for graph lookup. Graph identity uses
         # POSIX separators (#774), so normalize the joined paths.
         abs_files = [normalize_file_path(root / f) for f in changed_files]
@@ -623,6 +638,38 @@ def detect_changes_func(
             changed_ranges=abs_ranges if abs_ranges else None,
             repo_root=str(root),
             base=base,
+        )
+
+        # Baseline: tokens an agent would read without the graph —
+        # the changed files plus every file referenced in the analysis
+        # (function bodies, flow steps, test targets).
+        _scope_files: set[str] = set(changed_files)
+        for _fn in analysis.get("changed_functions", []):
+            if _fn.get("file_path"):
+                _scope_files.add(_fn["file_path"])
+        for _flow in analysis.get("affected_flows", []):
+            for _step in _flow.get("steps", []):
+                if _step.get("file_path"):
+                    _scope_files.add(_step["file_path"])
+        original_tokens = estimate_file_tokens(root, _scope_files)
+
+        _n_changed_funcs = len(analysis.get("changed_functions", []))
+        _n_test_gaps = len(analysis.get("test_gaps", []))
+        _affected_flows = analysis.get("affected_flows", [])
+        _flow_depths = [
+            f.get("depth", f.get("node_count", 3))
+            for f in _affected_flows
+        ]
+        counterfactual = estimate_counterfactual_cost(
+            changed_functions=_n_changed_funcs,
+            test_gaps=_n_test_gaps,
+            tested_functions=max(0, _n_changed_funcs - _n_test_gaps),
+            affected_flows=len(_affected_flows),
+            flow_avg_depth=(
+                sum(_flow_depths) / len(_flow_depths) if _flow_depths else 0.0
+            ),
+            trace_depth=max_depth,
+            file_tokens=original_tokens,
         )
 
         # Optionally include source snippets for changed functions, spending a
@@ -714,6 +761,7 @@ def detect_changes_func(
             original_tokens=original_tokens,
             tool="detect_changes_tool",
             repo_root=root,
+            counterfactual=counterfactual,
         )
         return result
     except Exception as exc:
