@@ -62,7 +62,6 @@ communities = [
 ]
 eval = [
     "matplotlib>=3.7.0",
-    "pyyaml>=6.0",
 ]
 wiki = [
     "ollama>=0.1.0",
@@ -145,10 +144,4 @@ testpaths = ["tests"]
 norecursedirs = ["tests/fixtures"]
 markers = [
     "e2e: end-to-end tests that spawn the MCP server or CLI as a real subprocess",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.4.2",
-    "pytest-asyncio>=0.23,<2",
 ]

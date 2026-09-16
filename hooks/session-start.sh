@@ -5,13 +5,13 @@
 # Drain stdin so large hook payloads do not cause BrokenPipeError (#493).
 cat >/dev/null || true
 
-DB_PATH=".code-review-graph/graph.db"
+DB_PATH=".gryphon/graph.db"
 
 if [ -f "$DB_PATH" ]; then
     cat <<'INSTRUCTIONS'
-[code-review-graph] Knowledge graph is available.
+[gryphon] Knowledge graph is available.
 
-When answering questions about this codebase, prefer using the code-review-graph MCP tools before scanning files manually:
+When answering questions about this codebase, prefer using the gryphon MCP tools before scanning files manually:
 - Use semantic_search_nodes_tool to find classes, functions, or types by name or keyword.
 - Use query_graph_tool with patterns like callers_of, callees_of, imports_of, importers_of, children_of, tests_for, inheritors_of, or file_summary to explore relationships.
 - Use get_impact_radius_tool to understand the blast radius of changes.
@@ -21,5 +21,6 @@ When answering questions about this codebase, prefer using the code-review-graph
 This saves significant tokens by avoiding full codebase scans.
 INSTRUCTIONS
 else
-    echo "[code-review-graph] No knowledge graph found. Run /code-review-graph:build-graph to parse this codebase and enable graph-powered queries."
+    echo "[gryphon] No knowledge graph found." \
+         "Run 'gryphon build' to parse this codebase and enable graph-powered queries."
 fi

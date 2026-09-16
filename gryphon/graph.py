@@ -218,6 +218,8 @@ class GraphStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA busy_timeout=5000")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
+        self._conn.execute("PRAGMA cache_size=-64000")
         self._init_schema()
         # Ensure schema_version is set, then run pending migrations
         if get_schema_version(self._conn) < 1:
