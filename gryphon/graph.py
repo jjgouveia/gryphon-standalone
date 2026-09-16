@@ -694,19 +694,25 @@ class GraphStore:
             ).fetchall():
                 input_qns.append(symbol["qualified_name"])
 
-        def _node_dict(qn: str, indirect: bool) -> dict | None:
-            row = conn.execute(
-                "SELECT * FROM nodes WHERE qualified_name = ?", (qn,)
-            ).fetchone()
-            if not row:
-                return None
-            return {
-                "name": row["name"],
-                "qualified_name": row["qualified_name"],
-                "file_path": row["file_path"],
-                "kind": row["kind"],
-                "indirect": indirect,
-            }
+        def _batch_edges(
+            sources: list[str], kind: str, extra_cols: str = "",
+        ) -> list[sqlite3.Row]:
+            """Fetch edges in batches of 450, staying under SQLite var limits."""
+            if not sources:
+                return []
+            cols = f"target_qualified, extra{', ' + extra_cols if extra_cols else ''}"
+            rows: list[sqlite3.Row] = []
+            for i in range(0, len(sources), 450):
+                batch = sources[i:i + 450]
+                ph = ",".join("?" for _ in batch)
+                rows.extend(
+                    conn.execute(  # nosec B608
+                        f"SELECT {cols} FROM edges "
+                        f"WHERE source_qualified IN ({ph}) AND kind = ?",
+                        [*batch, kind],
+                    ).fetchall()
+                )
+            return rows
 
         def _has_unresolved_metadata(raw_extra: str | None) -> bool:
             try:
@@ -718,21 +724,17 @@ class GraphStore:
                 or "unresolved_targets" in edge_extra
             )
 
+        # Collect (target_qn, indirect) pairs; resolve nodes in one batch at the end.
+        pending: list[tuple[str, bool]] = []
+
         # Direct TESTED_BY (source=production, target=test). See: #515
-        for qn in input_qns:
-            for row in conn.execute(
-                "SELECT target_qualified, extra FROM edges "
-                "WHERE source_qualified = ? AND kind = 'TESTED_BY'",
-                (qn,),
-            ).fetchall():
-                if _has_unresolved_metadata(row["extra"]):
-                    continue
-                tgt = row["target_qualified"]
-                if tgt not in seen:
-                    seen.add(tgt)
-                    d = _node_dict(tgt, indirect=False)
-                    if d:
-                        results.append(d)
+        for row in _batch_edges(input_qns, "TESTED_BY"):
+            if _has_unresolved_metadata(row["extra"]):
+                continue
+            tgt = row["target_qualified"]
+            if tgt not in seen:
+                seen.add(tgt)
+                pending.append((tgt, False))
 
         # Evidence-gated bare-name fallback for old/minimal graphs that have
         # not run endpoint resolution yet. A matching name alone is not enough.
@@ -781,11 +783,7 @@ class GraphStore:
                 import_cache[context_file],
             )
 
-        for row in conn.execute(
-            "SELECT target_qualified, file_path, extra FROM edges "
-            "WHERE source_qualified = ? AND kind = 'TESTED_BY'",
-            (bare,),
-        ).fetchall():
+        for row in _batch_edges([bare], "TESTED_BY", extra_cols="file_path"):
             if _has_unresolved_metadata(row["extra"]):
                 continue
             if _candidate_for_context(bare, row["file_path"]) != qualified_name:
@@ -793,45 +791,46 @@ class GraphStore:
             tgt = row["target_qualified"]
             if tgt not in seen:
                 seen.add(tgt)
-                d = _node_dict(tgt, indirect=False)
-                if d:
-                    results.append(d)
+                pending.append((tgt, False))
 
         # Transitive: follow CALLS edges, then collect TESTED_BY on callees
         frontier = set(input_qns)
         for _ in range(max_depth):
             next_frontier: set[str] = set()
-            for qn in frontier:
-                for row in conn.execute(
-                    "SELECT target_qualified, extra FROM edges "
-                    "WHERE source_qualified = ? AND kind = 'CALLS'",
-                    (qn,),
-                ).fetchall():
-                    if _has_unresolved_metadata(row["extra"]):
-                        continue
-                    next_frontier.add(row["target_qualified"])
+            for row in _batch_edges(list(frontier), "CALLS"):
+                if _has_unresolved_metadata(row["extra"]):
+                    continue
+                next_frontier.add(row["target_qualified"])
             if len(next_frontier) > max_frontier:
                 next_frontier = set(list(next_frontier)[:max_frontier])
-            for callee in next_frontier:
-                # A bare callee has no stable identity. Endpoint resolution
-                # qualifies it when graph evidence exists; otherwise following
-                # TESTED_BY here would attribute every same-named test.
-                if "::" not in callee:
+            # A bare callee has no stable identity. Endpoint resolution
+            # qualifies it when graph evidence exists; otherwise following
+            # TESTED_BY here would attribute every same-named test.
+            qualified_callees = [c for c in next_frontier if "::" in c]
+            for row in _batch_edges(qualified_callees, "TESTED_BY"):
+                if _has_unresolved_metadata(row["extra"]):
                     continue
-                for row in conn.execute(
-                    "SELECT target_qualified, extra FROM edges "
-                    "WHERE source_qualified = ? AND kind = 'TESTED_BY'",
-                    (callee,),
-                ).fetchall():
-                    if _has_unresolved_metadata(row["extra"]):
-                        continue
-                    tgt = row["target_qualified"]
-                    if tgt not in seen:
-                        seen.add(tgt)
-                        d = _node_dict(tgt, indirect=True)
-                        if d:
-                            results.append(d)
+                tgt = row["target_qualified"]
+                if tgt not in seen:
+                    seen.add(tgt)
+                    pending.append((tgt, True))
             frontier = next_frontier
+
+        # Resolve all collected test nodes in one batch instead of per-node.
+        all_test_qns = {qn for qn, _ in pending}
+        nodes_map = {
+            n.qualified_name: n for n in self._batch_get_nodes(all_test_qns)
+        }
+        for qn, indirect in pending:
+            node = nodes_map.get(qn)
+            if node:
+                results.append({
+                    "name": node.name,
+                    "qualified_name": node.qualified_name,
+                    "file_path": node.file_path,
+                    "kind": node.kind,
+                    "indirect": indirect,
+                })
 
         return results
 
