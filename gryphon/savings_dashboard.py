@@ -160,7 +160,7 @@ async function load() {
     return `<tr>
       <td>${shortTime(e.ts)}</td>
       <td class="kind-${e.kind}">${e.kind || ""}</td>
-      <td>${e.tool || e.ref || ""}</td>
+      <td>${[e.tool, e.ref].filter(Boolean).join(" · ")}</td>
       <td title="${e.repo || ""}">${shortRepo(e.repo)}</td>
       <td class="r">${fmt(e.baseline_tokens)}</td>
       <td class="r">${fmt(e.returned_tokens)}</td>
