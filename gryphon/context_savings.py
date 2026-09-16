@@ -204,6 +204,7 @@ def _log_tool_savings(
 ) -> None:
     """Best-effort append to the savings log; tool calls must never fail here."""
     try:
+        from .hints import get_session
         from .savings_log import log_savings
 
         extra: dict[str, Any] | None = None
@@ -218,6 +219,7 @@ def _log_tool_savings(
             repo_root,
             kind="tool_call",
             tool=tool,
+            ref=get_session().task,
             baseline_tokens=baseline,
             returned_tokens=returned,
             saved_tokens=int(estimate.get("saved_tokens", 0)),

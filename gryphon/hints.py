@@ -188,6 +188,7 @@ class SessionState:
         self.files_touched: set[str] = set()
         self.inferred_intent: str | None = None
         self.last_tool_time: float = 0.0
+        self.task: str | None = None
 
     def record_tool_call(self, tool_name: str) -> None:
         """Record a tool invocation (FIFO, capped at 100)."""
