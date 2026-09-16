@@ -546,6 +546,37 @@ def get_affected_flows_func(
         out["_hints"] = generate_hints(
             "get_affected_flows_tool", out, get_session()
         )
+
+        # Context-savings tracking: baseline is every file the agent
+        # would need to grep/read to manually trace affected flows.
+        _scope_files: set[str] = set(changed_files)
+        for _flow in flows:
+            for _step in _flow.get("steps", []):
+                if _step.get("file_path"):
+                    _scope_files.add(_step["file_path"])
+        original_tokens = estimate_file_tokens(root, _scope_files)
+        _flow_depths = [
+            f.get("depth", f.get("node_count", 3)) for f in flows
+        ]
+        counterfactual = estimate_counterfactual_cost(
+            changed_functions=0,
+            test_gaps=0,
+            tested_functions=0,
+            affected_flows=total,
+            flow_avg_depth=(
+                sum(_flow_depths) / len(_flow_depths)
+                if _flow_depths else 0.0
+            ),
+            trace_depth=0,
+            file_tokens=original_tokens,
+        )
+        attach_context_savings(
+            out,
+            original_tokens=original_tokens,
+            tool="get_affected_flows_tool",
+            repo_root=root,
+            counterfactual=counterfactual,
+        )
         return out
     except Exception as exc:
         return {"status": "error", "error": str(exc)}
