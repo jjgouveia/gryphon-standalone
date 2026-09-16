@@ -52,23 +52,23 @@ Check whether `gryphon` is installed (`Get-Command gryphon` / `which gryphon`) a
 
 ```mermaid
 flowchart LR
-    subgraph build["Build (uma vez, depois incremental)"]
-        A[Codebase] -->|"Tree-sitter parse<br/>19 linguagens"| B[ASTs]
-        B -->|"nós: funções, classes,<br/>imports, testes"| C[(SQLite<br/>.gryphon/graph.db)]
-        B -->|"arestas: chama, importa,<br/>testa, herda"| C
+    subgraph build["Build (once, then incremental)"]
+        A[Codebase] -->|"Tree-sitter parse<br/>19 languages"| B[ASTs]
+        B -->|"nodes: functions, classes,<br/>imports, tests"| C[(SQLite<br/>.gryphon/graph.db)]
+        B -->|"edges: calls, imports,<br/>tests, inherits"| C
     end
 
-    subgraph review["Review / desenvolvimento"]
-        D[Diff ou mudança<br/>no working tree] --> E{Agente consulta<br/>grafo via MCP}
+    subgraph review["Review / development"]
+        D[Diff or working<br/>tree change] --> E{Agent queries<br/>graph via MCP}
         C --> E
-        E -->|"blast radius:<br/>só os arquivos impactados"| F[Agente lê só<br/>o que importa]
-        G["Sem grafo: lê 200+ arquivos<br/>~8.200 tokens"] -.->|"comparação"| F
+        E -->|"blast radius:<br/>only impacted files"| F[Agent reads only<br/>what matters]
+        G["No graph: reads 200+ files<br/>~8,200 tokens"] -.->|"comparison"| F
     end
 
-    H[git change<br/>detectado] -->|"gryphon update<br/>SHA-256 diff"| C
+    H[git change<br/>detected] -->|"gryphon update<br/>SHA-256 diff"| C
 ```
 
-Quatro camadas: **parse** (Tree-sitter → ASTs), **store** (nós e arestas no SQLite local), **trace** (BFS calcula o blast radius da mudança), **serve** (MCP expõe o grafo para o assistente). O grafo nunca contém código-fonte, só metadados estruturais.
+Four layers: **parse** (Tree-sitter → ASTs), **store** (nodes and edges in local SQLite), **trace** (BFS computes the blast radius of a change), **serve** (MCP exposes the graph to the assistant). The graph never contains source code, only structural metadata.
 
 ### What the Graph Contains
 - **Nodes:** Files, functions, methods, classes, imports, tests
