@@ -555,13 +555,15 @@ class GraphStore:
 
     def get_all_nodes(self, exclude_files: bool = True) -> list[GraphNode]:
         """Return all nodes, optionally excluding File nodes."""
-        if exclude_files:
-            rows = self._conn.execute(
-                "SELECT * FROM nodes WHERE kind != 'File'"
-            ).fetchall()
-        else:
-            rows = self._conn.execute("SELECT * FROM nodes").fetchall()
-        return [self._row_to_node(r) for r in rows]
+        return list(self.iter_all_nodes(exclude_files=exclude_files))
+
+    def iter_all_nodes(
+        self, exclude_files: bool = True,
+    ) -> Iterator[GraphNode]:
+        """Yield nodes without materializing the full result set."""
+        where = " WHERE kind != 'File'" if exclude_files else ""
+        for row in self._conn.execute(f"SELECT * FROM nodes{where}"):
+            yield self._row_to_node(row)
 
     def get_edges_by_source(self, qualified_name: str) -> list[GraphEdge]:
         return list(self.iter_edges_by_source(qualified_name))

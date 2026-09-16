@@ -25,12 +25,11 @@ def find_hub_nodes(store: GraphStore, top_n: int = 10) -> list[dict]:
         out_degree[e.source_qualified] += 1
         in_degree[e.target_qualified] += 1
 
-    # Get all non-File nodes
-    nodes = store.get_all_nodes(exclude_files=True)
+    # Stream nodes to avoid materializing the full list.
     community_map = store.get_all_community_ids()
 
     scored = []
-    for n in nodes:
+    for n in store.iter_all_nodes(exclude_files=True):
         qn = n.qualified_name
         ind = in_degree.get(qn, 0)
         outd = out_degree.get(qn, 0)
