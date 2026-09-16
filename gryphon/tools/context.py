@@ -8,7 +8,9 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..context_savings import attach_file_savings
 from ..graph import GraphStore
+from ..hints import get_session
 from ..incremental import (
     get_changed_files,
     get_db_path,
@@ -110,6 +112,8 @@ def get_minimal_context(
         missing, empty, or built at a commit that cannot be reconciled with
         the checkout.
     """
+    if task:
+        get_session().task = task
     root = _resolve_root(repo_root)
     db_path = get_db_path(root, read_only=True)
     if not db_path.is_file():
@@ -162,6 +166,8 @@ def get_minimal_context(
         risk_score = 0.0
         top_affected: list[str] = []
         test_gap_count = 0
+        analyzed_files: list[str] = []
+        n_changed_functions = 0
         if changed_files or _has_git_changes(root, base):
             try:
                 from ..changes import analyze_changes
@@ -171,6 +177,7 @@ def get_minimal_context(
                 if not files:
                     files = _get_changed(root, base)
                 if files:
+                    analyzed_files = files
                     abs_files = [normalize_file_path(root / f) for f in files]
                     analysis = analyze_changes(
                         store, abs_files, repo_root=str(root), base=base,
@@ -181,9 +188,11 @@ def get_minimal_context(
                         else "medium" if risk_score > 0.4
                         else "low"
                     )
+                    changed_functions = analysis.get("changed_functions", [])
+                    n_changed_functions = len(changed_functions)
                     top_affected = [
                         f.get("name", "")
-                        for f in analysis.get("changed_functions", [])[:5]
+                        for f in changed_functions[:5]
                     ]
                     test_gap_count = len(analysis.get("test_gaps", []))
             except (
@@ -242,7 +251,7 @@ def get_minimal_context(
         if test_gap_count:
             summary_parts.append(f"{test_gap_count} test gaps.")
 
-        return compact_response(
+        result = compact_response(
             summary=" ".join(summary_parts),
             key_entities=top_affected or None,
             risk=risk,
@@ -250,5 +259,19 @@ def get_minimal_context(
             flows_affected=flows or None,
             next_tool_suggestions=suggestions,
         )
+        attach_file_savings(
+            result,
+            repo_root=root,
+            tool="get_minimal_context_tool",
+            files=analyzed_files,
+            cf_kwargs={
+                "changed_functions": n_changed_functions,
+                "test_gaps": test_gap_count,
+                "tested_functions": max(
+                    0, n_changed_functions - test_gap_count
+                ),
+            },
+        )
+        return result
     finally:
         store.close()

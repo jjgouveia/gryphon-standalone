@@ -10,6 +10,7 @@ from typing import Any
 from ..config_keys import normalize_spring_config_key
 from ..context_savings import (
     attach_context_savings,
+    attach_file_savings,
     estimate_counterfactual_cost,
     estimate_file_tokens,
 )
@@ -829,6 +830,18 @@ def query_graph(
             }
             if confidence:
                 minimal_response["confidence"] = confidence
+            attach_file_savings(
+                minimal_response,
+                repo_root=root,
+                tool="query_graph_tool",
+                files=[r.get("file_path") for r in results],
+                cf_kwargs={
+                    "impacted_nodes": total_results,
+                    "impacted_files": len(
+                        {r.get("file_path") for r in results} - {None}
+                    ),
+                },
+            )
             return minimal_response
 
         response: dict[str, Any] = {
@@ -844,6 +857,18 @@ def query_graph(
         }
         if confidence:
             response["confidence"] = confidence
+        attach_file_savings(
+            response,
+            repo_root=root,
+            tool="query_graph_tool",
+            files=[r.get("file_path") for r in results],
+            cf_kwargs={
+                "impacted_nodes": total_results,
+                "impacted_files": len(
+                    {r.get("file_path") for r in results} - {None}
+                ),
+            },
+        )
         return response
     finally:
         store.close()
@@ -922,6 +947,18 @@ def semantic_search_nodes(
             }
             if confidence:
                 minimal_response["confidence"] = confidence
+            attach_file_savings(
+                minimal_response,
+                repo_root=root,
+                tool="semantic_search_nodes_tool",
+                files=[r.get("file_path") for r in results],
+                cf_kwargs={
+                    "impacted_nodes": len(results),
+                    "impacted_files": len(
+                        {r.get("file_path") for r in results} - {None}
+                    ),
+                },
+            )
             return minimal_response
 
         result: dict[str, object] = {
@@ -935,6 +972,18 @@ def semantic_search_nodes(
             result["confidence"] = confidence
         result["_hints"] = generate_hints(
             "semantic_search_nodes_tool", result, get_session()
+        )
+        attach_file_savings(
+            result,
+            repo_root=root,
+            tool="semantic_search_nodes_tool",
+            files=[r.get("file_path") for r in results],
+            cf_kwargs={
+                "impacted_nodes": len(results),
+                "impacted_files": len(
+                    {r.get("file_path") for r in results} - {None}
+                ),
+            },
         )
         return result
     finally:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..context_savings import attach_file_savings
 from ..flows import get_flow_by_id, get_flows
 from ..hints import generate_hints, get_session
 from ._common import _bounded, _get_store, _shown_of, _validate_positive_int
@@ -215,6 +216,18 @@ def get_flow(
         }
         result["_hints"] = generate_hints(
             "get_flow_tool", result, get_session()
+        )
+        step_files = [s.get("file") for s in steps]
+        attach_file_savings(
+            result,
+            repo_root=root,
+            tool="get_flow_tool",
+            files=step_files,
+            cf_kwargs={
+                "affected_flows": 1,
+                "flow_avg_depth": flow.get("depth") or total_steps,
+                "impacted_files": len(set(step_files) - {None}),
+            },
         )
         return result
     except Exception as exc:
