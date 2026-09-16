@@ -191,6 +191,42 @@ def _run_scoped_resolver(store: GraphStore) -> Optional[dict]:
         return None
 
 
+_ResolverFn = type(_run_python_resolver)  # Callable[[GraphStore], Optional[dict]]
+
+
+def _run_resolvers(
+    store: GraphStore,
+    wave1: list[tuple[str, _ResolverFn]],
+    wave2: list[tuple[str, _ResolverFn]],
+) -> dict[str, Optional[dict]]:
+    """Run resolver passes in two waves, parallelising within each wave.
+
+    *wave1* resolvers are independent and run concurrently.  *wave2*
+    resolvers depend on wave1 results (e.g. temporal skips edges already
+    marked ``spring_resolved``) and run sequentially after wave1 finishes.
+
+    SQLite WAL mode allows concurrent readers; writes serialise via
+    ``busy_timeout``.  Each resolver is read-heavy with a short write
+    phase, so contention is minimal.
+    """
+    results: dict[str, Optional[dict]] = {}
+
+    if wave1:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(len(wave1), 5),
+        ) as ex:
+            futures = {
+                ex.submit(fn, store): name for name, fn in wave1
+            }
+            for fut in concurrent.futures.as_completed(futures):
+                results[futures[fut]] = fut.result()
+
+    for name, fn in wave2:
+        results[name] = fn(store)
+
+    return results
+
+
 # Default ignore patterns (in addition to .gitignore).
 #
 # ``**/<dir>/**`` patterns are safe-anywhere directory exclusions.  A leading
@@ -1514,13 +1550,20 @@ def full_build(
     _store_vcs_metadata(repo_root, store)
     store.commit()
 
-    python_stats = _run_python_resolver(store)
-    rescript_stats = _run_rescript_resolver(store)
-    spring_stats = _run_spring_resolver(store)
-    spring_event_stats = _run_spring_event_resolver(store)
-    temporal_stats = _run_temporal_resolver(store)
-    hcl_stats = _run_hcl_resolver(store)
-    scoped_stats = _run_scoped_resolver(store)
+    resolver_stats = _run_resolvers(
+        store,
+        wave1=[
+            ("python_resolution", _run_python_resolver),
+            ("rescript_resolution", _run_rescript_resolver),
+            ("spring_resolution", _run_spring_resolver),
+            ("hcl_resolution", _run_hcl_resolver),
+            ("scoped_resolution", _run_scoped_resolver),
+        ],
+        wave2=[
+            ("event_resolution", _run_spring_event_resolver),
+            ("temporal_resolution", _run_temporal_resolver),
+        ],
+    )
 
     return {
         "files_parsed": len(files),
@@ -1528,13 +1571,7 @@ def full_build(
         "total_nodes": total_nodes,
         "total_edges": total_edges,
         "errors": errors,
-        "python_resolution": python_stats,
-        "rescript_resolution": rescript_stats,
-        "spring_resolution": spring_stats,
-        "event_resolution": spring_event_stats,
-        "temporal_resolution": temporal_stats,
-        "hcl_resolution": hcl_stats,
-        "scoped_resolution": scoped_stats,
+        **resolver_stats,
     }
 
 
@@ -1757,35 +1794,34 @@ def incremental_update(
         store.commit()
 
     # Only re-run language-specific resolvers when the relevant files changed.
-    python_changed = any(
-        path.endswith(".py")
-        for path in set(all_files) | set(stale_files) | missing_paths
-    )
-    python_stats = _run_python_resolver(store) if python_changed else None
-
-    rescript_changed = any(
-        rp.endswith((".res", ".resi")) for rp in all_files
-    )
-    rescript_stats = (
-        _run_rescript_resolver(store) if rescript_changed else None
-    )
-
+    changed_set = set(all_files) | set(stale_files) | missing_paths
+    python_changed = any(p.endswith(".py") for p in changed_set)
+    rescript_changed = any(p.endswith((".res", ".resi")) for p in all_files)
     # Like python_changed above, include stale/missing paths so a deletion
     # that only surfaces through reconciliation still clears derived state
     # (e.g. virtual Spring Event nodes — issue #474).
-    spring_changed = any(
-        path.endswith(".java")
-        for path in set(all_files) | set(stale_files) | missing_paths
-    )
-    spring_stats = _run_spring_resolver(store) if spring_changed else None
-    spring_event_stats = (
-        _run_spring_event_resolver(store) if spring_changed else None
-    )
-    temporal_stats = _run_temporal_resolver(store) if spring_changed else None
-    hcl_changed = any(rp.endswith((".tf", ".hcl")) for rp in all_files)
-    hcl_stats = _run_hcl_resolver(store) if hcl_changed else None
-    scoped_changed = any(rp.endswith((".php", ".rs", ".cs")) for rp in all_files)
-    scoped_stats = _run_scoped_resolver(store) if scoped_changed else None
+    spring_changed = any(p.endswith(".java") for p in changed_set)
+    hcl_changed = any(p.endswith((".tf", ".hcl")) for p in all_files)
+    scoped_changed = any(p.endswith((".php", ".rs", ".cs")) for p in all_files)
+
+    wave1: list[tuple[str, _ResolverFn]] = []
+    if python_changed:
+        wave1.append(("python_resolution", _run_python_resolver))
+    if rescript_changed:
+        wave1.append(("rescript_resolution", _run_rescript_resolver))
+    if spring_changed:
+        wave1.append(("spring_resolution", _run_spring_resolver))
+    if hcl_changed:
+        wave1.append(("hcl_resolution", _run_hcl_resolver))
+    if scoped_changed:
+        wave1.append(("scoped_resolution", _run_scoped_resolver))
+
+    wave2: list[tuple[str, _ResolverFn]] = []
+    if spring_changed:
+        wave2.append(("event_resolution", _run_spring_event_resolver))
+        wave2.append(("temporal_resolution", _run_temporal_resolver))
+
+    resolver_stats = _run_resolvers(store, wave1, wave2)
 
     # Freshness follows what was stored. A file that failed to parse is
     # reported in ``errors`` and keeps its previous rows; it must not stop the
@@ -1813,13 +1849,7 @@ def incremental_update(
         "stale_files_removed": len(stale_files),
         "errors": errors,
         "freshness_advanced": freshness_advanced,
-        "python_resolution": python_stats,
-        "rescript_resolution": rescript_stats,
-        "spring_resolution": spring_stats,
-        "event_resolution": spring_event_stats,
-        "temporal_resolution": temporal_stats,
-        "hcl_resolution": hcl_stats,
-        "scoped_resolution": scoped_stats,
+        **resolver_stats,
     }
 
 
