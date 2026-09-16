@@ -332,7 +332,12 @@ def get_architecture_overview_func(
             "get_architecture_overview_tool", result, get_session()
         )
         if detail_level == "minimal":
-            attach_context_savings(result, original_context=full_overview)
+            attach_context_savings(
+                result,
+                original_context=full_overview,
+                tool="get_architecture_overview_tool",
+                repo_root=root,
+            )
         return result
     except Exception as exc:
         return {"status": "error", "error": str(exc)}

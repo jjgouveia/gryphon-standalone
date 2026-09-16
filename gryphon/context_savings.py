@@ -89,17 +89,61 @@ def attach_context_savings(
     original_tokens: int | None = None,
     returned_context: Any | None = None,
     returned_tokens: int | None = None,
+    tool: str | None = None,
+    repo_root: "Path | str | None" = None,
 ) -> dict[str, Any]:
-    """Attach compact ``context_savings`` metadata when it can be estimated."""
+    """Attach compact ``context_savings`` metadata when it can be estimated.
+
+    When ``tool`` and ``repo_root`` are given, the estimate is also appended
+    to the savings log (``.gryphon/savings.jsonl`` and the global
+    ``$CRG_HOME/savings.jsonl``). Logging is best-effort and never raises.
+    """
+    baseline = (
+        original_tokens
+        if original_tokens is not None
+        else estimate_tokens(original_context)
+    )
+    returned = (
+        returned_tokens
+        if returned_tokens is not None
+        else estimate_tokens(
+            result if returned_context is None else returned_context
+        )
+    )
     estimate = estimate_context_savings(
-        original_context=original_context,
-        returned_context=result if returned_context is None else returned_context,
-        original_tokens=original_tokens,
-        returned_tokens=returned_tokens,
+        original_tokens=baseline,
+        returned_tokens=returned,
     )
     if estimate is not None:
         result["context_savings"] = estimate
+        if tool is not None and repo_root is not None:
+            _log_tool_savings(repo_root, tool, baseline, returned, estimate)
     return result
+
+
+def _log_tool_savings(
+    repo_root: "Path | str",
+    tool: str,
+    baseline: int,
+    returned: int,
+    estimate: dict[str, Any],
+) -> None:
+    """Best-effort append to the savings log; tool calls must never fail here."""
+    try:
+        from .savings_log import log_savings
+
+        log_savings(
+            repo_root,
+            kind="tool_call",
+            tool=tool,
+            baseline_tokens=baseline,
+            returned_tokens=returned,
+            saved_tokens=int(estimate.get("saved_tokens", 0)),
+            saved_percent=int(estimate.get("saved_percent", 0)),
+            estimated=bool(estimate.get("estimated", True)),
+        )
+    except Exception:  # noqa: BLE001 - logging must never break a tool call
+        pass
 
 
 def format_context_savings(estimate: dict[str, Any] | None) -> str | None:

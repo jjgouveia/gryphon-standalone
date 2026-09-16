@@ -210,7 +210,12 @@ def get_review_context(
                     "get_impact_radius_tool",
                 ],
             }
-            attach_context_savings(result, original_tokens=original_tokens)
+            attach_context_savings(
+                result,
+                original_tokens=original_tokens,
+                tool="get_review_context_tool",
+                repo_root=root,
+            )
             return result
 
         # Build review context. Every list below scales with the change set,
@@ -312,7 +317,12 @@ def get_review_context(
             "summary": "\n".join(summary_parts),
             "context": context,
         }
-        attach_context_savings(result, original_tokens=original_tokens)
+        attach_context_savings(
+            result,
+            original_tokens=original_tokens,
+            tool="get_review_context_tool",
+            repo_root=root,
+        )
         return result
     finally:
         store.close()
@@ -699,7 +709,12 @@ def detect_changes_func(
         result["_hints"] = generate_hints(
             "detect_changes_tool", result, get_session()
         )
-        attach_context_savings(result, original_tokens=original_tokens)
+        attach_context_savings(
+            result,
+            original_tokens=original_tokens,
+            tool="detect_changes_tool",
+            repo_root=root,
+        )
         return result
     except Exception as exc:
         return {"status": "error", "error": str(exc)}

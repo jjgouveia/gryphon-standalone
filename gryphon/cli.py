@@ -538,6 +538,7 @@ _GRAPH_TOOL_COMMANDS = {
     "architecture",
     "large-functions",
     "refactor",
+    "measure",
 }
 
 
@@ -558,6 +559,7 @@ _PATH_REPO_COMMANDS = frozenset({
     "dead-code",
     "serve",
     "mcp",
+    "savings",
     *_GRAPH_TOOL_COMMANDS,
 })
 
@@ -664,6 +666,18 @@ def _run_graph_tool_command(args, repo_root: Path) -> None:
             file_path_pattern=args.path,
             limit=args.limit,
             repo_root=root,
+        )
+    elif args.command == "measure":
+        from .measure import measure_savings
+
+        result = measure_savings(
+            repo_root=root,
+            changed_files=args.files,
+            base=args.base,
+            head=args.head,
+            max_depth=args.depth,
+            ref=args.ref,
+            log=not args.no_log,
         )
     else:
         result = tools.refactor_func(
@@ -1173,6 +1187,45 @@ def main() -> None:
     impact_cmd.add_argument("--base", default="HEAD~1")
     impact_cmd.add_argument("--repo", default=None, help="Repository root (auto-detected)")
 
+    measure_cmd = sub.add_parser(
+        "measure",
+        help="Measure real token savings for a diff (baseline: diff + impacted files)",
+    )
+    measure_cmd.add_argument(
+        "--files",
+        nargs="+",
+        default=None,
+        help="Changed files (auto-detected when omitted)",
+    )
+    measure_cmd.add_argument("--base", default="HEAD~1")
+    measure_cmd.add_argument(
+        "--head", default=None, help="Head ref for base...head range diff"
+    )
+    measure_cmd.add_argument("--depth", type=_non_negative_int, default=2)
+    measure_cmd.add_argument(
+        "--ref", default=None, help="Label stored in the log (e.g. 'PR #197')"
+    )
+    measure_cmd.add_argument(
+        "--no-log", action="store_true", help="Do not append to the savings log"
+    )
+    measure_cmd.add_argument("--repo", default=None, help="Repository root (auto-detected)")
+
+    savings_cmd = sub.add_parser(
+        "savings",
+        help="Show accumulated token savings; --serve opens the web dashboard",
+    )
+    savings_cmd.add_argument(
+        "--repo", default=None, help="Filter to one repository (default: all)"
+    )
+    savings_cmd.add_argument(
+        "--serve", action="store_true", help="Start the web dashboard"
+    )
+    savings_cmd.add_argument("--host", default="127.0.0.1")
+    savings_cmd.add_argument("--port", type=_positive_int, default=8765)
+    savings_cmd.add_argument(
+        "--limit", type=_positive_int, default=20, help="Recent entries shown"
+    )
+
     search_cmd = sub.add_parser("search", help="Search graph entities")
     search_cmd.add_argument("query", help="Search string")
     search_cmd.add_argument(
@@ -1392,6 +1445,31 @@ def main() -> None:
         from .enrich import run_hook
 
         run_hook()
+        return
+
+    if args.command == "savings":
+        if args.serve:
+            from .savings_dashboard import serve_dashboard
+
+            serve_dashboard(host=args.host, port=args.port)
+            return
+        from .savings_log import read_entries, summarize
+
+        entries = read_entries(repo_root=args.repo)
+        summary = summarize(entries)
+        print(
+            f"entries: {summary['count']} · "
+            f"baseline: {summary['total_baseline_tokens']:,} · "
+            f"saved: {summary['total_saved_tokens']:,} "
+            f"(~{summary['total_saved_percent']}%)"
+        )
+        for e in list(reversed(entries))[: args.limit]:
+            label = e.get("tool") or e.get("ref") or e.get("kind") or "?"
+            print(
+                f"{e.get('ts', '')[:19]:<19} {e.get('kind', ''):<10} "
+                f"{label:<28} saved {e.get('saved_tokens', 0):>8,} "
+                f"({e.get('saved_percent', 0)}%)"
+            )
         return
 
     if args.command in _GRAPH_TOOL_COMMANDS:

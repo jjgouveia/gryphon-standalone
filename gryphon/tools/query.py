@@ -233,7 +233,12 @@ def get_impact_radius(
             }
             if confidence:
                 minimal_response["confidence"] = confidence
-            attach_context_savings(minimal_response, original_tokens=original_tokens)
+            attach_context_savings(
+                minimal_response,
+                original_tokens=original_tokens,
+                tool="get_impact_radius_tool",
+                repo_root=root,
+            )
             return minimal_response
 
         response: dict[str, Any] = {
@@ -250,7 +255,12 @@ def get_impact_radius(
         }
         if confidence:
             response["confidence"] = confidence
-        attach_context_savings(response, original_tokens=original_tokens)
+        attach_context_savings(
+            response,
+            original_tokens=original_tokens,
+            tool="get_impact_radius_tool",
+            repo_root=root,
+        )
         return response
     finally:
         store.close()
