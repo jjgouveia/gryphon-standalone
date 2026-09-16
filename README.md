@@ -50,12 +50,25 @@ Check whether `gryphon` is installed (`Get-Command gryphon` / `which gryphon`) a
 
 ## How It Works
 
+```mermaid
+flowchart LR
+    subgraph build["Build (uma vez, depois incremental)"]
+        A[Codebase] -->|"Tree-sitter parse<br/>19 linguagens"| B[ASTs]
+        B -->|"nós: funções, classes,<br/>imports, testes"| C[(SQLite<br/>.gryphon/graph.db)]
+        B -->|"arestas: chama, importa,<br/>testa, herda"| C
+    end
+
+    subgraph review["Review / desenvolvimento"]
+        D[Diff ou mudança<br/>no working tree] --> E{Agente consulta<br/>grafo via MCP}
+        C --> E
+        E -->|"blast radius:<br/>só os arquivos impactados"| F[Agente lê só<br/>o que importa]
+        G["Sem grafo: lê 200+ arquivos<br/>~8.200 tokens"] -.->|"comparação"| F
+    end
+
+    H[git change<br/>detectado] -->|"gryphon update<br/>SHA-256 diff"| C
 ```
-Layer 1: PARSE    → Tree-sitter builds ASTs from 19 languages
-Layer 2: STORE    → Nodes + edges saved in SQLite graph
-Layer 3: TRACE    → BFS computes blast radius of changes
-Layer 4: SERVE    → MCP exposes graph to AI assistants
-```
+
+Quatro camadas: **parse** (Tree-sitter → ASTs), **store** (nós e arestas no SQLite local), **trace** (BFS calcula o blast radius da mudança), **serve** (MCP expõe o grafo para o assistente). O grafo nunca contém código-fonte, só metadados estruturais.
 
 ### What the Graph Contains
 - **Nodes:** Files, functions, methods, classes, imports, tests
