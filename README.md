@@ -192,6 +192,32 @@ gryphon register /path/to/repo   # multi-repo setup
 gryphon repos       # list registered repos
 ```
 
+## Token Savings Dashboard
+
+Gryphon measures how many tokens the graph saves you — per tool call and per diff — and accumulates it in a JSONL log.
+
+### Where the numbers come from
+
+Every tool response that carries a `context_savings` estimate (`get_impact_radius_tool`, `get_review_context_tool`, `detect_changes_tool`, `get_architecture_overview_tool`) is appended automatically to `.gryphon/savings.jsonl` in the repo and to the global `~/.gryphon/savings.jsonl`. Entries are labelled `kind="tool_call"`.
+
+For a concrete diff, measure directly — baseline is the token cost of reading every changed file **plus** every impacted file the graph surfaces; the graph cost is the compact response the agent consumes instead:
+
+```bash
+gryphon measure --base 3300d1b1 --head origin/feature-branch --ref "PR #197"
+gryphon measure --files src/a.py src/b.py
+gryphon savings --repo /path/to/repo   # CLI summary
+```
+
+### Dashboard
+
+```bash
+gryphon savings --serve            # http://127.0.0.1:8765
+```
+
+Self-contained stdlib server (no extra dependencies): total saved, savings per day, per-repo and per-tool breakdowns, entry history, and a form to measure a `base...head` diff on demand.
+
+> Numbers are labelled `estimated` — the counter is a conservative ~4-chars-per-token approximation. Install `tiktoken` (`pip install tiktoken`) and measurements switch to the real `cl100k_base` tokenizer (`verified: true` in measure output).
+
 ## Configuration
 
 ### Ignore File
