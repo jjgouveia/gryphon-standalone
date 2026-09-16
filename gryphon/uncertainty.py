@@ -304,9 +304,22 @@ def _staleness(
     stored_sha = store.get_metadata("git_head_sha")
     live_sha = _live_git_head(root) if stored_sha else None
     if stored_sha and live_sha and live_sha != stored_sha:
+        # The build commit may still be usable: when it is an ancestor of
+        # HEAD the graph is simply behind, and a diverged or newer build can
+        # still be reconciled against the worktree. Only an unrelated or
+        # missing build commit makes the zero untrustworthy.
+        from .tools._common import _classify_build_relation
+
+        relation = _classify_build_relation(root, stored_sha, live_sha)
+        if relation == "descendant":
+            detail = "built at a newer commit than the checkout"
+        elif relation == "diverged":
+            detail = "built on a divergent line of history"
+        else:
+            detail = "built at an older commit than HEAD"
         return (
-            "graph is stale: built at an older commit than HEAD, so this "
-            f"0 may be out of date; {_UPDATE_HINT}"
+            f"graph is stale: {detail}, so this 0 may be out of date; "
+            f"{_UPDATE_HINT}"
         ), False
     commit_verified = bool(stored_sha and live_sha)
 

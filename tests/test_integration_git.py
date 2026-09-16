@@ -1110,3 +1110,49 @@ def test_update_auto_base_multi_commit_rename_matches_full_rebuild(
     with GraphStore(fresh_data / "graph.db") as fresh_store:
         assert incremental_nodes == node_snapshot(fresh_store)
         assert incremental_edges == edge_snapshot(fresh_store)
+
+
+# ---------------------------------------------------------------------------
+# 7. Staleness comparison against the merge base (not the tip)
+# ---------------------------------------------------------------------------
+
+
+def test_minimal_context_refreshes_graph_built_at_ancestor(tmp_path: Path) -> None:
+    """A graph built at an ancestor of HEAD is topped up, not rejected."""
+    repo = _init_repo(tmp_path)
+    build_or_update_graph(repo_root=str(repo), postprocess="none")
+
+    _git_ok(repo, "checkout", "-b", "feature")
+    _commit_file(repo, "feature_only")
+
+    provenance = graph_provenance(str(repo))
+    assert provenance["head_matches_build"] is False
+    assert provenance["build_relation"] == "ancestor"
+
+    result = get_minimal_context(repo_root=str(repo))
+
+    assert result["status"] == "ok"
+    assert "auto-refresh" in result.get("summary", "")
+    with GraphStore(repo / ".gryphon" / "graph.db") as store:
+        assert store.get_nodes_by_file(str(repo / "feature_only.py"))
+
+
+def test_minimal_context_reconciles_divergent_build(tmp_path: Path) -> None:
+    """A graph built on a divergent tip is reconciled against the worktree."""
+    repo = _init_repo(tmp_path)
+    _git_ok(repo, "checkout", "-b", "feature")
+    _commit_file(repo, "feature_only")
+    _git_ok(repo, "checkout", "main")
+    _git_ok(repo, "commit", "--allow-empty", "-m", "diverge main")
+    build_or_update_graph(repo_root=str(repo), postprocess="none")
+    _git_ok(repo, "checkout", "feature")
+
+    provenance = graph_provenance(str(repo))
+    assert provenance["build_relation"] == "diverged"
+
+    result = get_minimal_context(repo_root=str(repo))
+    assert result["status"] == "ok"
+    with GraphStore(repo / ".gryphon" / "graph.db") as store:
+        assert store.get_nodes_by_file(str(repo / "feature_only.py")) is not None
+        assert not store.get_nodes_by_file(str(repo / "main_only.py"))
+    assert graph_provenance(str(repo))["head_matches_build"] is True

@@ -8,7 +8,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ..incremental import get_db_path, resolve_review_base
+from ..graph import GraphStore
+from ..incremental import (
+    get_changed_files,
+    get_db_path,
+    incremental_update,
+    resolve_incremental_base,
+    resolve_review_base,
+)
 from ..parser import normalize_file_path
 from ._common import _get_store, _resolve_root, compact_response, graph_provenance
 
@@ -46,6 +53,37 @@ def _has_git_changes(root: Path, base: str) -> bool:
         return False
 
 
+def _auto_refresh_graph(root: Path, store: GraphStore, base: str) -> str | None:
+    """Top up a graph whose build commit is still usable as a diff base.
+
+    Runs the same incremental reconciliation ``gryphon update`` performs:
+    diff the recorded build commit against the worktree, re-parse what
+    changed, drop files that no longer exist, then refresh signatures and
+    FTS at the ``"minimal"`` postprocess level so search keeps working.
+
+    Best-effort: returns a short note on success, ``None`` when the
+    reconciliation could not run, in which case the caller serves the
+    older graph with a staleness note instead of refusing.
+    """
+    try:
+        from .build import _run_postprocess
+
+        result = incremental_update(root, store, base=base)
+        _run_postprocess(
+            store,
+            result,
+            "minimal",
+            changed_files=result.get("changed_files"),
+        )
+    except Exception:
+        logger.warning("Graph auto-refresh failed", exc_info=True)
+        return None
+    return (
+        "Graph auto-refreshed to HEAD: "
+        f"{result.get('files_updated', 0)} file(s) re-indexed."
+    )
+
+
 def get_minimal_context(
     task: str = "",
     changed_files: list[str] | None = None,
@@ -55,7 +93,10 @@ def get_minimal_context(
     """Return minimum context an agent needs to start any task (~100 tokens).
 
     Combines graph stats, top communities, top flows, risk score,
-    and suggested next tools into an ultra-compact response.
+    and suggested next tools into an ultra-compact response. When the graph
+    was built at a different Git commit that is still usable as a diff base,
+    it is incrementally refreshed first instead of being rejected; only a
+    build commit that no longer exists in the clone is reported stale.
 
     Args:
         task: Natural language description of what the agent is doing
@@ -66,7 +107,8 @@ def get_minimal_context(
 
     Returns:
         Compact graph context, or ``status: not_ready`` when the graph is
-        missing, empty, or known to have been built at a different Git commit.
+        missing, empty, or built at a commit that cannot be reconciled with
+        the checkout.
     """
     root = _resolve_root(repo_root)
     db_path = get_db_path(root, read_only=True)
@@ -88,12 +130,32 @@ def get_minimal_context(
             )
 
         provenance = graph_provenance(str(root))
+        graph_note: str | None = None
         if provenance and provenance.get("head_matches_build") is False:
-            return _not_ready(
-                "stale_graph",
-                "The graph was built at a different Git commit. "
-                "Update it before requesting context.",
-            )
+            # A commit mismatch does not by itself make the graph stale: the
+            # build commit may be an ancestor of HEAD (or otherwise diffable
+            # against the worktree), in which case an incremental update
+            # reconciles it. Only a build commit missing from the clone is
+            # genuinely stale.
+            incremental_base = resolve_incremental_base(root, store)
+            if incremental_base is None:
+                return _not_ready(
+                    "stale_graph",
+                    "The graph was built at a commit that is not available in "
+                    "this clone (history rewrite or shallow fetch). Rebuild "
+                    "it before requesting context.",
+                )
+            graph_note = _auto_refresh_graph(root, store, incremental_base)
+            if graph_note is None:
+                pending = get_changed_files(root, incremental_base)
+                shown = ", ".join(pending[:5])
+                graph_note = (
+                    "Graph is out of date and auto-refresh failed; "
+                    f"{len(pending)} file(s) changed since the build are "
+                    f"not indexed{': ' + shown if shown else ''}."
+                )
+            else:
+                stats = store.get_stats()
 
         # 2. Risk from changed files
         risk = "unknown"
@@ -173,6 +235,8 @@ def get_minimal_context(
             f"{stats.total_nodes} nodes, {stats.total_edges} edges"
             f" across {stats.files_count} files.",
         ]
+        if graph_note:
+            summary_parts.append(graph_note)
         if risk != "unknown":
             summary_parts.append(f"Risk: {risk} ({risk_score:.2f}).")
         if test_gap_count:

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,16 @@ from ..parser import normalize_file_path
 
 _PROVENANCE_READ_TIMEOUT_SECONDS = 0.05
 _PROVENANCE_GIT_TIMEOUT_SECONDS = 1.0
+_HEX_SHA = re.compile(r"[0-9a-fA-F]{40,64}")
+
+# The merge-base of two immutable commits never changes, so results are
+# cached per (root, sha pair): provenance runs on every tool call and a
+# working tree that sits on another branch would otherwise pay one extra
+# git subprocess per call. ``None`` results are not cached so a later
+# fetch that deepens a shallow history can still succeed.
+_MERGE_BASE_CACHE: dict[tuple[str, str, str], str] = {}
+_MERGE_BASE_CACHE_LOCK = threading.Lock()
+_MERGE_BASE_CACHE_LIMIT = 128
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +67,72 @@ def _read_live_git_head(root: Path) -> str | None:
         return None
     head_sha = result.stdout.strip()
     return head_sha or None
+
+
+def _read_merge_base(root: Path, sha_a: str, sha_b: str) -> str | None:
+    """Return the best common ancestor of two commits, or ``None``.
+
+    Both inputs must be full hex SHAs; anything else (refs, expressions,
+    dash-prefixed strings) is rejected before reaching git. ``None`` means
+    no shared history could be proven: unrelated histories, missing commit
+    objects, a shallow clone, or any git failure.
+    """
+    if not (_HEX_SHA.fullmatch(sha_a) and _HEX_SHA.fullmatch(sha_b)):
+        return None
+    key = (str(root), sha_a, sha_b)
+    with _MERGE_BASE_CACHE_LOCK:
+        cached = _MERGE_BASE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        result = subprocess.run(
+            ["git", "merge-base", sha_a, sha_b],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(root),
+            timeout=_PROVENANCE_GIT_TIMEOUT_SECONDS,
+            stdin=subprocess.DEVNULL,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    # Criss-cross merges can print several best ancestors, one per line;
+    # any single one is a valid merge base for the ancestry comparison.
+    first = result.stdout.splitlines()[0].strip() if result.stdout.strip() else ""
+    if not _HEX_SHA.fullmatch(first):
+        return None
+    with _MERGE_BASE_CACHE_LOCK:
+        if len(_MERGE_BASE_CACHE) < _MERGE_BASE_CACHE_LIMIT:
+            _MERGE_BASE_CACHE[key] = first
+    return first
+
+
+def _classify_build_relation(root: Path, built_sha: str, head_sha: str) -> str:
+    """Classify the graph's build commit relative to the checked-out HEAD.
+
+    - ``"same"``: the build commit *is* HEAD.
+    - ``"ancestor"``: the build commit is contained in HEAD's history. The
+      graph is simply behind and can be topped up incrementally.
+    - ``"descendant"``: HEAD is contained in the build's history. The
+      checkout is older than the graph.
+    - ``"diverged"``: both sides contain commits the other lacks (e.g. the
+      graph was built on a branch tip the checkout does not contain).
+    - ``"unknown"``: no shared history could be proven.
+    """
+    if built_sha == head_sha:
+        return "same"
+    merge_base = _read_merge_base(root, built_sha, head_sha)
+    if merge_base is None:
+        return "unknown"
+    if merge_base == built_sha:
+        return "ancestor"
+    if merge_base == head_sha:
+        return "descendant"
+    return "diverged"
 
 
 def graph_provenance(repo_root: str | None = None) -> dict[str, Any] | None:
@@ -117,6 +195,9 @@ def graph_provenance(repo_root: str | None = None) -> dict[str, Any] | None:
                 provenance["head_sha"] = live_head_sha
                 if isinstance(head_sha, str) and head_sha:
                     provenance["head_matches_build"] = live_head_sha == head_sha
+                    provenance["build_relation"] = _classify_build_relation(
+                        root, head_sha, live_head_sha,
+                    )
         return provenance or None
     except Exception:
         return None
