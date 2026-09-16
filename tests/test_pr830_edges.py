@@ -9,7 +9,7 @@ offsets, labels, method values, cross-package selectors, and deep nesting.
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _parse(source: str):

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        code-review-graph already configures Claude Code, Codex, Cursor, Windsurf, Zed,
+        gryphon already configures Claude Code, Codex, Cursor, Windsurf, Zed,
         Continue, OpenCode, Antigravity, Gemini CLI, Qwen, Kiro, Qoder, and GitHub
         Copilot. Use this form to request support for another AI coding tool.
   - type: input

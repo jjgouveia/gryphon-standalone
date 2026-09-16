@@ -4,7 +4,7 @@
 If TLS to pypi.org fails (e.g. Errno 9 in some IDE terminals), a user-wide
 install from a git checkout may still work via uv (different downloader):
 
-  uv tool install /path/to/code-review-graph --force
+  uv tool install /path/to/gryphon --force
 
 Run: python3 scripts/diagnose_pypi_connectivity.py
 """
@@ -49,7 +49,7 @@ def _try_urllib() -> bool:
     try:
         req = urllib.request.Request(
             "https://pypi.org/simple/hatchling/",
-            headers={"User-Agent": "code-review-graph-diagnostic/1.0"},
+            headers={"User-Agent": "gryphon-diagnostic/1.0"},
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             resp.read(256)

@@ -6,7 +6,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from code_review_graph.tsconfig_resolver import TsconfigResolver
+from gryphon.tsconfig_resolver import TsconfigResolver
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

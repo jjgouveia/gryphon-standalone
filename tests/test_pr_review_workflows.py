@@ -64,7 +64,7 @@ def test_privileged_workflow_confines_and_validates_untrusted_artifact():
 def test_privileged_workflow_adds_its_own_marker_before_posting():
     workflow = COMMENT_WORKFLOW.read_text(encoding="utf-8")
 
-    assert "TRUSTED_MARKER: <!-- code-review-graph-report -->" in workflow
+    assert "TRUSTED_MARKER: <!-- gryphon-report -->" in workflow
     assert 'text.replace(marker, "")' in workflow
     assert 'body = f"{marker}\\n\\n{text}"' in workflow
     assert '-F body=@"${COMMENT_BODY}"' in workflow

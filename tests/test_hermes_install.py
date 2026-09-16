@@ -2,7 +2,7 @@
 
 Hermes' ``config.yaml`` is a hand-edited file full of comments, ordering, and
 settings CRG knows nothing about. Every test here asserts the same contract:
-CRG may add or remove exactly its own ``mcp_servers.code-review-graph`` entry
+CRG may add or remove exactly its own ``mcp_servers.gryphon`` entry
 and must leave every other byte of the file alone.
 """
 
@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from code_review_graph import skills, uninstall
-from code_review_graph.skills import (
+from gryphon import skills, uninstall
+from gryphon.skills import (
     PLATFORMS,
     _detect_serve_command,
     _hermes_config_path,
@@ -79,7 +79,7 @@ def _install(repo_root: Path) -> list[str]:
 
 def _entry(config_path: Path) -> dict:
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    return data["mcp_servers"]["code-review-graph"]
+    return data["mcp_servers"]["gryphon"]
 
 
 class TestSuiteSafety:
@@ -151,7 +151,7 @@ class TestInstall:
         assert data["tool_output"] == {"max_bytes": 50000}
         assert data["mcp_servers"]["browsermcp"]["command"] == "npx"
         assert data["mcp_servers"]["wanderlog"]["env"]["WANDERLOG_COOKIE"] == "s%3Asecret"
-        assert "code-review-graph" in data["mcp_servers"]
+        assert "gryphon" in data["mcp_servers"]
 
     def test_is_idempotent(self, repo: Path, hermes_home: Path) -> None:
         config = hermes_home / "config.yaml"
@@ -160,7 +160,7 @@ class TestInstall:
         first = config.read_text(encoding="utf-8")
         _install(repo)
         assert config.read_text(encoding="utf-8") == first
-        assert first.count("code-review-graph:") == 1
+        assert first.count("gryphon:") == 1
 
     def test_appends_block_when_key_absent(self, repo: Path, hermes_home: Path) -> None:
         config = hermes_home / "config.yaml"
@@ -168,7 +168,7 @@ class TestInstall:
         _install(repo)
         data = yaml.safe_load(config.read_text(encoding="utf-8"))
         assert data["model"]["default"] == "gpt-5.5"
-        assert "code-review-graph" in data["mcp_servers"]
+        assert "gryphon" in data["mcp_servers"]
 
     def test_dry_run_writes_nothing(self, repo: Path, hermes_home: Path) -> None:
         config = hermes_home / "config.yaml"
@@ -230,7 +230,7 @@ class TestUninstall:
         self._uninstall(repo, hermes_home)
 
         text = config.read_text(encoding="utf-8")
-        assert "code-review-graph" not in text
+        assert "gryphon" not in text
         # The original file is restored byte-for-byte.
         assert text == _REAL_CONFIG
 
@@ -254,7 +254,7 @@ class TestUninstall:
 
     def test_leaves_unparseable_yaml_alone(self, repo: Path, hermes_home: Path) -> None:
         config = hermes_home / "config.yaml"
-        broken = "mcp_servers:\n  code-review-graph: [1, 2\n   bad: :\n"
+        broken = "mcp_servers:\n  gryphon: [1, 2\n   bad: :\n"
         config.write_text(broken, encoding="utf-8")
         report = self._uninstall(repo, hermes_home)
         assert config.read_text(encoding="utf-8") == broken
@@ -275,7 +275,7 @@ class TestUninstall:
         config.write_text(_REAL_CONFIG, encoding="utf-8")
 
         _install(repo)
-        assert "code-review-graph" in config.read_text(encoding="utf-8")
+        assert "gryphon" in config.read_text(encoding="utf-8")
 
         self._uninstall(repo, Path.home())
         assert config.read_text(encoding="utf-8") == _REAL_CONFIG

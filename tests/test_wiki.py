@@ -3,10 +3,10 @@
 import tempfile
 from pathlib import Path
 
-from code_review_graph.communities import detect_communities, store_communities
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
-from code_review_graph.wiki import (
+from gryphon.communities import detect_communities, store_communities
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
+from gryphon.wiki import (
     _generate_community_page,
     _slugify,
     generate_wiki,
@@ -147,7 +147,7 @@ class TestWiki:
         communities = self._seed_communities()
         assert len(communities) > 0
 
-        from code_review_graph.communities import get_communities
+        from gryphon.communities import get_communities
         stored = get_communities(self.store)
         assert len(stored) > 0
 
@@ -217,7 +217,7 @@ class TestWiki:
             },
         ]
 
-        import code_review_graph.wiki as wiki_mod
+        import gryphon.wiki as wiki_mod
         monkeypatch.setattr(
             wiki_mod, "get_communities", lambda store: colliding_communities,
         )

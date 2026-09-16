@@ -5,10 +5,10 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, incremental_update
-from code_review_graph.parser import EdgeInfo, NodeInfo
-from code_review_graph.postprocessing import run_post_processing
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, incremental_update
+from gryphon.parser import EdgeInfo, NodeInfo
+from gryphon.postprocessing import run_post_processing
 
 
 def _get_signature(store, qualified_name):
@@ -151,7 +151,7 @@ class TestRunPostProcessing:
     def test_fts_search_works_after_post_processing(self):
         run_post_processing(self.store)
 
-        from code_review_graph.search import hybrid_search
+        from gryphon.search import hybrid_search
 
         hits = hybrid_search(self.store, "handle")
         names = {h["name"] for h in hits}
@@ -236,7 +236,7 @@ class TestPostProcessingStepIsolation:
 
     def test_fts_failure_does_not_block_flows(self):
         with patch(
-            "code_review_graph.search.rebuild_fts_index",
+            "gryphon.search.rebuild_fts_index",
             side_effect=ImportError("fts boom"),
         ):
             result = run_post_processing(self.store)
@@ -248,7 +248,7 @@ class TestPostProcessingStepIsolation:
 
     def test_flow_failure_does_not_block_communities(self):
         with patch(
-            "code_review_graph.flows.trace_flows",
+            "gryphon.flows.trace_flows",
             side_effect=ImportError("flow boom"),
         ):
             result = run_post_processing(self.store)
@@ -259,7 +259,7 @@ class TestPostProcessingStepIsolation:
 
     def test_community_failure_still_has_signatures(self):
         with patch(
-            "code_review_graph.communities.detect_communities",
+            "gryphon.communities.detect_communities",
             side_effect=ImportError("comm boom"),
         ):
             result = run_post_processing(self.store)
@@ -274,12 +274,12 @@ class TestToolBuildUsesSharedPipeline:
         py_file = tmp_path / "sample.py"
         py_file.write_text("def hello():\n    pass\n")
         (tmp_path / ".git").mkdir()
-        (tmp_path / ".code-review-graph").mkdir()
+        (tmp_path / ".gryphon").mkdir()
 
-        db_path = tmp_path / ".code-review-graph" / "graph.db"
+        db_path = tmp_path / ".gryphon" / "graph.db"
         store = GraphStore(db_path)
         try:
-            mock_target = "code_review_graph.incremental.get_all_tracked_files"
+            mock_target = "gryphon.incremental.get_all_tracked_files"
             with patch(mock_target, return_value=["sample.py"]):
                 full_build(tmp_path, store)
 
@@ -310,7 +310,7 @@ class TestToolBuildUsesSharedPipeline:
             "    assert render_thing('bc') == 'BC'\n"
         )
         (tmp_path / ".git").mkdir()
-        graph_dir = tmp_path / ".code-review-graph"
+        graph_dir = tmp_path / ".gryphon"
         graph_dir.mkdir()
 
         store = GraphStore(graph_dir / "graph.db")
@@ -321,7 +321,7 @@ class TestToolBuildUsesSharedPipeline:
                 "tests/test_runner.py",
             ]
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=tracked,
             ):
                 result = full_build(tmp_path, store)
@@ -388,7 +388,7 @@ class TestToolBuildUsesSharedPipeline:
 
     def test_initial_ambiguous_python_import_has_no_claimed_caller(self, tmp_path):
         """A graph first built with duplicate module suffixes must stay ambiguous."""
-        from code_review_graph.tools.query import query_graph
+        from gryphon.tools.query import query_graph
 
         production_files = []
         for package in ("a", "b"):
@@ -415,7 +415,7 @@ class TestToolBuildUsesSharedPipeline:
             "    assert render_thing('bc') == 'BC'\n"
         )
         (tmp_path / ".git").mkdir()
-        graph_dir = tmp_path / ".code-review-graph"
+        graph_dir = tmp_path / ".gryphon"
         graph_dir.mkdir()
         tracked = [
             *(path.relative_to(tmp_path).as_posix() for path in production_files),
@@ -425,7 +425,7 @@ class TestToolBuildUsesSharedPipeline:
         store = GraphStore(graph_dir / "graph.db")
         try:
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=tracked,
             ):
                 result = full_build(tmp_path, store)
@@ -469,13 +469,13 @@ class TestWatchCallbackIntegration:
     def test_watch_accepts_callback_parameter(self):
         import inspect
 
-        from code_review_graph.incremental import watch
+        from gryphon.incremental import watch
 
         sig = inspect.signature(watch)
         assert "on_files_updated" in sig.parameters
 
     def test_watch_callback_not_called_without_updates(self, tmp_path):
-        from code_review_graph.incremental import watch
+        from gryphon.incremental import watch
 
         (tmp_path / ".git").mkdir()
         db_path = tmp_path / "test.db"
@@ -497,7 +497,7 @@ class TestWatchCallbackIntegration:
             store.close()
 
     def test_watch_deletion_reresolves_python_imports(self, tmp_path):
-        from code_review_graph.incremental import full_build, watch
+        from gryphon.incremental import full_build, watch
 
         runner = tmp_path / "src" / "mypkg" / "runner.py"
         duplicate = tmp_path / "packages" / "other" / "src" / "mypkg" / "runner.py"
@@ -525,7 +525,7 @@ class TestWatchCallbackIntegration:
                 "tests/test_runner.py",
             ]
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=tracked,
             ):
                 full_build(tmp_path, store)

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from code_review_graph.changes import (
+from gryphon.changes import (
     _parse_numstat,
     _parse_unified_diff,
     analyze_changes,
@@ -16,9 +16,9 @@ from code_review_graph.changes import (
     map_changes_to_nodes,
     parse_git_diff_ranges,
 )
-from code_review_graph.flows import store_flows, trace_flows
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
+from gryphon.flows import store_flows, trace_flows
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
 
 
 class TestChanges:
@@ -492,14 +492,14 @@ class TestChanges:
 
     def test_detect_changes_tool_no_changes(self):
         """detect_changes_func returns clean result when no changes detected."""
-        from code_review_graph.tools import detect_changes_func
+        from gryphon.tools import detect_changes_func
 
         # Patch _get_store to use our test store,
         # and get_changed_files/get_staged_and_unstaged to return empty.
         with (
-            patch("code_review_graph.tools.review._get_store") as mock_get_store,
-            patch("code_review_graph.tools.review.get_changed_files", return_value=[]),
-            patch("code_review_graph.tools.review.get_staged_and_unstaged", return_value=[]),
+            patch("gryphon.tools.review._get_store") as mock_get_store,
+            patch("gryphon.tools.review.get_changed_files", return_value=[]),
+            patch("gryphon.tools.review.get_staged_and_unstaged", return_value=[]),
             # Prevent the tool from closing our shared store, then restore the
             # real method so teardown releases the database handle on Windows.
             patch.object(self.store, "close"),
@@ -515,15 +515,15 @@ class TestChanges:
 
     def test_detect_changes_tool_with_changes(self):
         """detect_changes_func returns full analysis for changed files."""
-        from code_review_graph.tools import detect_changes_func
+        from gryphon.tools import detect_changes_func
 
         self._add_func("my_func", path="/fake/repo/app.py", line_start=1, line_end=10)
 
         with (
-            patch("code_review_graph.tools.review._get_store") as mock_get_store,
-            patch("code_review_graph.tools.review.get_changed_files", return_value=["app.py"]),
+            patch("gryphon.tools.review._get_store") as mock_get_store,
+            patch("gryphon.tools.review.get_changed_files", return_value=["app.py"]),
             patch(
-                "code_review_graph.tools.review.parse_git_diff_ranges",
+                "gryphon.tools.review.parse_git_diff_ranges",
                 return_value={"app.py": [(1, 10)]},
             ),
             patch.object(self.store, "close"),
@@ -540,22 +540,22 @@ class TestChanges:
 
     def test_detect_changes_tool_uses_one_resolved_review_base(self):
         """File discovery and line ranges must use the same merge base."""
-        from code_review_graph.tools import detect_changes_func
+        from gryphon.tools import detect_changes_func
 
         self._add_func("my_func", path="/fake/repo/app.py", line_start=1, line_end=10)
 
         with (
-            patch("code_review_graph.tools.review._get_store") as mock_get_store,
+            patch("gryphon.tools.review._get_store") as mock_get_store,
             patch(
-                "code_review_graph.tools.review.resolve_review_base",
+                "gryphon.tools.review.resolve_review_base",
                 return_value="merge-base-sha",
             ) as resolve,
             patch(
-                "code_review_graph.tools.review.get_changed_files",
+                "gryphon.tools.review.get_changed_files",
                 return_value=["app.py"],
             ) as get_changed,
             patch(
-                "code_review_graph.tools.review.parse_diff_ranges",
+                "gryphon.tools.review.parse_diff_ranges",
                 return_value={"app.py": [(1, 10)]},
             ) as parse_ranges,
             patch.object(self.store, "close"),
@@ -658,11 +658,11 @@ class TestAnalyzeChangesInternalParseRemap:
         captured: dict = {}
         with (
             patch(
-                "code_review_graph.changes.parse_diff_ranges",
+                "gryphon.changes.parse_diff_ranges",
                 return_value={"src/app.py": [(2, 3)]},
             ),
             patch(
-                "code_review_graph.changes.map_changes_to_nodes",
+                "gryphon.changes.map_changes_to_nodes",
                 side_effect=self._spy_map_changes(captured),
             ),
         ):
@@ -686,11 +686,11 @@ class TestAnalyzeChangesInternalParseRemap:
         captured: dict = {}
         with (
             patch(
-                "code_review_graph.changes.parse_diff_ranges",
+                "gryphon.changes.parse_diff_ranges",
                 return_value={abs_path: [(2, 3)]},
             ),
             patch(
-                "code_review_graph.changes.map_changes_to_nodes",
+                "gryphon.changes.map_changes_to_nodes",
                 side_effect=self._spy_map_changes(captured),
             ),
         ):
@@ -715,7 +715,7 @@ class TestAnalyzeChangesInternalParseRemap:
         captured: dict = {}
         with (
             patch(
-                "code_review_graph.changes.map_changes_to_nodes",
+                "gryphon.changes.map_changes_to_nodes",
                 side_effect=self._spy_map_changes(captured),
             ),
         ):
@@ -788,7 +788,7 @@ class TestFileChurn:
 
     def test_invalid_environment_window_is_fail_soft(self, monkeypatch):
         monkeypatch.setenv("CRG_CHURN_WINDOW_DAYS", "not-an-integer")
-        with patch("code_review_graph.changes.subprocess.run") as run:
+        with patch("gryphon.changes.subprocess.run") as run:
             assert compute_file_churn("/repo") == {}
         run.assert_not_called()
 
@@ -797,7 +797,7 @@ class TestFileChurn:
             args=[], returncode=0, stdout="1\t0\tapp.py\0", stderr="",
         )
         with patch(
-            "code_review_graph.changes.subprocess.run",
+            "gryphon.changes.subprocess.run",
             return_value=completed,
         ) as run:
             assert compute_file_churn("/repo", window_days=30) == {"app.py": 1}
@@ -861,7 +861,7 @@ class TestRiskScoreChurn:
 
         baseline = analyze_changes(self.store, **kwargs)
         with patch(
-            "code_review_graph.changes.compute_file_churn",
+            "gryphon.changes.compute_file_churn",
             return_value={"app.py": 10},
         ):
             churned = analyze_changes(self.store, include_churn=True, **kwargs)
@@ -869,7 +869,7 @@ class TestRiskScoreChurn:
         assert churned["risk_score"] - baseline["risk_score"] == pytest.approx(0.15)
 
     def test_analyze_changes_does_not_compute_churn_by_default(self, tmp_path):
-        with patch("code_review_graph.changes.compute_file_churn") as churn:
+        with patch("gryphon.changes.compute_file_churn") as churn:
             analyze_changes(
                 self.store,
                 changed_files=["app.py"],

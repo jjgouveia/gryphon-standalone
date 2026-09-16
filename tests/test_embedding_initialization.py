@@ -10,8 +10,8 @@ from typing import Any, Callable
 
 import pytest
 
-from code_review_graph import embeddings
-from code_review_graph import main as crg_main
+from gryphon import embeddings
+from gryphon import main as crg_main
 
 
 @pytest.fixture(autouse=True)

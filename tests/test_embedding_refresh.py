@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_review_graph.embeddings import EmbeddingStore, embed_all_nodes, refresh_embeddings
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import NodeInfo
-from code_review_graph.postprocessing import run_post_processing
-from code_review_graph.tools.build import _run_postprocess
-from code_review_graph.tools.docs import embed_graph
+from gryphon.embeddings import EmbeddingStore, embed_all_nodes, refresh_embeddings
+from gryphon.graph import GraphStore
+from gryphon.parser import NodeInfo
+from gryphon.postprocessing import run_post_processing
+from gryphon.tools.build import _run_postprocess
+from gryphon.tools.docs import embed_graph
 
 
 class _StubProvider:
@@ -62,7 +62,7 @@ class TestOrphanCleanup:
     def test_purge_removes_only_vectors_without_graph_nodes(self, tmp_path):
         graph, _ = _graph_with_function(tmp_path)
         provider = _StubProvider()
-        with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+        with patch("gryphon.embeddings.get_provider", return_value=provider):
             embeddings = EmbeddingStore(graph.db_path, provider="local", model="test-model")
         embeddings.embed_nodes(graph.get_all_nodes(exclude_files=False))
         embeddings._conn.execute(
@@ -85,7 +85,7 @@ class TestOrphanCleanup:
             graph.close()
 
     def test_purge_is_safe_without_a_nodes_table(self, tmp_path):
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             embeddings = EmbeddingStore(tmp_path / "standalone.db")
         try:
             assert embeddings.purge_orphans() == 0
@@ -94,7 +94,7 @@ class TestOrphanCleanup:
 
     def test_manual_embed_purges_even_when_provider_is_unavailable(self, tmp_path):
         graph, _ = _graph_with_function(tmp_path)
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             embeddings = EmbeddingStore(graph.db_path)
         embeddings._conn.execute(
             "INSERT INTO embeddings (qualified_name, vector, text_hash, provider) "
@@ -122,7 +122,7 @@ class TestEmbeddingNodeEnumeration:
         provider = _StubProvider()
         try:
             assert "spring:event:OrderCreated" not in graph.get_all_files()
-            with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+            with patch("gryphon.embeddings.get_provider", return_value=provider):
                 with EmbeddingStore(graph.db_path) as embeddings:
                     assert embed_all_nodes(graph, embeddings) == 2
                     assert embeddings.count() == 2
@@ -138,7 +138,7 @@ class TestEmbeddingNodeEnumeration:
             graph.commit()
         provider = _StubProvider()
         try:
-            with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+            with patch("gryphon.embeddings.get_provider", return_value=provider):
                 with EmbeddingStore(graph.db_path) as embeddings:
                     assert embed_all_nodes(graph, embeddings) == 1
                     assert embeddings.count() == 1
@@ -153,7 +153,7 @@ class TestEmbeddingNodeEnumeration:
         graph, _ = _graph_with_function(tmp_path)
         provider = _StubProvider()
         try:
-            with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+            with patch("gryphon.embeddings.get_provider", return_value=provider):
                 with EmbeddingStore(graph.db_path) as embeddings:
                     embeddings.embed_nodes(graph.get_all_nodes())
                 graph._conn.execute("UPDATE nodes SET params = '(value)' WHERE kind = 'Function'")
@@ -181,10 +181,10 @@ class TestEmbeddingNodeEnumeration:
         graph.close()
         provider = _StubProvider()
         with (
-            patch("code_review_graph.embeddings.get_provider", return_value=provider),
-            patch("code_review_graph.tools.docs.get_db_path", return_value=db_path),
+            patch("gryphon.embeddings.get_provider", return_value=provider),
+            patch("gryphon.tools.docs.get_db_path", return_value=db_path),
             patch(
-                "code_review_graph.tools.docs._get_store",
+                "gryphon.tools.docs._get_store",
                 side_effect=lambda root: (GraphStore(db_path), tmp_path),
             ),
         ):
@@ -201,11 +201,11 @@ class TestEmbeddingNodeEnumeration:
 
 class TestExplicitRefresh:
     def test_never_embedded_graph_skips_without_resolving_provider(self, tmp_path):
-        from code_review_graph.embeddings import refresh_embeddings
+        from gryphon.embeddings import refresh_embeddings
 
         graph, _ = _graph_with_function(tmp_path)
         try:
-            with patch("code_review_graph.embeddings.get_provider") as get_provider:
+            with patch("gryphon.embeddings.get_provider") as get_provider:
                 assert (
                     refresh_embeddings(
                         graph,
@@ -219,11 +219,11 @@ class TestExplicitRefresh:
             graph.close()
 
     def test_exact_provider_refreshes_changed_nodes_and_purges_orphans(self, tmp_path):
-        from code_review_graph.embeddings import refresh_embeddings
+        from gryphon.embeddings import refresh_embeddings
 
         graph, file_path = _graph_with_function(tmp_path)
         provider = _StubProvider()
-        with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+        with patch("gryphon.embeddings.get_provider", return_value=provider):
             embeddings = EmbeddingStore(graph.db_path, provider="local", model="test-model")
             embeddings.embed_nodes(graph.get_all_nodes(exclude_files=False))
             embeddings._conn.execute(
@@ -257,11 +257,11 @@ class TestExplicitRefresh:
             graph.close()
 
     def test_provider_identity_mismatch_refuses_migration(self, tmp_path):
-        from code_review_graph.embeddings import refresh_embeddings
+        from gryphon.embeddings import refresh_embeddings
 
         graph, _ = _graph_with_function(tmp_path)
         original = _StubProvider("local:original-model")
-        with patch("code_review_graph.embeddings.get_provider", return_value=original):
+        with patch("gryphon.embeddings.get_provider", return_value=original):
             embeddings = EmbeddingStore(graph.db_path)
             embeddings.embed_nodes(graph.get_all_nodes(exclude_files=False))
             embeddings.close()
@@ -269,7 +269,7 @@ class TestExplicitRefresh:
         requested = _StubProvider("local:new-model")
         try:
             with patch(
-                "code_review_graph.embeddings.get_provider",
+                "gryphon.embeddings.get_provider",
                 return_value=requested,
             ):
                 with pytest.raises(ValueError, match="existing embeddings use"):
@@ -283,7 +283,7 @@ class TestExplicitRefresh:
             graph.close()
 
     def test_legacy_rows_without_provider_identity_are_refused_precisely(self, tmp_path):
-        from code_review_graph.embeddings import refresh_embeddings
+        from gryphon.embeddings import refresh_embeddings
 
         graph, _ = _graph_with_function(tmp_path)
         graph._conn.executescript(
@@ -300,7 +300,7 @@ class TestExplicitRefresh:
         graph.commit()
 
         try:
-            with patch("code_review_graph.embeddings.get_provider") as get_provider:
+            with patch("gryphon.embeddings.get_provider") as get_provider:
                 with pytest.raises(ValueError, match="provider identity"):
                     refresh_embeddings(
                         graph,
@@ -317,7 +317,7 @@ class TestRefreshWiring:
         graph, _ = _graph_with_function(tmp_path)
         try:
             with patch(
-                "code_review_graph.embeddings.refresh_embeddings",
+                "gryphon.embeddings.refresh_embeddings",
             ) as refresh:
                 run_post_processing(graph)
             refresh.assert_not_called()
@@ -328,7 +328,7 @@ class TestRefreshWiring:
         graph, _ = _graph_with_function(tmp_path)
         try:
             with patch(
-                "code_review_graph.embeddings.refresh_embeddings",
+                "gryphon.embeddings.refresh_embeddings",
                 return_value={"embedded": 3, "purged": 2},
             ) as refresh:
                 result = run_post_processing(
@@ -345,7 +345,7 @@ class TestRefreshWiring:
             assert result["embeddings_purged"] == 2
 
             with patch(
-                "code_review_graph.embeddings.refresh_embeddings",
+                "gryphon.embeddings.refresh_embeddings",
                 side_effect=RuntimeError("provider unavailable offline"),
             ):
                 failed = run_post_processing(
@@ -361,7 +361,7 @@ class TestRefreshWiring:
         graph, _ = _graph_with_function(tmp_path)
         try:
             with patch(
-                "code_review_graph.embeddings.refresh_embeddings",
+                "gryphon.embeddings.refresh_embeddings",
                 return_value={"embedded": 1, "purged": 1},
             ) as refresh:
                 default_result: dict = {}
@@ -390,7 +390,7 @@ class TestRefreshWiring:
         graph, _ = _graph_with_function(tmp_path)
         try:
             with patch(
-                "code_review_graph.embeddings.refresh_embeddings",
+                "gryphon.embeddings.refresh_embeddings",
             ) as refresh:
                 result = run_post_processing(
                     graph,
@@ -407,7 +407,7 @@ class TestRefreshWiring:
         monkeypatch,
     ):
         graph, _ = _graph_with_function(tmp_path)
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             embeddings = EmbeddingStore(graph.db_path)
         embeddings._conn.execute(
             "INSERT INTO embeddings (qualified_name, vector, text_hash, provider) "
@@ -443,7 +443,7 @@ class TestRefreshWiring:
             graph.close()
 
     def test_mcp_build_and_postprocess_forward_exact_scope(self):
-        from code_review_graph import main as crg_main
+        from gryphon import main as crg_main
 
         build_tool = getattr(
             crg_main.build_or_update_graph_tool,
@@ -493,10 +493,10 @@ class TestRefreshWiring:
         assert postprocess.call_args.kwargs["embedding_model"] == "test-model"
 
     def test_cli_build_forwards_exact_scope(self):
-        from code_review_graph import cli
+        from gryphon import cli
 
         argv = [
-            "code-review-graph",
+            "gryphon",
             "build",
             "--repo",
             "repo-root",
@@ -509,14 +509,14 @@ class TestRefreshWiring:
         with (
             patch.object(sys, "argv", argv),
             patch(
-                "code_review_graph.graph.GraphStore",
+                "gryphon.graph.GraphStore",
             ) as graph_store,
             patch(
-                "code_review_graph.incremental.get_db_path",
+                "gryphon.incremental.get_db_path",
                 return_value=MagicMock(),
             ),
             patch(
-                "code_review_graph.tools.build.build_or_update_graph",
+                "gryphon.tools.build.build_or_update_graph",
                 return_value=result,
             ) as build,
         ):

@@ -2,10 +2,10 @@
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import NodeInfo
-from code_review_graph.registry import Registry
-from code_review_graph.tools.registry_tools import cross_repo_search_func
+from gryphon.graph import GraphStore
+from gryphon.parser import NodeInfo
+from gryphon.registry import Registry
+from gryphon.tools.registry_tools import cross_repo_search_func
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def registry(tmp_path, monkeypatch):
 
 def indexed_repo(root, registry, *, alias=None, count=1):
     root = root.resolve()
-    directory = root / ".code-review-graph"
+    directory = root / ".gryphon"
     directory.mkdir(parents=True)
     with GraphStore(directory / "graph.db") as store:
         store.store_file_nodes_edges(

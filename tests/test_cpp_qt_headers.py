@@ -3,9 +3,9 @@
 import shutil
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.parser import CodeParser
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.parser import CodeParser
 
 FIXTURES = Path(__file__).parent / "fixtures" / "cpp_qt_headers"
 

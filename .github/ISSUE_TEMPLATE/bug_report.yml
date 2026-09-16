@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in code-review-graph (CLI, MCP server, parser, or graph store)
+description: Report a defect in gryphon (CLI, MCP server, parser, or graph store)
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -7,15 +7,15 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report a bug. Before filing, please check the
-        [troubleshooting guide](https://github.com/tirth8205/code-review-graph/blob/main/docs/TROUBLESHOOTING.md)
+        [troubleshooting guide](https://github.com/tirth8205/gryphon/blob/main/docs/TROUBLESHOOTING.md)
         and search existing issues for duplicates.
   - type: input
     id: crg-version
     attributes:
-      label: code-review-graph version
+      label: gryphon version
       description: >-
-        Output of `pip show code-review-graph` (or the version reported by
-        `code-review-graph status`).
+        Output of `pip show gryphon` (or the version reported by
+        `gryphon status`).
       placeholder: "2.3.5"
     validations:
       required: true
@@ -57,9 +57,9 @@ body:
   - type: textarea
     id: status-output
     attributes:
-      label: Output of `code-review-graph status`
+      label: Output of `gryphon status`
       description: >-
-        Run `code-review-graph status` in the affected repository and paste the full
+        Run `gryphon status` in the affected repository and paste the full
         output. If the command itself fails, paste the error instead.
       render: shell
     validations:
@@ -70,8 +70,8 @@ body:
       label: Steps to reproduce
       description: Exact commands or actions, in order, that trigger the bug.
       placeholder: |
-        1. code-review-graph build
-        2. code-review-graph detect-changes --brief
+        1. gryphon build
+        2. gryphon detect-changes --brief
         3. ...
     validations:
       required: true

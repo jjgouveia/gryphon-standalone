@@ -17,10 +17,10 @@ Build or incrementally update the knowledge graph for this repository.
 ## When to Use
 
 - First set-up of a repository, or after a branch switch or large refactor.
-- When the graph looks stale. Hooks installed by `code-review-graph install` run an update after each edit and before each commit, so manual builds are rarely needed.
+- When the graph looks stale. Hooks installed by `gryphon install` run an update after each edit and before each commit, so manual builds are rarely needed.
 
 ## Notes
 
-- The database is `.code-review-graph/graph.db` in the repository root.
-- Binary files, dependency and build directories, and patterns in `.code-review-graphignore` are skipped.
+- The database is `.gryphon/graph.db` in the repository root.
+- Binary files, dependency and build directories, and patterns in `.gryphonignore` are skipped.
 - For the list of supported languages call `get_docs_section_tool(section_name="languages")`.

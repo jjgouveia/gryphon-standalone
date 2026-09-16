@@ -74,17 +74,17 @@ def test_md_escape_caps_length():
 def test_relativize_strips_github_workspace(monkeypatch):
     monkeypatch.setenv("GITHUB_WORKSPACE", "/home/runner/work/repo/repo")
     out = render.relativize_path(
-        "/home/runner/work/repo/repo/code_review_graph/embeddings.py"
+        "/home/runner/work/repo/repo/gryphon/embeddings.py"
     )
-    assert out == "code_review_graph/embeddings.py"
+    assert out == "gryphon/embeddings.py"
 
 
 def test_relativize_keeps_symbol_suffix(monkeypatch):
     monkeypatch.setenv("GITHUB_WORKSPACE", "/home/runner/work/repo/repo")
     out = render.relativize_path(
-        "/home/runner/work/repo/repo/code_review_graph/embeddings.py::get_provider"
+        "/home/runner/work/repo/repo/gryphon/embeddings.py::get_provider"
     )
-    assert out == "code_review_graph/embeddings.py::get_provider"
+    assert out == "gryphon/embeddings.py::get_provider"
 
 
 def test_relativize_handles_workspace_with_trailing_slash(monkeypatch):
@@ -105,9 +105,9 @@ def test_relativize_leaves_already_relative_paths(monkeypatch):
 
 def test_relativize_falls_back_to_repo_segment_without_env(monkeypatch):
     monkeypatch.delenv("GITHUB_WORKSPACE", raising=False)
-    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/code-review-graph")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/gryphon")
     out = render.relativize_path(
-        "/home/runner/work/code-review-graph/code-review-graph/"
+        "/home/runner/work/gryphon/gryphon/"
         "scripts/render_pr_comment.py::main"
     )
     assert out == "scripts/render_pr_comment.py::main"
@@ -133,8 +133,8 @@ def test_render_markdown_relativizes_absolute_paths(monkeypatch):
         "risk_score": 0.72,
         "review_priorities": [
             {
-                "qualified_name": f"{ws}/code_review_graph/embeddings.py::get_provider",
-                "file_path": f"{ws}/code_review_graph/embeddings.py",
+                "qualified_name": f"{ws}/gryphon/embeddings.py::get_provider",
+                "file_path": f"{ws}/gryphon/embeddings.py",
                 "line_start": 42,
                 "risk_score": 0.72,
                 "is_test": False,
@@ -146,9 +146,9 @@ def test_render_markdown_relativizes_absolute_paths(monkeypatch):
     body = render.render_markdown(abs_report)
     # Absolute CI-runner prefix must not leak into the rendered comment.
     assert "/home/runner/work" not in body
-    assert render.md_escape("code_review_graph/embeddings.py::get_provider") in body
+    assert render.md_escape("gryphon/embeddings.py::get_provider") in body
     # Location column path is markdown-escaped (underscores) like every cell.
-    assert f"{render.md_escape('code_review_graph/embeddings.py')}:42" in body
+    assert f"{render.md_escape('gryphon/embeddings.py')}:42" in body
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +225,7 @@ def test_token_savings_line_omitted_when_absent(report):
 
 def test_footer_powered_by(report):
     body = render.render_markdown(report)
-    assert "Powered by [code-review-graph]" in body
+    assert "Powered by [gryphon]" in body
     assert "local-first" in body
 
 
@@ -261,7 +261,7 @@ def test_empty_report_renders_minimal_body():
     assert body.startswith(render.MARKER)
     assert "**Overall risk: 0.00 (LOW)**" in body
     assert "### Risk-scored changes" not in body
-    assert "Powered by [code-review-graph]" in body
+    assert "Powered by [gryphon]" in body
 
 
 def test_body_size_capped():
@@ -275,7 +275,7 @@ def test_body_size_capped():
     }
     body = render.render_markdown(huge, max_functions=5000)
     assert len(body) < render._MAX_BODY + 1000
-    assert "Powered by [code-review-graph]" in body
+    assert "Powered by [gryphon]" in body
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +299,7 @@ def test_render_no_changes_has_marker_and_footer():
     body = render.render_no_changes()
     assert body.splitlines()[0] == render.MARKER
     assert "No analyzable code changes" in body
-    assert "Powered by [code-review-graph]" in body
+    assert "Powered by [gryphon]" in body
 
 
 # ---------------------------------------------------------------------------
@@ -368,4 +368,4 @@ def test_cli_subprocess_stdout():
     )
     assert result.returncode == 0
     assert result.stdout.startswith(render.MARKER)
-    assert "Powered by [code-review-graph]" in result.stdout
+    assert "Powered by [gryphon]" in result.stdout

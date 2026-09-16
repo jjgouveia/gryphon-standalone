@@ -1,8 +1,8 @@
 """Rebuild legacy stored paths without deleting current canonical rows (#911)."""
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, incremental_update
-from code_review_graph.parser import NodeInfo
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, incremental_update
+from gryphon.parser import NodeInfo
 
 
 def test_911_rebuild_removes_legacy_native_path_rows(tmp_path):

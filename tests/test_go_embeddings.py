@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
+from gryphon.tools import query_graph
 
 
 @pytest.mark.parametrize(
@@ -75,7 +75,7 @@ def test_inheritors_query_finds_struct_and_interface_embeddings(tmp_path):
     nodes, edges = CodeParser().parse_file(source_path)
     base = next(node for node in nodes if node.name == "Base")
     assert base.extra["docstring"] == "Base documents the original declaration."
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         for node in nodes:
@@ -96,8 +96,8 @@ def test_go_embedding_does_not_change_java_implementation_resolution(
     framework,
     has_java_implementation,
 ):
-    from code_review_graph.spring_resolver import resolve_spring_di_calls
-    from code_review_graph.temporal_resolver import resolve_temporal_calls
+    from gryphon.spring_resolver import resolve_spring_di_calls
+    from gryphon.temporal_resolver import resolve_temporal_calls
 
     java_source = "@ActivityInterface interface WorkActivity { void work(); }\n"
     if has_java_implementation:

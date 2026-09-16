@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import CPP_IDENTITY_VERSION, incremental_update
-from code_review_graph.parser import CodeParser, NodeInfo
+from gryphon.graph import GraphStore
+from gryphon.incremental import CPP_IDENTITY_VERSION, incremental_update
+from gryphon.parser import CodeParser, NodeInfo
 
 
 @pytest.fixture
@@ -128,7 +128,7 @@ def test_ignored_failed_file_is_removed_or_reported_pending(
     monkeypatch.setenv("CRG_SERIAL_PARSE", "1")
     calls = failing_parser(monkeypatch)
     incremental_update(repo, store, changed_files=[])
-    (repo / ".code-review-graphignore").write_text("broken.cpp\n")
+    (repo / ".gryphonignore").write_text("broken.cpp\n")
     calls.clear()
     result = incremental_update(repo, store, changed_files=[], reconcile_stale=reconcile)
     assert calls == []

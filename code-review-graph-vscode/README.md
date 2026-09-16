@@ -25,15 +25,15 @@ Install **Code Review Graph** from the VS Code Marketplace.
 
 ### 2. Install the Backend
 
-The extension requires the `code-review-graph` Python CLI to parse your codebase.
+The extension requires the `gryphon` Python CLI to parse your codebase.
 
 ```bash
 # Recommended
-uv pip install code-review-graph
+uv pip install gryphon
 
 # Alternatives
-pipx install code-review-graph
-pip install code-review-graph
+pipx install gryphon
+pip install gryphon
 ```
 
 Requires Python 3.10+.
@@ -42,7 +42,7 @@ Requires Python 3.10+.
 
 Open the Command Palette (`Ctrl+Shift+P`) and run **Code Graph: Build Graph**.
 
-The graph database is stored locally at `.code-review-graph/graph.db` and updates automatically on file save.
+The graph database is stored locally at `.gryphon/graph.db` and updates automatically on file save.
 
 ## Commands
 
@@ -86,8 +86,8 @@ The graph database is stored locally at `.code-review-graph/graph.db` and update
 
 ## Links
 
-- [Main Repository](https://github.com/tirth8205/code-review-graph)
-- [Report an Issue](https://github.com/tirth8205/code-review-graph/issues)
+- [Main Repository](https://github.com/tirth8205/gryphon)
+- [Report an Issue](https://github.com/tirth8205/gryphon/issues)
 
 ## License
 

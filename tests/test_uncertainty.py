@@ -21,15 +21,15 @@ from pathlib import Path
 
 import pytest
 
-import code_review_graph.uncertainty as uncertainty
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser, EdgeInfo, NodeInfo
-from code_review_graph.tools.query import (
+import gryphon.uncertainty as uncertainty
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser, EdgeInfo, NodeInfo
+from gryphon.tools.query import (
     get_impact_radius,
     query_graph,
     semantic_search_nodes,
 )
-from code_review_graph.uncertainty import (
+from gryphon.uncertainty import (
     LANGUAGE_GAPS,
     MAX_CONFIDENCE_CHARS,
     empty_query_confidence,
@@ -42,14 +42,14 @@ def repo(tmp_path_factory):
     """A minimal project root with a graph that has real, resolvable nodes."""
     root = Path(tempfile.mkdtemp(dir=str(tmp_path_factory.mktemp("repos")))).resolve()
     (root / ".git").mkdir()
-    (root / ".code-review-graph").mkdir()
+    (root / ".gryphon").mkdir()
 
     auth = (root / "auth.py")
     auth.write_text("def login():\n    pass\n", encoding="utf-8")
     main = (root / "main.py")
     main.write_text("import auth\n\n\ndef process():\n    auth.login()\n", encoding="utf-8")
 
-    db_path = root / ".code-review-graph" / "graph.db"
+    db_path = root / ".gryphon" / "graph.db"
     with GraphStore(db_path) as store:
         for path in (auth, main):
             store.upsert_node(NodeInfo(
@@ -76,7 +76,7 @@ def repo(tmp_path_factory):
 
 
 def _store(root: Path) -> GraphStore:
-    return GraphStore(root / ".code-review-graph" / "graph.db")
+    return GraphStore(root / ".gryphon" / "graph.db")
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ def test_stale_commit_is_detected(repo, monkeypatch):
 
     assert result["result_count"] == 0
     assert "stale" in result["confidence"]
-    assert "code-review-graph update" in result["confidence"]
+    assert "gryphon update" in result["confidence"]
 
 
 def test_matching_commit_is_not_reported_stale(repo, monkeypatch):
@@ -394,9 +394,9 @@ def test_search_zero_hits_is_qualified(repo):
 
 def test_search_on_an_empty_graph_says_so(tmp_path):
     root = tmp_path / "empty"
-    (root / ".code-review-graph").mkdir(parents=True)
+    (root / ".gryphon").mkdir(parents=True)
     (root / ".git").mkdir()
-    GraphStore(root / ".code-review-graph" / "graph.db").close()
+    GraphStore(root / ".gryphon" / "graph.db").close()
 
     result = semantic_search_nodes(query="anything", repo_root=str(root))
 
@@ -566,9 +566,9 @@ def test_unresolved_target_on_a_current_graph_says_not_indexed(repo, monkeypatch
 def test_unresolved_target_on_an_empty_graph_says_build(tmp_path):
     """Nothing indexed at all is a build problem, not a missing symbol."""
     root = (tmp_path / "empty").resolve()
-    (root / ".code-review-graph").mkdir(parents=True)
+    (root / ".gryphon").mkdir(parents=True)
     (root / ".git").mkdir()
-    GraphStore(root / ".code-review-graph" / "graph.db").close()
+    GraphStore(root / ".gryphon" / "graph.db").close()
 
     result = query_graph(
         pattern="callers_of", target="Anything", repo_root=str(root),

@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 YAML_SOURCE = b"""
 spring:
@@ -145,7 +145,7 @@ def test_consumers_query_matches_direct_and_prefix_dependencies(tmp_path: Path) 
     yaml_nodes, yaml_edges = CodeParser().parse_bytes(yaml_path, YAML_SOURCE)
     profile_nodes, profile_edges = CodeParser().parse_bytes(profile_path, YAML_SOURCE)
     java_nodes, java_edges = CodeParser().parse_bytes(java_path, JAVA_SOURCE)
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         store.store_file_nodes_edges(str(yaml_path), yaml_nodes, yaml_edges, "yaml")

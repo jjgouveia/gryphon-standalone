@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_review_graph.embeddings import (
+from gryphon.embeddings import (
     LOCAL_DEFAULT_MODEL,
     EmbeddingStore,
     GoogleEmbeddingProvider,
@@ -24,7 +24,7 @@ from code_review_graph.embeddings import (
     _node_to_text,
     get_provider,
 )
-from code_review_graph.graph import GraphNode
+from gryphon.graph import GraphNode
 
 
 class TestVectorEncoding:
@@ -131,21 +131,21 @@ class TestEmbeddingStore:
 
     def test_store_initializes(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             store = EmbeddingStore(db)
             assert store.count() == 0
             store.close()
 
     def test_count_empty(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             store = EmbeddingStore(db)
             assert store.count() == 0
             store.close()
 
     def test_embed_nodes_returns_zero_when_unavailable(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             store = EmbeddingStore(db)
             result = store.embed_nodes([])
             assert result == 0
@@ -153,7 +153,7 @@ class TestEmbeddingStore:
 
     def test_search_returns_empty_when_unavailable(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             store = EmbeddingStore(db)
             results = store.search("query")
             assert results == []
@@ -161,7 +161,7 @@ class TestEmbeddingStore:
 
     def test_remove_node(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None):
+        with patch("gryphon.embeddings.get_provider", return_value=None):
             store = EmbeddingStore(db)
             # Should not raise even if node doesn't exist
             store.remove_node("nonexistent::func")
@@ -190,7 +190,7 @@ class TestEmbeddingStore:
         provider = Provider()
         nodes = [self._make_node(i) for i in range(5)]
 
-        with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+        with patch("gryphon.embeddings.get_provider", return_value=provider):
             store = EmbeddingStore(db)
             embedded = store.embed_nodes(nodes, batch_size=2)
             assert embedded == 5
@@ -223,7 +223,7 @@ class TestEmbeddingStore:
         provider = Provider()
         nodes = [self._make_node(i) for i in range(5)]
 
-        with patch("code_review_graph.embeddings.get_provider", return_value=provider):
+        with patch("gryphon.embeddings.get_provider", return_value=provider):
             store = EmbeddingStore(db)
             with pytest.raises(RuntimeError, match="rate limited"):
                 store.embed_nodes(nodes, batch_size=2)
@@ -278,7 +278,7 @@ class TestGoogleEmbeddingProviderRetryLogging:
     def test_retryable_error_logs_attempt_fraction_then_succeeds(self, caplog):
         fn = MagicMock(side_effect=[RuntimeError("429 rate limited"), [1.0]])
 
-        with patch("code_review_graph.embeddings.time.sleep") as sleep:
+        with patch("gryphon.embeddings.time.sleep") as sleep:
             result = GoogleEmbeddingProvider._call_with_retry(fn)
 
         assert result == [1.0]
@@ -291,7 +291,7 @@ class TestGoogleEmbeddingProviderRetryLogging:
         fn = MagicMock(side_effect=ValueError("400 invalid request"))
 
         with (
-            patch("code_review_graph.embeddings.time.sleep") as sleep,
+            patch("gryphon.embeddings.time.sleep") as sleep,
             pytest.raises(ValueError, match="400 invalid request"),
         ):
             GoogleEmbeddingProvider._call_with_retry(fn)
@@ -304,7 +304,7 @@ class TestGoogleEmbeddingProviderRetryLogging:
         fn = MagicMock(side_effect=RuntimeError("503 unavailable"))
 
         with (
-            patch("code_review_graph.embeddings.time.sleep") as sleep,
+            patch("gryphon.embeddings.time.sleep") as sleep,
             pytest.raises(RuntimeError, match="503 unavailable"),
         ):
             GoogleEmbeddingProvider._call_with_retry(fn)
@@ -344,27 +344,27 @@ class TestGetProviderValidation:
             "CRG_ACCEPT_CLOUD_EMBEDDINGS": "1",
         }, clear=False):
             with patch(
-                "code_review_graph.embeddings.MiniMaxEmbeddingProvider",
+                "gryphon.embeddings.MiniMaxEmbeddingProvider",
             ) as mock_cls:
                 mock_cls.return_value = MagicMock()
                 provider = get_provider("MiniMax")
         assert provider is mock_cls.return_value
 
-    @patch("code_review_graph.embeddings.LocalEmbeddingProvider")
-    @patch("code_review_graph.embeddings._check_available", return_value=True)
+    @patch("gryphon.embeddings.LocalEmbeddingProvider")
+    @patch("gryphon.embeddings._check_available", return_value=True)
     def test_local_case_and_whitespace_normalized(self, _mock_available, mock_cls):
         mock_cls.return_value = MagicMock()
         assert get_provider(" Local ") is mock_cls.return_value
 
-    @patch("code_review_graph.embeddings.LocalEmbeddingProvider")
-    @patch("code_review_graph.embeddings._check_available", return_value=True)
+    @patch("gryphon.embeddings.LocalEmbeddingProvider")
+    @patch("gryphon.embeddings._check_available", return_value=True)
     def test_none_and_empty_default_to_local(self, _mock_available, mock_cls):
         mock_cls.return_value = MagicMock()
         assert get_provider(None) is mock_cls.return_value
         assert get_provider("") is mock_cls.return_value
         assert get_provider("   ") is mock_cls.return_value
 
-    @patch("code_review_graph.embeddings.OpenAIEmbeddingProvider")
+    @patch("gryphon.embeddings.OpenAIEmbeddingProvider")
     def test_none_defaults_to_openai_when_env_configured(self, mock_cls):
         """When provider is omitted but OpenAI env vars are set, default to
         the OpenAI-compatible provider instead of local (#551)."""
@@ -386,9 +386,9 @@ class TestGetProviderValidation:
             batch_size=None,
         )
 
-    @patch("code_review_graph.embeddings.OpenAIEmbeddingProvider")
-    @patch("code_review_graph.embeddings.LocalEmbeddingProvider")
-    @patch("code_review_graph.embeddings._check_available", return_value=True)
+    @patch("gryphon.embeddings.OpenAIEmbeddingProvider")
+    @patch("gryphon.embeddings.LocalEmbeddingProvider")
+    @patch("gryphon.embeddings._check_available", return_value=True)
     def test_explicit_blank_stays_local_when_openai_env_configured(
         self, _mock_available, local_cls, openai_cls,
     ):
@@ -408,25 +408,25 @@ class TestGetProviderValidation:
 class TestGetProviderModel:
     """Tests for model parameter in get_provider()."""
 
-    @patch("code_review_graph.embeddings.LocalEmbeddingProvider")
-    @patch("code_review_graph.embeddings._check_available", return_value=True)
+    @patch("gryphon.embeddings.LocalEmbeddingProvider")
+    @patch("gryphon.embeddings._check_available", return_value=True)
     def test_local_passes_model(self, _mock_available, mock_cls):
         mock_cls.return_value = MagicMock()
         get_provider(provider=None, model="custom/model")
         mock_cls.assert_called_once_with(model_name="custom/model")
 
-    @patch("code_review_graph.embeddings.LocalEmbeddingProvider")
-    @patch("code_review_graph.embeddings._check_available", return_value=True)
+    @patch("gryphon.embeddings.LocalEmbeddingProvider")
+    @patch("gryphon.embeddings._check_available", return_value=True)
     def test_local_default_passes_none(self, _mock_available, mock_cls):
         mock_cls.return_value = MagicMock()
         get_provider(provider=None, model=None)
         mock_cls.assert_called_once_with(model_name=None)
 
-    @patch("code_review_graph.embeddings._check_available", return_value=False)
+    @patch("gryphon.embeddings._check_available", return_value=False)
     def test_local_unavailable_returns_none(self, _mock_available):
         assert get_provider("local") is None
 
-    @patch("code_review_graph.embeddings._check_available", return_value=False)
+    @patch("gryphon.embeddings._check_available", return_value=False)
     def test_embedding_store_unavailable_without_local_dependency(
         self, _mock_available, tmp_path,
     ):
@@ -447,7 +447,7 @@ class TestCloudProviderWarning:
         with patch.dict(os.environ, {"MINIMAX_API_KEY": "fake"}, clear=False):
             os.environ.pop("CRG_ACCEPT_CLOUD_EMBEDDINGS", None)
             with patch(
-                "code_review_graph.embeddings.MiniMaxEmbeddingProvider",
+                "gryphon.embeddings.MiniMaxEmbeddingProvider",
             ) as mock_cls:
                 mock_cls.return_value = MagicMock()
                 get_provider(provider="minimax")
@@ -462,7 +462,7 @@ class TestCloudProviderWarning:
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake"}, clear=False):
             os.environ.pop("CRG_ACCEPT_CLOUD_EMBEDDINGS", None)
             with patch(
-                "code_review_graph.embeddings.GoogleEmbeddingProvider",
+                "gryphon.embeddings.GoogleEmbeddingProvider",
             ) as mock_cls:
                 mock_cls.return_value = MagicMock()
                 get_provider(provider="google")
@@ -477,7 +477,7 @@ class TestCloudProviderWarning:
             "CRG_ACCEPT_CLOUD_EMBEDDINGS": "1",
         }, clear=False):
             with patch(
-                "code_review_graph.embeddings.MiniMaxEmbeddingProvider",
+                "gryphon.embeddings.MiniMaxEmbeddingProvider",
             ) as mock_cls:
                 mock_cls.return_value = MagicMock()
                 get_provider(provider="minimax")
@@ -488,9 +488,9 @@ class TestCloudProviderWarning:
     def test_local_provider_never_warns(self, capsys):
         """Local (offline) provider must not trigger the cloud warning."""
         with patch(
-            "code_review_graph.embeddings.LocalEmbeddingProvider",
+            "gryphon.embeddings.LocalEmbeddingProvider",
         ) as mock_cls:
-            with patch("code_review_graph.embeddings._check_available", return_value=True):
+            with patch("gryphon.embeddings._check_available", return_value=True):
                 mock_cls.return_value = MagicMock()
                 get_provider(provider=None)
         captured = capsys.readouterr()
@@ -502,13 +502,13 @@ class TestEmbeddingStoreModelPassthrough:
 
     def test_model_forwarded_to_get_provider(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None) as mock_gp:
+        with patch("gryphon.embeddings.get_provider", return_value=None) as mock_gp:
             EmbeddingStore(db, model="custom/model").close()
             mock_gp.assert_called_once_with(None, model="custom/model")
 
     def test_provider_and_model_forwarded(self, tmp_path):
         db = tmp_path / "embeddings.db"
-        with patch("code_review_graph.embeddings.get_provider", return_value=None) as mock_gp:
+        with patch("gryphon.embeddings.get_provider", return_value=None) as mock_gp:
             EmbeddingStore(db, provider="local", model="custom/model").close()
             mock_gp.assert_called_once_with("local", model="custom/model")
 
@@ -609,8 +609,8 @@ class TestMiniMaxEmbeddingProvider:
 
         req = mock_urlopen.call_args[0][0]
         ua = req.headers.get("User-agent", "")
-        assert ua.startswith("code-review-graph/")
-        assert "github.com/tirth8205/code-review-graph" in ua
+        assert ua.startswith("gryphon/")
+        assert "github.com/tirth8205/gryphon" in ua
 
 
 class TestGetProviderMiniMax:
@@ -753,10 +753,10 @@ class TestVoyageEmbeddingProvider:
                 ],
             ),
             patch(
-                "code_review_graph.embeddings.time.monotonic",
+                "gryphon.embeddings.time.monotonic",
                 side_effect=[100.0, 101.0, 103.0],
             ),
-            patch("code_review_graph.embeddings.time.sleep") as sleep,
+            patch("gryphon.embeddings.time.sleep") as sleep,
         ):
             result = provider.embed(["hello", "world"])
 
@@ -978,8 +978,8 @@ class TestOpenAIEmbeddingProvider:
         # default UA with HTTP 403 / error 1010. See _USER_AGENT in
         # embeddings.py.
         ua = req.headers.get("User-agent", "")
-        assert ua.startswith("code-review-graph/")
-        assert "github.com/tirth8205/code-review-graph" in ua
+        assert ua.startswith("gryphon/")
+        assert "github.com/tirth8205/gryphon" in ua
         assert req.full_url == "http://127.0.0.1:3000/v1/embeddings"
 
     def test_explicit_dimension_forwarded_in_payload(self):

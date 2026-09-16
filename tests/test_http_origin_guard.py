@@ -14,7 +14,7 @@ import pytest
 from fastmcp import FastMCP
 from starlette.testclient import TestClient
 
-from code_review_graph.http_origin_guard import (
+from gryphon.http_origin_guard import (
     LoopbackOriginGuard,
     build_http_middleware,
     is_loopback_host,

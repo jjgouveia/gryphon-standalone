@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-code-review-graph is a local-first knowledge graph for code review. It parses a repository with Tree-sitter (plus targeted fallbacks), stores nodes and edges in SQLite, updates the graph incrementally from Git changes, and serves compact context over MCP and the CLI to AI coding tools. Supported platforms are the entries in `PLATFORMS` in `skills.py`: Claude Code, Codex, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen Code, Kiro, Qoder, GitHub Copilot, GitHub Copilot CLI, Hermes Agent and CodeBuddy Code.
+gryphon is a local-first knowledge graph for code review. It parses a repository with Tree-sitter (plus targeted fallbacks), stores nodes and edges in SQLite, updates the graph incrementally from Git changes, and serves compact context over MCP and the CLI to AI coding tools. Supported platforms are the entries in `PLATFORMS` in `skills.py`: Claude Code, Codex, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen Code, Kiro, Qoder, GitHub Copilot, GitHub Copilot CLI, Hermes Agent and CodeBuddy Code.
 
 ## Graph Tool Usage (Token-Efficient)
 
-When using code-review-graph MCP tools:
+When using gryphon MCP tools:
 
 1. Call `get_minimal_context_tool(task="<description>")` first. It costs about 100 tokens and gives the overview.
 2. Use `detail_level="minimal"` on every later call unless that is not enough.
@@ -18,13 +18,13 @@ All registered tool names end in `_tool`. The 30 tools are defined in `main.py`.
 
 ## Architecture
 
-Core package `code_review_graph/` (Python 3.10+):
+Core package `gryphon/` (Python 3.10+):
 
 - `main.py`: FastMCP server entry point. Registers 30 tools and 5 prompts.
 - `tools/`: tool implementations by domain: `build.py`, `query.py`, `review.py`, `context.py`, `flows_tools.py`, `community_tools.py`, `refactor_tools.py`, `docs.py`, `registry_tools.py`, `analysis_tools.py`; shared helpers in `_common.py`.
 - `prompts.py`: 5 MCP prompts (review_changes, architecture_map, debug_issue, onboard_developer, pre_merge_check).
-- `cli.py`: the `code-review-graph` command. `daemon.py` and `daemon_cli.py`: the `crg-daemon` multi-repo watch daemon.
-- `parser.py`: Tree-sitter multi-language parser with fallbacks for notebooks and other formats. `custom_languages.py`: languages defined in `.code-review-graph/languages.toml` (see docs/CUSTOM_LANGUAGES.md).
+- `cli.py`: the `gryphon` command. `daemon.py` and `daemon_cli.py`: the `gryphon-daemon` multi-repo watch daemon.
+- `parser.py`: Tree-sitter multi-language parser with fallbacks for notebooks and other formats. `custom_languages.py`: languages defined in `.gryphon/languages.toml` (see docs/CUSTOM_LANGUAGES.md).
 - `graph.py`: SQLite graph store (nodes, edges, impact analysis). `migrations.py`: schema migrations; the current schema version is 10 and must equal `SUPPORTED_SCHEMA_VERSION` in the VS Code extension (CI checks this).
 - `incremental.py`: full build, Git/SVN change detection, incremental update, stale-file reconciliation, watch mode. `postprocessing.py`: shared post-build pipeline (signatures, flows, communities, FTS).
 - Post-build resolvers: `python_resolver.py`, `jedi_resolver.py` (optional `enrichment` extra), `spring_resolver.py`, `event_resolver.py`, `temporal_resolver.py`, `config_keys.py`, `scoped_resolver.py` (PHP, Rust, C#), `rescript_resolver.py`, `hcl_resolver.py`, `tsconfig_resolver.py` (tsconfig and jsconfig path aliases).
@@ -35,29 +35,29 @@ Core package `code_review_graph/` (Python 3.10+):
 - `skills.py`: `install` (platform MCP configs, hooks, skills, instruction blocks). `_legacy_instructions.py`: instruction blocks shipped by earlier releases. `uninstall.py`: reverses `install`. `enrich.py`: PreToolUse hook enrichment. `forget.py`: drops files from the graph. `registry.py`: multi-repo registry. `http_origin_guard.py`: Host/Origin checks for `serve --http`. `token_benchmark.py` and `eval/`: benchmarks. `constants.py`: shared constants.
 - `docs/LLM-OPTIMIZED-REFERENCE.md`: the reference served by `get_docs_section_tool`.
 
-VS Code extension: `code-review-graph-vscode/` (TypeScript, separate `package.json` and `tsconfig.json`). Reads `.code-review-graph/graph.db` directly.
+VS Code extension: `gryphon-vscode/` (TypeScript, separate `package.json` and `tsconfig.json`). Reads `.gryphon/graph.db` directly.
 
-Database: `.code-review-graph/graph.db` (SQLite, WAL mode).
+Database: `.gryphon/graph.db` (SQLite, WAL mode).
 
 ## Key Commands
 
 ```bash
 # Development
 uv run pytest tests/ --tb=short -q
-uv run ruff check code_review_graph/
-uv run mypy code_review_graph/ --ignore-missing-imports --no-strict-optional
+uv run ruff check gryphon/
+uv run mypy gryphon/ --ignore-missing-imports --no-strict-optional
 
 # Graph
-uv run code-review-graph build              # full build
-uv run code-review-graph update             # incremental update
-uv run code-review-graph status             # graph statistics
-uv run code-review-graph detect-changes     # risk-scored change analysis (read-only)
-uv run code-review-graph forget PATH        # drop files from the graph
-uv run code-review-graph serve              # MCP server (stdio; --http for localhost)
-uv run code-review-graph wiki               # Markdown wiki
-uv run code-review-graph register <path>    # add a repo to the multi-repo registry
-uv run code-review-graph eval               # benchmarks
-uv run code-review-graph --help             # full command list
+uv run gryphon build              # full build
+uv run gryphon update             # incremental update
+uv run gryphon status             # graph statistics
+uv run gryphon detect-changes     # risk-scored change analysis (read-only)
+uv run gryphon forget PATH        # drop files from the graph
+uv run gryphon serve              # MCP server (stdio; --http for localhost)
+uv run gryphon wiki               # Markdown wiki
+uv run gryphon register <path>    # add a repo to the multi-repo registry
+uv run gryphon eval               # benchmarks
+uv run gryphon --help             # full command list
 ```
 
 ## Code Conventions
@@ -73,7 +73,7 @@ uv run code-review-graph --help             # full command list
 
 - No `eval()`, `exec()`, `pickle` or `yaml.unsafe_load()`.
 - No `shell=True` in subprocess calls.
-- `_validate_repo_root()` requires an existing directory containing `.git`, `.svn` or `.code-review-graph`, which blocks path traversal through `repo_root`.
+- `_validate_repo_root()` requires an existing directory containing `.git`, `.svn` or `.gryphon`, which blocks path traversal through `repo_root`.
 - `_sanitize_name()` strips control characters and caps names at 256 characters.
 - `escH()` in `visualization.py` escapes HTML entities including quotes and backticks; `</script>` is escaped inside embedded JSON.
 - D3.js is bundled and loaded with an SRI hash; the CDN fallback carries the same hash.
@@ -160,10 +160,10 @@ CONTRIBUTING.md "Branching and promotion".
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
 
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
+<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
 
-**This project has a knowledge graph. Start with the code-review-graph
+**This project has a knowledge graph. Start with the gryphon
 MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
 gives you structural context (callers, dependents, test coverage) that file search cannot.
 
@@ -204,4 +204,4 @@ gives you structural context (callers, dependents, test coverage) that file sear
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
-<!-- /code-review-graph MCP tools -->
+<!-- /gryphon MCP tools -->

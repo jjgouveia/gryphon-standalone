@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, call, patch  # noqa: F401 – used in tests
 
 import pytest
 
-import code_review_graph.incremental as incremental_module
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import (
+import gryphon.incremental as incremental_module
+from gryphon.graph import GraphStore
+from gryphon.incremental import (
     _create_watch_handler,
     _decode_name_status_paths,
     _is_binary,
@@ -157,17 +157,17 @@ class TestFindProjectRoot:
 class TestGetDbPath:
     def test_creates_directory_and_db_path(self, tmp_path):
         db_path = get_db_path(tmp_path)
-        assert db_path == tmp_path / ".code-review-graph" / "graph.db"
-        assert (tmp_path / ".code-review-graph").is_dir()
+        assert db_path == tmp_path / ".gryphon" / "graph.db"
+        assert (tmp_path / ".gryphon").is_dir()
 
     def test_creates_gitignore(self, tmp_path):
         get_db_path(tmp_path)
-        gi = tmp_path / ".code-review-graph" / ".gitignore"
+        gi = tmp_path / ".gryphon" / ".gitignore"
         assert gi.exists()
         assert "*\n" in gi.read_text(encoding="utf-8")
 
     def test_migrates_legacy_db(self, tmp_path):
-        legacy = tmp_path / ".code-review-graph.db"
+        legacy = tmp_path / ".gryphon.db"
         legacy.write_text("legacy data")
         db_path = get_db_path(tmp_path)
         assert db_path.exists()
@@ -175,19 +175,19 @@ class TestGetDbPath:
         assert db_path.read_text() == "legacy data"
 
     def test_cleans_legacy_side_files(self, tmp_path):
-        legacy = tmp_path / ".code-review-graph.db"
+        legacy = tmp_path / ".gryphon.db"
         legacy.write_text("data")
         for suffix in ("-wal", "-shm", "-journal"):
-            (tmp_path / f".code-review-graph.db{suffix}").write_text("side")
+            (tmp_path / f".gryphon.db{suffix}").write_text("side")
         get_db_path(tmp_path)
         for suffix in ("-wal", "-shm", "-journal"):
-            assert not (tmp_path / f".code-review-graph.db{suffix}").exists()
+            assert not (tmp_path / f".gryphon.db{suffix}").exists()
 
     def test_read_only_resolution_does_not_create_migrate_or_clean(self, tmp_path):
-        legacy = tmp_path / ".code-review-graph.db"
+        legacy = tmp_path / ".gryphon.db"
         legacy.write_text("legacy data")
         side_files = [
-            tmp_path / f".code-review-graph.db{suffix}"
+            tmp_path / f".gryphon.db{suffix}"
             for suffix in ("-wal", "-shm", "-journal")
         ]
         for side_file in side_files:
@@ -195,7 +195,7 @@ class TestGetDbPath:
 
         db_path = get_db_path(tmp_path, read_only=True)
 
-        assert db_path == tmp_path / ".code-review-graph" / "graph.db"
+        assert db_path == tmp_path / ".gryphon" / "graph.db"
         assert not db_path.parent.exists()
         assert legacy.read_text() == "legacy data"
         assert all(side_file.read_text() == "side" for side_file in side_files)
@@ -209,8 +209,8 @@ class TestEnsureRepoGitignoreExcludesCrg:
         gitignore = tmp_path / ".gitignore"
         assert gitignore.exists()
         assert gitignore.read_text() == (
-            "# Added by code-review-graph\n"
-            ".code-review-graph/\n"
+            "# Added by gryphon\n"
+            ".gryphon/\n"
         )
 
     def test_appends_rule_when_missing(self, tmp_path):
@@ -221,21 +221,21 @@ class TestEnsureRepoGitignoreExcludesCrg:
         assert state == "updated"
         assert gitignore.read_text() == (
             "node_modules/\n"
-            "# Added by code-review-graph\n"
-            ".code-review-graph/\n"
+            "# Added by gryphon\n"
+            ".gryphon/\n"
         )
 
     def test_idempotent_when_present(self, tmp_path):
         gitignore = tmp_path / ".gitignore"
-        gitignore.write_text(".code-review-graph/\n")
+        gitignore.write_text(".gryphon/\n")
 
         state = ensure_repo_gitignore_excludes_crg(tmp_path)
         assert state == "already-present"
-        assert gitignore.read_text() == ".code-review-graph/\n"
+        assert gitignore.read_text() == ".gryphon/\n"
 
     def test_treats_wildcard_ignore_as_present(self, tmp_path):
         gitignore = tmp_path / ".gitignore"
-        gitignore.write_text(".code-review-graph/**\n")
+        gitignore.write_text(".gryphon/**\n")
 
         state = ensure_repo_gitignore_excludes_crg(tmp_path)
         assert state == "already-present"
@@ -250,7 +250,7 @@ class TestIgnorePatterns:
         assert "/build/**" in patterns
 
     def test_custom_ignore_file(self, tmp_path):
-        ignore = tmp_path / ".code-review-graphignore"
+        ignore = tmp_path / ".gryphonignore"
         ignore.write_text("custom/\n# comment\n\nvendor/**\n")
         patterns = _load_ignore_patterns(tmp_path)
         assert "**/custom/**" in patterns
@@ -267,7 +267,7 @@ class TestIgnorePatterns:
         assert not _should_ignore("src/main.py", patterns)
 
     def test_should_ignore_directory_trailing_slash_pattern(self, tmp_path):
-        ignore = tmp_path / ".code-review-graphignore"
+        ignore = tmp_path / ".gryphonignore"
         ignore.write_text("vendor/\n/generated/\n")
 
         patterns = _load_ignore_patterns(tmp_path)
@@ -297,7 +297,7 @@ class TestIgnorePatterns:
 
     def test_should_ignore_framework_defaults(self):
         """Default patterns should cover Laravel, Gradle, Flutter, and caches."""
-        from code_review_graph.incremental import DEFAULT_IGNORE_PATTERNS
+        from gryphon.incremental import DEFAULT_IGNORE_PATTERNS
 
         patterns = DEFAULT_IGNORE_PATTERNS
         # Laravel/PHP
@@ -314,7 +314,7 @@ class TestIgnorePatterns:
 
     def test_root_output_defaults_do_not_hide_nested_source_directories(self):
         """Reviewed #92 semantics keep ambiguous output names root-relative."""
-        from code_review_graph.incremental import DEFAULT_IGNORE_PATTERNS
+        from gryphon.incremental import DEFAULT_IGNORE_PATTERNS
 
         patterns = DEFAULT_IGNORE_PATTERNS
         for directory in ("build", "dist", "bin", "obj", "target"):
@@ -326,7 +326,7 @@ class TestIgnorePatterns:
 
     def test_cdk_output_default_matches_at_any_depth(self):
         """AWS CDK synth output is generated in root and monorepo projects."""
-        from code_review_graph.incremental import DEFAULT_IGNORE_PATTERNS
+        from gryphon.incremental import DEFAULT_IGNORE_PATTERNS
 
         patterns = DEFAULT_IGNORE_PATTERNS
         assert _should_ignore("cdk.out/manifest.json", patterns)
@@ -335,7 +335,7 @@ class TestIgnorePatterns:
 
     def test_safe_dependency_defaults_still_match_at_any_depth(self):
         """The monorepo dependency case from #91 remains fixed."""
-        from code_review_graph.incremental import DEFAULT_IGNORE_PATTERNS
+        from gryphon.incremental import DEFAULT_IGNORE_PATTERNS
 
         patterns = DEFAULT_IGNORE_PATTERNS
         assert _should_ignore("packages/app/node_modules/pkg/index.js", patterns)
@@ -347,11 +347,11 @@ class TestDataDir:
     """Tests for get_data_dir / CRG_DATA_DIR / CRG_REPO_ROOT (#155)."""
 
     def test_default_uses_repo_subdir(self, tmp_path, monkeypatch):
-        """Without CRG_DATA_DIR, graphs live at <repo>/.code-review-graph."""
+        """Without CRG_DATA_DIR, graphs live at <repo>/.gryphon."""
         monkeypatch.delenv("CRG_DATA_DIR", raising=False)
-        from code_review_graph.incremental import get_data_dir
+        from gryphon.incremental import get_data_dir
         result = get_data_dir(tmp_path)
-        assert result == tmp_path / ".code-review-graph"
+        assert result == tmp_path / ".gryphon"
         assert result.is_dir()
         # Auto-generated gitignore must exist
         assert (result / ".gitignore").is_file()
@@ -368,7 +368,7 @@ class TestDataDir:
         byte 0x97), producing a file that cannot be decoded as UTF-8.
         """
         monkeypatch.delenv("CRG_DATA_DIR", raising=False)
-        from code_review_graph.incremental import get_data_dir
+        from gryphon.incremental import get_data_dir
         data_dir = get_data_dir(tmp_path)
         gi = data_dir / ".gitignore"
         assert gi.is_file()
@@ -391,17 +391,17 @@ class TestDataDir:
         assert "—" in decoded, "em-dash missing from decoded gitignore"
 
     def test_env_override_replaces_repo_subdir(self, tmp_path, monkeypatch):
-        """CRG_DATA_DIR replaces the default <repo>/.code-review-graph."""
+        """CRG_DATA_DIR replaces the default <repo>/.gryphon."""
         external = tmp_path / "external-graphs"
         repo = tmp_path / "project"
         repo.mkdir()
         monkeypatch.setenv("CRG_DATA_DIR", str(external))
-        from code_review_graph.incremental import get_data_dir
+        from gryphon.incremental import get_data_dir
         result = get_data_dir(repo)
         assert result == external.resolve()
         assert result.is_dir()
-        # The repo itself should NOT have a .code-review-graph dir now
-        assert not (repo / ".code-review-graph").exists()
+        # The repo itself should NOT have a .gryphon dir now
+        assert not (repo / ".gryphon").exists()
 
     def test_get_db_path_uses_data_dir(self, tmp_path, monkeypatch):
         """get_db_path should honor CRG_DATA_DIR too."""
@@ -409,7 +409,7 @@ class TestDataDir:
         repo = tmp_path / "project"
         repo.mkdir()
         monkeypatch.setenv("CRG_DATA_DIR", str(external))
-        from code_review_graph.incremental import get_db_path
+        from gryphon.incremental import get_db_path
         db_path = get_db_path(repo)
         assert db_path == external.resolve() / "graph.db"
         assert db_path.parent.is_dir()
@@ -420,7 +420,7 @@ class TestDataDir:
         external_repo = tmp_path / "elsewhere"
         external_repo.mkdir()
         monkeypatch.setenv("CRG_REPO_ROOT", str(external_repo))
-        from code_review_graph.incremental import find_project_root
+        from gryphon.incremental import find_project_root
         result = find_project_root(PathType.cwd())
         assert result == external_repo.resolve()
 
@@ -432,7 +432,7 @@ class TestDataDir:
         monkeypatch.setenv(
             "CRG_REPO_ROOT", str(tmp_path / "does-not-exist-123"),
         )
-        from code_review_graph.incremental import find_project_root
+        from gryphon.incremental import find_project_root
         result = find_project_root(tmp_path)
         # Should NOT equal the bogus env value
         assert result != tmp_path / "does-not-exist-123"
@@ -442,9 +442,9 @@ class TestDataDirRegistry:
     """Tests for registry-based data_dir resolution."""
 
     def test_registry_data_dir_overrides_default(self, tmp_path, monkeypatch):
-        """Registry data_dir should override default .code-review-graph."""
-        from code_review_graph.incremental import get_data_dir
-        from code_review_graph.registry import Registry
+        """Registry data_dir should override default .gryphon."""
+        from gryphon.incremental import get_data_dir
+        from gryphon.registry import Registry
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -459,12 +459,12 @@ class TestDataDirRegistry:
         result = get_data_dir(repo)
         assert result == external.resolve()
         assert result.is_dir()
-        assert not (repo / ".code-review-graph").exists()
+        assert not (repo / ".gryphon").exists()
 
     def test_registry_data_dir_overrides_env_var(self, tmp_path, monkeypatch):
         """Registry data_dir should override CRG_DATA_DIR."""
-        from code_review_graph.incremental import get_data_dir
-        from code_review_graph.registry import Registry
+        from gryphon.incremental import get_data_dir
+        from gryphon.registry import Registry
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -484,7 +484,7 @@ class TestDataDirRegistry:
 
     def test_registry_fallback_to_env_var(self, tmp_path, monkeypatch):
         """Fall back to CRG_DATA_DIR when registry has no entry."""
-        from code_review_graph.incremental import get_data_dir
+        from gryphon.incremental import get_data_dir
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -499,7 +499,7 @@ class TestDataDirRegistry:
 
     def test_registry_fallback_to_default(self, tmp_path, monkeypatch):
         """Fall back to default when neither registry nor env var is set."""
-        from code_review_graph.incremental import get_data_dir
+        from gryphon.incremental import get_data_dir
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -508,13 +508,13 @@ class TestDataDirRegistry:
 
         # Don't set in registry
         result = get_data_dir(repo)
-        assert result == repo / ".code-review-graph"
+        assert result == repo / ".gryphon"
         assert result.is_dir()
 
     def test_data_dir_auto_creates_directory(self, tmp_path, monkeypatch):
         """get_data_dir should auto-create the data directory."""
-        from code_review_graph.incremental import get_data_dir
-        from code_review_graph.registry import Registry
+        from gryphon.incremental import get_data_dir
+        from gryphon.registry import Registry
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -548,7 +548,7 @@ class TestIsBinary:
 
 
 class TestGitOperations:
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -563,7 +563,7 @@ class TestGitOperations:
         assert call_args[1].get("timeout") == 30
         assert "text" not in call_args[1]
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_fallback(self, mock_run, tmp_path):
         # First call fails, second succeeds
         mock_run.side_effect = [
@@ -575,7 +575,7 @@ class TestGitOperations:
         assert mock_run.call_count == 2
         assert "-z" in mock_run.call_args_list[1].args[0]
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_strict_failure_does_not_fallback(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(returncode=128, stdout=b"")
 
@@ -584,7 +584,7 @@ class TestGitOperations:
 
         mock_run.assert_called_once()
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_rejects_failed_fallback(self, mock_run, tmp_path):
         mock_run.side_effect = [
             MagicMock(returncode=128, stdout=b""),
@@ -593,18 +593,18 @@ class TestGitOperations:
 
         assert get_changed_files(tmp_path) == []
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_timeout(self, mock_run, tmp_path):
         mock_run.side_effect = subprocess.TimeoutExpired("git", 30)
         result = get_changed_files(tmp_path)
         assert result == []
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_rejects_option_like_base(self, mock_run, tmp_path):
         assert get_changed_files(tmp_path, base="--no-index") == []
         mock_run.assert_not_called()
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_staged_and_unstaged(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -630,7 +630,7 @@ class TestGitOperations:
         command = mock_run.call_args.args[0]
         assert "--untracked-files=all" in command
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_staged_and_unstaged_rejects_failed_status(
         self, mock_run, tmp_path
     ):
@@ -642,7 +642,7 @@ class TestGitOperations:
 
         assert get_staged_and_unstaged(tmp_path) == []
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_all_tracked_files(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -651,7 +651,7 @@ class TestGitOperations:
         result = get_all_tracked_files(tmp_path)
         assert result == ["a.py", "b.py", "c.go"]
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_all_tracked_files_recurse_submodules_param(
         self, mock_run, tmp_path
     ):
@@ -664,7 +664,7 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" in cmd
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_all_tracked_files_no_recurse_by_default(
         self, mock_run, tmp_path
     ):
@@ -677,8 +677,8 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" not in cmd
 
-    @patch("code_review_graph.incremental.subprocess.run")
-    @patch("code_review_graph.incremental._RECURSE_SUBMODULES", True)
+    @patch("gryphon.incremental.subprocess.run")
+    @patch("gryphon.incremental._RECURSE_SUBMODULES", True)
     def test_get_all_tracked_files_env_var_fallback(
         self, mock_run, tmp_path
     ):
@@ -692,8 +692,8 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" in cmd
 
-    @patch("code_review_graph.incremental.subprocess.run")
-    @patch("code_review_graph.incremental._RECURSE_SUBMODULES", True)
+    @patch("gryphon.incremental.subprocess.run")
+    @patch("gryphon.incremental._RECURSE_SUBMODULES", True)
     def test_get_all_tracked_files_param_overrides_env(
         self, mock_run, tmp_path
     ):
@@ -718,7 +718,7 @@ class TestFullBuild:
         db_path = tmp_path / "test.db"
         store = GraphStore(db_path)
         try:
-            mock_target = "code_review_graph.incremental.get_all_tracked_files"
+            mock_target = "gryphon.incremental.get_all_tracked_files"
             with patch(mock_target, return_value=["sample.py"]):
                 result = full_build(tmp_path, store)
             assert result["files_parsed"] == 1
@@ -738,7 +738,7 @@ class TestFullBuild:
         store = GraphStore(tmp_path / "test.db")
         try:
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["package/first.py", "package/second.py"],
             ):
                 full_build(tmp_path, store)
@@ -747,7 +747,7 @@ class TestFullBuild:
             package.rmdir()
 
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=[],
             ):
                 result = full_build(tmp_path, store)
@@ -758,7 +758,7 @@ class TestFullBuild:
             store.close()
 
     def test_full_build_removes_nodes_left_without_a_file_node(self, tmp_path):
-        from code_review_graph.parser import EdgeInfo, NodeInfo
+        from gryphon.parser import EdgeInfo, NodeInfo
 
         current = tmp_path / "sample.py"
         current.write_text("def hello():\n    pass\n")
@@ -787,7 +787,7 @@ class TestFullBuild:
             store.commit()
 
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["sample.py"],
             ):
                 result = full_build(tmp_path, store)
@@ -1121,7 +1121,7 @@ class TestParallelParsing:
             )
 
         tracked = [f"mod{i}.py" for i in range(10)]
-        mock_target = "code_review_graph.incremental.get_all_tracked_files"
+        mock_target = "gryphon.incremental.get_all_tracked_files"
 
         # Serial build
         db_serial = tmp_path / "serial.db"
@@ -1159,7 +1159,7 @@ class TestMultiHopDependents:
 
     def _make_chain_store(self, tmp_path):
         """Build A -> B -> C chain in the graph."""
-        from code_review_graph.parser import EdgeInfo, NodeInfo
+        from gryphon.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "chain.db"
         store = GraphStore(db_path)
@@ -1213,7 +1213,7 @@ class TestMultiHopDependents:
 
     def test_cap_triggers_on_many_files(self, tmp_path):
         """The 500-file cap prevents runaway expansion."""
-        from code_review_graph.parser import EdgeInfo, NodeInfo
+        from gryphon.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "big.db"
         store = GraphStore(db_path)
@@ -1252,7 +1252,7 @@ class TestMultiHopDependents:
     def test_truncated_flag_set_when_capped(self, tmp_path):
         """Regression test for #261: find_dependents must set
         DependentList.truncated = True when the result is capped."""
-        from code_review_graph.parser import EdgeInfo, NodeInfo
+        from gryphon.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "trunc.db"
         store = GraphStore(db_path)
@@ -1306,7 +1306,7 @@ class TestMultiHopDependents:
 
 
 class TestStartWatchThread:
-    @patch("code_review_graph.incremental.watch")
+    @patch("gryphon.incremental.watch")
     def test_starts_background_thread(self, mock_watch, tmp_path):
         """start_watch_thread returns a running thread when watchdog is available."""
         import threading
@@ -1362,7 +1362,7 @@ class TestWatchReconciliation:
             from watchdog.events import FileModifiedEvent
 
             with patch(
-                "code_review_graph.incremental.collect_all_files",
+                "gryphon.incremental.collect_all_files",
                 side_effect=AssertionError("watch batch inventoried repository"),
             ):
                 handler.process([FileModifiedEvent(str(source))])
@@ -1398,7 +1398,7 @@ class TestWatchReconciliation:
     def test_watch_startup_postprocess_warning_prevents_observer_start(self, tmp_path):
         import sqlite3
 
-        from code_review_graph.postprocessing import run_post_processing
+        from gryphon.postprocessing import run_post_processing
 
         deleted = tmp_path / "offline.py"
         deleted.write_text("def offline():\n    pass\n")
@@ -1410,7 +1410,7 @@ class TestWatchReconciliation:
                 patch("watchdog.observers.Observer") as observer,
                 patch("time.sleep", side_effect=KeyboardInterrupt),
                 patch(
-                    "code_review_graph.search.rebuild_fts_index",
+                    "gryphon.search.rebuild_fts_index",
                     side_effect=sqlite3.OperationalError("forced FTS failure"),
                 ),
                 pytest.raises(
@@ -1517,7 +1517,7 @@ class TestWatchReconciliation:
             from watchdog.events import DirMovedEvent
 
             with patch(
-                "code_review_graph.incremental.collect_all_files",
+                "gryphon.incremental.collect_all_files",
                 side_effect=AssertionError("directory move inventoried repository"),
             ):
                 handler.process([DirMovedEvent(str(source_dir), str(destination_dir))])
@@ -1541,7 +1541,7 @@ class TestWatchReconciliation:
             from watchdog.events import DirDeletedEvent
 
             with patch(
-                "code_review_graph.incremental.collect_all_files",
+                "gryphon.incremental.collect_all_files",
                 side_effect=AssertionError("directory delete inventoried repository"),
             ):
                 handler.process([DirDeletedEvent(str(package))])
@@ -1628,7 +1628,7 @@ class TestWatchReconciliation:
         try:
             from watchdog.events import FileCreatedEvent
 
-            with patch("code_review_graph.incremental.incremental_update", tracked_update):
+            with patch("gryphon.incremental.incremental_update", tracked_update):
                 handler.process([FileCreatedEvent(str(source))])
 
             assert phases == ["update", "callback"]
@@ -1644,7 +1644,7 @@ class TestWatchReconciliation:
             from watchdog.events import FileCreatedEvent
 
             with patch(
-                "code_review_graph.incremental.incremental_update",
+                "gryphon.incremental.incremental_update",
                 side_effect=RuntimeError("update failed"),
             ):
                 handler.process([FileCreatedEvent(str(broken))])
@@ -1663,7 +1663,7 @@ class TestWatchReconciliation:
             from watchdog.events import FileCreatedEvent
 
             with patch(
-                "code_review_graph.incremental.CodeParser.parse_bytes",
+                "gryphon.incremental.CodeParser.parse_bytes",
                 side_effect=RuntimeError("forced parse failure"),
             ):
                 handler.process([FileCreatedEvent(str(source))])
@@ -1706,7 +1706,7 @@ class TestWatchReconciliation:
             from watchdog.events import FileCreatedEvent
 
             with patch(
-                "code_review_graph.incremental.incremental_update",
+                "gryphon.incremental.incremental_update",
                 return_value=result,
             ):
                 handler.process([FileCreatedEvent(str(broken))])
@@ -1739,7 +1739,7 @@ class TestWatchReconciliation:
 
         from watchdog.events import FileCreatedEvent
 
-        from code_review_graph.postprocessing import run_post_processing
+        from gryphon.postprocessing import run_post_processing
 
         source = tmp_path / "source.py"
         source.write_text("def source():\n    return 1\n")
@@ -1747,7 +1747,7 @@ class TestWatchReconciliation:
         handler = _create_watch_handler(tmp_path, store, run_post_processing)
         try:
             with patch(
-                "code_review_graph.search.rebuild_fts_index",
+                "gryphon.search.rebuild_fts_index",
                 side_effect=sqlite3.OperationalError("forced FTS failure"),
             ):
                 handler.process([FileCreatedEvent(str(source))])
@@ -1791,7 +1791,7 @@ class TestRenamePurgeParity:
     def test_decode_name_status_empty(self):
         assert _decode_name_status_paths(b"") == []
 
-    @patch("code_review_graph.incremental.subprocess.run")
+    @patch("gryphon.incremental.subprocess.run")
     def test_get_changed_files_reports_both_sides_of_rename(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,

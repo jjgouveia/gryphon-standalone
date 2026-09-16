@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def test_require_once_resolves_relative_php_file(tmp_path: Path) -> None:

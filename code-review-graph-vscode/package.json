@@ -1,7 +1,7 @@
 {
-  "name": "code-review-graph",
+  "name": "gryphon",
   "displayName": "Code Review Graph",
-  "description": "Visualize code dependencies, blast radius, and review context from your code-review-graph database directly in VS Code.",
+  "description": "Visualize code dependencies, blast radius, and review context from your gryphon database directly in VS Code.",
   "version": "0.2.2",
   "publisher": "tirth8205",
   "license": "MIT",
@@ -17,7 +17,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/tirth8205/code-review-graph"
+    "url": "https://github.com/tirth8205/gryphon"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -30,7 +30,7 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.code-review-graph/graph.db",
+    "workspaceContains:.gryphon/graph.db",
     "onCommand:codeReviewGraph.*",
     "onView:codeReviewGraph.*"
   ],
@@ -171,7 +171,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Path to the code-review-graph CLI binary. Leave empty to use the bundled version or the one found on PATH."
+          "description": "Path to the gryphon CLI binary. Leave empty to use the bundled version or the one found on PATH."
         },
         "codeReviewGraph.autoUpdate": {
           "type": "boolean",
@@ -262,7 +262,7 @@
           {
             "id": "codeReviewGraph.welcome.install",
             "title": "Install the CLI",
-            "description": "Install the code-review-graph CLI tool to build your graph database.\n\n[Install CLI](command:codeReviewGraph.walkthrough.install)",
+            "description": "Install the gryphon CLI tool to build your graph database.\n\n[Install CLI](command:codeReviewGraph.walkthrough.install)",
             "media": {
               "markdown": "media/walkthrough/install.md"
             }

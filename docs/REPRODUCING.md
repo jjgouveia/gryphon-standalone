@@ -12,11 +12,11 @@ a model tokenizer. To check it against a real tokenizer:
 
 ```bash
 pip install tiktoken
-code-review-graph detect-changes --brief --verify    # also: update --brief --verify
+gryphon detect-changes --brief --verify    # also: update --brief --verify
 ```
 
 The panel gains a `Verified (tiktoken)` row computed with OpenAI's `cl100k_base` tokenizer
-(`verify_with_tiktoken()` in `code_review_graph/context_savings.py`). Example output:
+(`verify_with_tiktoken()` in `gryphon/context_savings.py`). Example output:
 
 ```text
 ┌───────────────────────── Token Savings ─────────────────────────┐
@@ -40,7 +40,7 @@ sampled from the six eval repositories:
 | gin | 30 | 471,793 | 117,962 | 132,296 | 0.892 |
 | express | 23 | 296,805 | 74,207 | 83,575 | 0.888 |
 | httpx | 38 | 254,184 | 63,556 | 62,909 | 1.010 |
-| code-review-graph | 47 | 539,206 | 134,820 | 120,760 | 1.116 |
+| gryphon | 47 | 539,206 | 134,820 | 120,760 | 1.116 |
 | **Overall** | **222** | **2,188,391** | **547,176** | **544,406** | **1.005** |
 
 In aggregate `chars / 4` is within +0.5% of `cl100k_base`. Per repo it ranges from -11%
@@ -73,8 +73,8 @@ The sample list and raw counts behind this table are not stored in the repositor
 ## Step 1: install with the eval and embeddings extras
 
 ```bash
-git clone https://github.com/tirth8205/code-review-graph
-cd code-review-graph
+git clone https://github.com/tirth8205/gryphon
+cd gryphon
 uv sync --extra eval --extra embeddings     # or: pip install -e ".[eval,embeddings]"
 ```
 
@@ -83,17 +83,17 @@ uv sync --extra eval --extra embeddings     # or: pip install -e ".[eval,embeddi
 
 ## Step 2: run the eval
 
-This clones the six repositories at the SHAs pinned in `code_review_graph/eval/configs/*.yaml`,
+This clones the six repositories at the SHAs pinned in `gryphon/eval/configs/*.yaml`,
 builds a full graph for each (parser, resolvers, signatures, FTS5, flows, Leiden
 communities), embeds it, and runs the benchmarks.
 
 ```bash
-uv run code-review-graph eval --embed \
+uv run gryphon eval --embed \
   --benchmark token_efficiency,impact_accuracy,agent_baseline,multi_hop_retrieval
 ```
 
 `--embed` is required for `agent_baseline` and `multi_hop_retrieval`; without it their
-natural-language questions hit FTS5 only and return nothing. `code-review-graph eval --help`
+natural-language questions hit FTS5 only and return nothing. `gryphon eval --help`
 lists the remaining benchmarks (`flow_completeness`, `search_quality`, `build_performance`)
 and flags.
 
@@ -102,7 +102,7 @@ excluded from every aggregate. Regression tests for this are in `tests/test_eval
 
 Outputs:
 
-- `evaluate/test_repos/<name>/`, each with its own `.code-review-graph/graph.db`
+- `evaluate/test_repos/<name>/`, each with its own `.gryphon/graph.db`
 - `evaluate/results/<name>_<benchmark>_<date>.csv`
 
 ## Step 3: embeddings for the standalone benchmark
@@ -112,8 +112,8 @@ embeddings; without them hybrid search matches nothing, the benchmark prints a w
 reports 0x. If Step 2 ran with `--embed`, the graphs already have them. Otherwise:
 
 ```bash
-for repo in express fastapi flask gin httpx code-review-graph; do
-  uv run code-review-graph embed --repo "evaluate/test_repos/$repo"
+for repo in express fastapi flask gin httpx gryphon; do
+  uv run gryphon embed --repo "evaluate/test_repos/$repo"
 done
 ```
 
@@ -128,12 +128,12 @@ of 5 search hits plus up to 5 neighbour edges per hit, for each of the 5 sample 
 uv run python <<'PY'
 import json
 from pathlib import Path
-from code_review_graph.graph import GraphStore
-from code_review_graph.token_benchmark import run_token_benchmark
+from gryphon.graph import GraphStore
+from gryphon.token_benchmark import run_token_benchmark
 
 results = {}
 for repo in sorted(Path("evaluate/test_repos").iterdir()):
-    db = repo / ".code-review-graph" / "graph.db"
+    db = repo / ".gryphon" / "graph.db"
     if not db.exists():
         continue
     store = GraphStore(str(db))
@@ -158,10 +158,10 @@ PY
 
 <!-- BEGIN canonical-stats -->
 Captured 2026-08-02 on macOS arm64 (Apple M4 Pro, 14 cores, 24 GB), Python 3.13.12,
-code-review-graph 2.3.7, sentence-transformers 5.6.1, `all-MiniLM-L6-v2`,
+gryphon 2.3.7, sentence-transformers 5.6.1, `all-MiniLM-L6-v2`,
 `CRG_LEIDEN_SEED=42`, from clean clones at the pinned SHAs.
 
-### Standalone token benchmark (`code_review_graph/token_benchmark.py`)
+### Standalone token benchmark (`gryphon/token_benchmark.py`)
 
 Each row averages the 5 sample questions (`how does authentication work`, `what is the main
 entry point`, `how are database connections managed`, `what error handling patterns are
@@ -171,7 +171,7 @@ used`, `how do tests verify core functionality`).
 |---|---|---:|---:|---:|
 | fastapi | `22381558` | 948,793 | 2,653 | **375.6x** |
 | flask | `a29f88ce` | 143,594 | 2,196 | **71.0x** |
-| code-review-graph | `84bde354` | 208,821 | 3,190 | **68.1x** |
+| gryphon | `84bde354` | 208,821 | 3,190 | **68.1x** |
 | gin | `5c00df8a` | 166,868 | 2,766 | **61.9x** |
 | httpx | `b55d4635` | 142,356 | 2,661 | **60.6x** |
 | express | `b4ab7d65` | 136,052 | 3,936 | **36.0x** |
@@ -183,16 +183,16 @@ the README. They replace the 2026-05-25 capture and every ratio is lower, for tw
 confirmed by re-running from clean clones: `avg graph_tokens` rose in every repo because the
 per-node embedding text grew, so a 5-hit response carries more text; and fastapi is measured
 at its current pin `22381558` instead of the retired `0227991a`. `naive_corpus_tokens` is
-unchanged for `code-review-graph` and `gin`, so the movement is on the graph-response side.
+unchanged for `gryphon` and `gin`, so the movement is on the graph-response side.
 
-### Formal `token_efficiency` benchmark (`code_review_graph/eval/benchmarks/token_efficiency.py`)
+### Formal `token_efficiency` benchmark (`gryphon/eval/benchmarks/token_efficiency.py`)
 
 A different denominator: the changed-file content of each commit against the full
 `get_review_context()` JSON. For small commits the response is larger than the input (it
 carries impact-radius edges and source snippets), so ratios below 1.0 are expected here.
 Per-commit rows are in `evaluate/results/<repo>_token_efficiency_*.csv`.
 
-### Impact accuracy (`code_review_graph/eval/benchmarks/impact_accuracy.py`)
+### Impact accuracy (`gryphon/eval/benchmarks/impact_accuracy.py`)
 
 13 commits across the 6 repos, in `evaluate/results/<repo>_impact_accuracy_2026-08-02.csv`.
 Each commit is graded in two ground-truth modes, told apart by the `ground_truth_mode`
@@ -221,7 +221,7 @@ The co-change rows are not usable yet: all 11 graded commits came back with
 co-change number is quoted until that is fixed. The two single-file commits (express) are
 recorded with `status=skipped` because there is nothing independent to grade against.
 
-### Multi-hop retrieval (`code_review_graph/eval/benchmarks/multi_hop_retrieval.py`)
+### Multi-hop retrieval (`gryphon/eval/benchmarks/multi_hop_retrieval.py`)
 
 11 hand-written tasks across the 6 repos, in
 `evaluate/results/<repo>_multi_hop_retrieval_2026-05-25.csv`. Each task is a two-step chain:
@@ -236,8 +236,8 @@ top-k and every expected neighbour name comes back. Inspect `anchor_found` and
 
 | Repo | Task | Anchor found | Rank | Neighbour recall | Score |
 |---|---|---|---:|---:|---:|
-| code-review-graph | crg-parse-file-callers | yes | 0 | 1.00 | **1.00** |
-| code-review-graph | crg-upsert-node-callers | yes | 4 | 1.00 | **1.00** |
+| gryphon | crg-parse-file-callers | yes | 0 | 1.00 | **1.00** |
+| gryphon | crg-upsert-node-callers | yes | 4 | 1.00 | **1.00** |
 | express | express-create-application-callees | yes | 1 | 1.00 | **1.00** |
 | fastapi | fastapi-route-handler-callers | yes | 6 | 1.00 | **1.00** |
 | fastapi | fastapi-get-dependant-callers | no | - | 0.00 | **0.00** |
@@ -265,7 +265,7 @@ The first version of this benchmark scored 0.545 (6 of 11). Two changes took it 
    `Context.Next` from rank 11 to rank 0.
 
 To add tasks, append `multi_hop_tasks:` entries to a config under
-`code_review_graph/eval/configs/`:
+`gryphon/eval/configs/`:
 
 ```yaml
 multi_hop_tasks:
@@ -286,7 +286,7 @@ multi_hop_tasks:
 | fastapi | 6,287 | 32,036 | 5,159 |
 | express | 1,990 | 19,492 | 1,849 |
 | gin | 1,589 | 17,237 | 1,491 |
-| code-review-graph | 1,446 | 9,094 | 1,354 |
+| gryphon | 1,446 | 9,094 | 1,354 |
 | flask | 1,415 | 8,259 | 1,329 |
 | httpx | 1,263 | 8,236 | 1,193 |
 
@@ -303,18 +303,18 @@ in the repository.
 
 Corpus: a shallow clone of `django/django` (2,927 `.py` files; the graph indexed 2,998 files,
 46,683 nodes, 392,758 edges). Machine: Apple M4 Pro (14 cores, 24 GB), macOS 26.5.2, Python
-3.13.12, code-review-graph 2.3.7.
+3.13.12, gryphon 2.3.7.
 
 ```bash
 git clone --depth 1 https://github.com/django/django.git
 cd django
-/usr/bin/time -p code-review-graph build                 # cold build
+/usr/bin/time -p gryphon build                 # cold build
 
-/usr/bin/time -p code-review-graph update                # no-op: nothing changed
+/usr/bin/time -p gryphon update                # no-op: nothing changed
 echo "# edit" >> django/db/models/query.py
 echo "# edit" >> django/http/response.py
-/usr/bin/time -p code-review-graph update --skip-flows   # the path the hooks run
-/usr/bin/time -p code-review-graph update                # full post-processing
+/usr/bin/time -p gryphon update --skip-flows   # the path the hooks run
+/usr/bin/time -p gryphon update                # full post-processing
 ```
 
 | Scenario | Wall clock | Files re-parsed |
@@ -334,7 +334,7 @@ Earlier versions quoted "under 2 seconds on a ~2,900-file repo". At that size it
 for the no-op case; an edit on the hook path is about 2.5 s, and about 10 s with flow and
 community detection.
 
-## Agent baseline benchmark (`code_review_graph/eval/benchmarks/agent_baseline.py`)
+## Agent baseline benchmark (`gryphon/eval/benchmarks/agent_baseline.py`)
 
 The whole-corpus baseline in the standalone benchmark is an upper bound no real agent pays.
 This benchmark simulates an agent without the graph:
@@ -365,10 +365,10 @@ job-summary table. Regressions do not fail the default branch.
 
 | Benchmark | Baseline | Graph cost | Question |
 |---|---|---|---|
-| `code_review_graph/eval/benchmarks/token_efficiency.py` | changed-file content of one commit | full `get_review_context()` JSON | Is the graph cheaper than reading the diffed files? |
-| `code_review_graph/eval/benchmarks/agent_baseline.py` | grep, top 3 files for the question's identifiers | 5 search hits + 5 neighbour edges per hit | Is the graph cheaper than a grep-and-read agent? |
-| `code_review_graph/eval/token_benchmark.py` | none; absolute cost | sum of the tool responses in simulated review, architecture and debug workflows | What does a complete agent workflow cost? |
-| `code_review_graph/token_benchmark.py` (standalone) | all source files in the repo | 5 search hits + 5 neighbour edges per hit | Is the graph cheaper than reading the whole repo? |
+| `gryphon/eval/benchmarks/token_efficiency.py` | changed-file content of one commit | full `get_review_context()` JSON | Is the graph cheaper than reading the diffed files? |
+| `gryphon/eval/benchmarks/agent_baseline.py` | grep, top 3 files for the question's identifiers | 5 search hits + 5 neighbour edges per hit | Is the graph cheaper than a grep-and-read agent? |
+| `gryphon/eval/token_benchmark.py` | none; absolute cost | sum of the tool responses in simulated review, architecture and debug workflows | What does a complete agent workflow cost? |
+| `gryphon/token_benchmark.py` (standalone) | all source files in the repo | 5 search hits + 5 neighbour edges per hit | Is the graph cheaper than reading the whole repo? |
 
 `token_efficiency` can be below 1.0x for small commits. The standalone numbers are always
 large because the baseline is the whole repo, which is why the README leads with the median
@@ -397,7 +397,7 @@ with the failing config so it can be re-pinned.
 **`No embeddings found in this graph`** during the standalone benchmark: run Step 3.
 
 **Different community IDs between runs**: check `grep _LEIDEN_SEED
-code_review_graph/communities.py` and that everyone uses the same `CRG_LEIDEN_SEED`.
+gryphon/communities.py` and that everyone uses the same `CRG_LEIDEN_SEED`.
 
 **Different `naive_corpus_tokens` from the canonical table**: `git rev-parse HEAD` inside
 `evaluate/test_repos/<name>` must match the `commit:` field of the config. If not, delete

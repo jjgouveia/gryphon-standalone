@@ -5,7 +5,7 @@ Branch target: `staging`.
 
 ## 1. Goal
 
-Make `code-review-graph visualize` useful on real repositories (10k–100k+ nodes)
+Make `gryphon visualize` useful on real repositories (10k–100k+ nodes)
 without giving up the property that made it adoptable: one offline HTML file,
 no server, no account. Four phases, each its own PR series into `staging`:
 
@@ -26,7 +26,7 @@ this work leaves both alone. The CI trigger change for `staging` PRs landed in #
 
 ## 2. Current state
 
-- `code_review_graph/visualization.py` (2355 lines) dumps the whole graph with
+- `gryphon/visualization.py` (2355 lines) dumps the whole graph with
   `export_graph_data(store)` and splices it into one of two inline templates:
   `_HTML_TEMPLATE` (full D3 v7 SVG force layout, one ~700-line inline script of
   top-level `var`s whose state functions write straight into D3 selections) and
@@ -38,7 +38,7 @@ this work leaves both alone. The CI trigger change for `staging` PRs landed in #
   SVG DOM. #609 stalled at 2792 nodes / 17488 edges before the edge cap existed.
 - File nodes auto-collapse only above 2000 nodes (#132). A separate `isLarge = N > 300`
   switch tunes force parameters only.
-- D3 is vendored at `code_review_graph/assets/d3.v7.min.js`, copied next to the HTML
+- D3 is vendored at `gryphon/assets/d3.v7.min.js`, copied next to the HTML
   by `_write_d3_asset`, SRI-pinned, with a `document.write` CDN fallback (#475).
 - `visualize --serve` (the `--serve` block of the visualize handler in `cli.py`)
   serves `html_path.parent`, which is the data directory, with
@@ -88,7 +88,7 @@ top `max_full_nodes` members by degree, with `member_total` recorded so the page
 on repo-relative POSIX paths (absolute node paths are made relative to the repo root
 first). Include is applied first, then exclude. Edges with a filtered endpoint are
 dropped. Displayed counts are recomputed as "rendered N of M". No interaction with
-`forget` or `.code-review-graphignore`, which are build-time mechanisms. The existing
+`forget` or `.gryphonignore`, which are build-time mechanisms. The existing
 ">50k nodes, consider filtering" warning names these flags.
 
 **Payload.** A new `_slim_for_page(data)` step inside `generate_html` drops keys the
@@ -122,7 +122,7 @@ rejected.
 ## 4. Phase 2 — Sigma.js renderer (medium)
 
 **Extract the JS first.** The inline script moves to
-`code_review_graph/assets/viz-core.js` (shipped in the wheel like the D3 asset);
+`gryphon/assets/viz-core.js` (shipped in the wheel like the D3 asset);
 `__GRAPH_DATA__` stays inline. This is a rewrite of the page script, not a refactor,
 and it is done here so the Phase 3 PRs do not all edit one Python raw string.
 
@@ -136,7 +136,7 @@ template stays on D3 SVG until Phase 3g folds it into the same file.
 
 **Assets.** Vendor `graphology.umd.min.js`, `sigma.min.js` (3.x) and
 `graphology-library.min.js` (the one bundle that carries `circlepack`, `FA2Layout` and
-`shortestPath`) under `code_review_graph/assets/` with SHA-384 pins, loaded in that
+`shortestPath`) under `gryphon/assets/` with SHA-384 pins, loaded in that
 order (graphology is a global dependency of the other two). `_write_d3_asset`
 generalises to `_write_viz_assets()`. CDN fallback tags carry the same integrity
 hashes (cdnjs for graphology and sigma, jsdelivr for graphology-library). D3 stays for
@@ -228,8 +228,8 @@ The page opens on the aggregated view and fetches neighbourhoods on expand; the 
 tool uses `/api/paths`.
 
 **One renderer for VS Code.** `scripts/sync_viz_core.py` copies
-`code_review_graph/assets/viz-core.js` into
-`code-review-graph-vscode/src/webview/vendor/` and a CI check fails when the copy is
+`gryphon/assets/viz-core.js` into
+`gryphon-vscode/src/webview/vendor/` and a CI check fails when the copy is
 stale. The webview CSP gains `worker-src blob:`. The extension keeps reading
 `graph.db` directly (no `/api`), drops its `d3` dependency, and its `maxNodes` slice
 becomes top-N by degree with batched edge fetches.

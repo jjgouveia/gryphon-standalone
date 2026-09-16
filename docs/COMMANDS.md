@@ -4,18 +4,18 @@
 
 These commands are installed for clients that support project skills or slash commands.
 
-### `/code-review-graph:build-graph`
+### `/gryphon:build-graph`
 Build or update the knowledge graph.
 - First run: full build
 - Later runs: incremental update (changed files only)
 
-### `/code-review-graph:review-delta`
+### `/gryphon:review-delta`
 Review changes since the last commit.
 - Changed files come from `git diff`
 - Blast radius is changed nodes plus 2-hop neighbours
 - Output is a structured review with guidance
 
-### `/code-review-graph:review-pr`
+### `/gryphon:review-pr`
 Review a PR or branch diff.
 - Uses `main` (or `master`) as the base
 - Covers every commit in the PR
@@ -130,7 +130,7 @@ repo_root: str | None
 model: str | None    # Embedding model name
 provider: str | None # local, openai, google, minimax, voyage
 ```
-Local embeddings need `pip install "code-review-graph[embeddings]"`. Cloud
+Local embeddings need `pip install "gryphon[embeddings]"`. Cloud
 providers use the standard library HTTP client and read their keys from
 environment variables (see the README).
 
@@ -381,89 +381,89 @@ base: str = "HEAD~1"
 
 ## CLI Commands
 
-Run `code-review-graph <command> --help` for the full option list.
+Run `gryphon <command> --help` for the full option list.
 
 ```bash
 # Setup
-code-review-graph install           # Configure detected AI coding platforms (alias: init)
-code-review-graph install --dry-run # Preview without writing files
-code-review-graph install --platform codex  # Configure one platform
-code-review-graph uninstall                 # Remove CRG configs, hooks, skills, and data
-code-review-graph uninstall --platform codex  # Unbind one platform (keeps graph data and others)
+gryphon install           # Configure detected AI coding platforms (alias: init)
+gryphon install --dry-run # Preview without writing files
+gryphon install --platform codex  # Configure one platform
+gryphon uninstall                 # Remove CRG configs, hooks, skills, and data
+gryphon uninstall --platform codex  # Unbind one platform (keeps graph data and others)
 
 # Build and update
-code-review-graph build                        # Full build
-code-review-graph build --skip-flows           # Parse + signatures + FTS only
-code-review-graph build --skip-postprocess     # Raw parse only
-code-review-graph update                       # Incremental update from the last-built commit
-code-review-graph update --base origin/main    # Custom base ref
-code-review-graph update --brief               # Update graph, then show the risk panel
-code-review-graph update --brief --verify      # ...and cross-check against tiktoken
-code-review-graph postprocess                  # Re-run flows, communities, FTS
-code-review-graph forget PATH [PATH ...]       # Drop parsed files from the graph (no full rebuild)
-code-review-graph forget src/legacy --dry-run  # Preview which files would be forgotten
-code-review-graph embed --provider local       # Compute vector embeddings for semantic search
-code-review-graph update --embedding-provider local --embedding-model all-MiniLM-L6-v2
+gryphon build                        # Full build
+gryphon build --skip-flows           # Parse + signatures + FTS only
+gryphon build --skip-postprocess     # Raw parse only
+gryphon update                       # Incremental update from the last-built commit
+gryphon update --base origin/main    # Custom base ref
+gryphon update --brief               # Update graph, then show the risk panel
+gryphon update --brief --verify      # ...and cross-check against tiktoken
+gryphon postprocess                  # Re-run flows, communities, FTS
+gryphon forget PATH [PATH ...]       # Drop parsed files from the graph (no full rebuild)
+gryphon forget src/legacy --dry-run  # Preview which files would be forgotten
+gryphon embed --provider local       # Compute vector embeddings for semantic search
+gryphon update --embedding-provider local --embedding-model all-MiniLM-L6-v2
                                                 # Refresh an existing embedding index (default: off)
 
 # Monitor and inspect
-code-review-graph status                       # Graph statistics (no graph: exit 1, no DB created)
-code-review-graph status --json                # One JSON object
-code-review-graph watch                        # Auto-update on file changes (needs an existing graph)
-code-review-graph visualize                    # Interactive HTML graph (needs an existing graph)
-code-review-graph visualize --format graphml   # Formats: html, json, graphml, cypher, obsidian, svg
-code-review-graph visualize --serve            # Serve graph.html on localhost:8765
+gryphon status                       # Graph statistics (no graph: exit 1, no DB created)
+gryphon status --json                # One JSON object
+gryphon watch                        # Auto-update on file changes (needs an existing graph)
+gryphon visualize                    # Interactive HTML graph (needs an existing graph)
+gryphon visualize --format graphml   # Formats: html, json, graphml, cypher, obsidian, svg
+gryphon visualize --serve            # Serve graph.html on localhost:8765
 
 # Analysis
-code-review-graph detect-changes               # Risk-scored change analysis (read-only)
-code-review-graph detect-changes --base HEAD~3 # Custom base revision
-code-review-graph detect-changes --base origin/main # Branch refs use their merge base with HEAD
-code-review-graph detect-changes --brief       # Compact panel with token-savings estimate
-code-review-graph detect-changes --brief --verify  # ...and cross-check against tiktoken
-code-review-graph detect-changes --churn       # Add opt-in change-frequency risk (CRG_CHURN_WINDOW_DAYS, default 90)
-code-review-graph dead-code                    # Functions/classes with no callers or test references
-code-review-graph dead-code --kind Function --file-pattern src/ --json
+gryphon detect-changes               # Risk-scored change analysis (read-only)
+gryphon detect-changes --base HEAD~3 # Custom base revision
+gryphon detect-changes --base origin/main # Branch refs use their merge base with HEAD
+gryphon detect-changes --brief       # Compact panel with token-savings estimate
+gryphon detect-changes --brief --verify  # ...and cross-check against tiktoken
+gryphon detect-changes --churn       # Add opt-in change-frequency risk (CRG_CHURN_WINDOW_DAYS, default 90)
+gryphon dead-code                    # Functions/classes with no callers or test references
+gryphon dead-code --kind Function --file-pattern src/ --json
 
 # Read-only graph queries (CLI mirrors of the MCP tools)
-code-review-graph query callers_of <target>    # Patterns: callers_of, callees_of, imports_of, importers_of,
+gryphon query callers_of <target>    # Patterns: callers_of, callees_of, imports_of, importers_of,
                                                 #   children_of, tests_for, inheritors_of, file_summary
-code-review-graph impact [--files F ...] [--depth N] [--base REF]
-code-review-graph search <query> [--kind Function] [--limit N]
-code-review-graph flows [--sort criticality] [--limit N] [--kind KIND]
-code-review-graph flow --id ID | --name NAME [--source]
-code-review-graph communities [--sort size] [--min-size N]
-code-review-graph community --id ID | --name NAME [--members]
-code-review-graph architecture [--detail-level minimal|standard]
-code-review-graph large-functions [--min-lines N] [--kind Function] [--path SUBSTR] [--limit N]
-code-review-graph refactor rename --old-name A --new-name B
-code-review-graph refactor dead_code [--kind Function] [--path SUBSTR]
-code-review-graph refactor suggest
+gryphon impact [--files F ...] [--depth N] [--base REF]
+gryphon search <query> [--kind Function] [--limit N]
+gryphon flows [--sort criticality] [--limit N] [--kind KIND]
+gryphon flow --id ID | --name NAME [--source]
+gryphon communities [--sort size] [--min-size N]
+gryphon community --id ID | --name NAME [--members]
+gryphon architecture [--detail-level minimal|standard]
+gryphon large-functions [--min-lines N] [--kind Function] [--path SUBSTR] [--limit N]
+gryphon refactor rename --old-name A --new-name B
+gryphon refactor dead_code [--kind Function] [--path SUBSTR]
+gryphon refactor suggest
 
 # Wiki
-code-review-graph wiki                         # Markdown wiki from communities (needs an existing graph)
+gryphon wiki                         # Markdown wiki from communities (needs an existing graph)
 
 # Multi-repo
-code-review-graph register <path> [--alias name]  # Register a repository
-code-review-graph unregister <path_or_alias>       # Remove from registry
-code-review-graph repos                            # List registered repositories
+gryphon register <path> [--alias name]  # Register a repository
+gryphon unregister <path_or_alias>       # Remove from registry
+gryphon repos                            # List registered repositories
 
 # Daemon (multi-repo watcher), installed with the package
-code-review-graph daemon start [--foreground]       # Start the watch daemon
-code-review-graph daemon stop                       # Stop the daemon
-code-review-graph daemon restart [--foreground]     # Restart the daemon
-code-review-graph daemon status                     # Daemon status and repos
-code-review-graph daemon logs [--repo ALIAS] [--follow] [--lines N]  # Daemon or per-repo logs (default 50 lines)
-code-review-graph daemon add <path> [--alias NAME]  # Add a repo to the daemon config
-code-review-graph daemon remove <path_or_alias>     # Remove a repo from the daemon config
+gryphon daemon start [--foreground]       # Start the watch daemon
+gryphon daemon stop                       # Stop the daemon
+gryphon daemon restart [--foreground]     # Restart the daemon
+gryphon daemon status                     # Daemon status and repos
+gryphon daemon logs [--repo ALIAS] [--follow] [--lines N]  # Daemon or per-repo logs (default 50 lines)
+gryphon daemon add <path> [--alias NAME]  # Add a repo to the daemon config
+gryphon daemon remove <path_or_alias>     # Remove a repo from the daemon config
 
 # Evaluation
-code-review-graph eval                         # Run evaluation benchmarks
+gryphon eval                         # Run evaluation benchmarks
 
 # Server
-code-review-graph serve                        # Start MCP server (stdio)
-code-review-graph serve --http                 # Streamable HTTP on 127.0.0.1:5555 (--host, --port)
-code-review-graph serve --tools query_graph_tool,detect_changes_tool  # Tool allowlist (or CRG_TOOLS)
-code-review-graph mcp                          # Alias for serve; accepts only --repo and --auto-watch
+gryphon serve                        # Start MCP server (stdio)
+gryphon serve --http                 # Streamable HTTP on 127.0.0.1:5555 (--host, --port)
+gryphon serve --tools query_graph_tool,detect_changes_tool  # Tool allowlist (or CRG_TOOLS)
+gryphon mcp                          # Alias for serve; accepts only --repo and --auto-watch
 ```
 
 Notes:
@@ -480,37 +480,37 @@ Notes:
   or when the graph may be stale.
 - `status`, `detect-changes`, `visualize`, `wiki`, `watch`, `forget` and
   `dead-code` exit 1 when no graph exists and do not create one. `forget` and
-  `dead-code` still move a legacy top-level `.code-review-graph.db` into
-  `.code-review-graph/graph.db` before running.
+  `dead-code` still move a legacy top-level `.gryphon.db` into
+  `.gryphon/graph.db` before running.
 - `install` appends a Git `pre-commit` hook that prints a risk summary before
   each commit. The hook skips linked worktrees unless `CRG_HOOK_WORKTREES=1`
   is set, so a worktree does not build a second graph for another branch.
-- For an empty or incomplete graph, run `code-review-graph build`. See
+- For an empty or incomplete graph, run `gryphon build`. See
   docs/TROUBLESHOOTING.md, "Empty or incomplete graph".
 
-## Standalone Daemon CLI (`crg-daemon`)
+## Standalone Daemon CLI (`gryphon-daemon`)
 
-`crg-daemon` is installed with `code-review-graph` and mirrors the
-`code-review-graph daemon` subcommands:
+`gryphon-daemon` is installed with `gryphon` and mirrors the
+`gryphon daemon` subcommands:
 
 ```bash
-crg-daemon start [--foreground]       # Start the multi-repo watch daemon
-crg-daemon stop                       # Stop the daemon and all watcher processes
-crg-daemon restart [--foreground]     # Restart (stop + start)
-crg-daemon status                     # Daemon status, repos, and process liveness
-crg-daemon logs [--repo ALIAS] [-f] [-n N]  # Tail daemon or per-repo log files
-crg-daemon add <path> [--alias NAME]  # Add a repository to watch.toml
-crg-daemon remove <path_or_alias>     # Remove a repository from watch.toml
+gryphon-daemon start [--foreground]       # Start the multi-repo watch daemon
+gryphon-daemon stop                       # Stop the daemon and all watcher processes
+gryphon-daemon restart [--foreground]     # Restart (stop + start)
+gryphon-daemon status                     # Daemon status, repos, and process liveness
+gryphon-daemon logs [--repo ALIAS] [-f] [-n N]  # Tail daemon or per-repo log files
+gryphon-daemon add <path> [--alias NAME]  # Add a repository to watch.toml
+gryphon-daemon remove <path_or_alias>     # Remove a repository from watch.toml
 ```
 
 ### Configuration
 
-The daemon reads `~/.code-review-graph/watch.toml` (or `$CRG_HOME/watch.toml`):
+The daemon reads `~/.gryphon/watch.toml` (or `$CRG_HOME/watch.toml`):
 
 ```toml
 [daemon]
 session_name = "crg-watch"   # logical daemon name
-log_dir = "~/.code-review-graph/logs"
+log_dir = "~/.gryphon/logs"
 poll_interval = 2            # seconds between config file polls
 
 [[repos]]
@@ -522,7 +522,7 @@ path = "/home/user/project-b"
 alias = "project-b"
 ```
 
-The daemon spawns one `code-review-graph watch` child process per repo with
+The daemon spawns one `gryphon watch` child process per repo with
 `subprocess.Popen`. It polls the config file and starts or stops children as
 repos are added or removed. A health check every 30 seconds restarts dead
 watchers. No tmux or screen is needed.

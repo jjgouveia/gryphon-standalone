@@ -8,7 +8,7 @@ unicode names, and scale.
 
 from pathlib import Path
 
-from code_review_graph.parser import _SQL_KEYWORDS, _SQL_TABLE_RE, CodeParser
+from gryphon.parser import _SQL_KEYWORDS, _SQL_TABLE_RE, CodeParser
 
 
 class TestIfNotExistsRegex:

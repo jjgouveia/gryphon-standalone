@@ -1,5 +1,5 @@
 /**
- * Read-only SQLite reader for the code-review-graph database.
+ * Read-only SQLite reader for the gryphon database.
  *
  * Opens the database created by the Python backend and provides typed
  * query methods.  All writes are performed by the Python side; this
@@ -27,10 +27,10 @@ try {
     || msg.includes('not a valid Win32');
   if (isAbiMismatch) {
     console.error(
-      '[code-review-graph] better-sqlite3 ABI mismatch. '
+      '[gryphon] better-sqlite3 ABI mismatch. '
       + 'Your VS Code uses a different Node.js version than the one '
       + 'this extension was built for. '
-      + 'Try: cd ~/.vscode/extensions/code-review-graph-* && npm rebuild better-sqlite3'
+      + 'Try: cd ~/.vscode/extensions/gryphon-* && npm rebuild better-sqlite3'
     );
   }
   throw err;
@@ -211,7 +211,7 @@ export class SqliteReader {
           .get() as { value: string } | undefined;
         if (row) {
           const version = parseInt(row.value, 10);
-          // Must match LATEST_VERSION in code_review_graph/migrations.py
+          // Must match LATEST_VERSION in gryphon/migrations.py
           const SUPPORTED_SCHEMA_VERSION = 10;
           if (!isNaN(version) && version > SUPPORTED_SCHEMA_VERSION) {
             return `Database was created with a newer version (schema v${version}). Update the extension.`;

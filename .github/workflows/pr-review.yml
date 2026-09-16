@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Run code-review-graph review
+      - name: Run gryphon review
         id: review
         uses: ./
         with:

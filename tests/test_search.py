@@ -3,9 +3,9 @@
 import tempfile
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import NodeInfo
-from code_review_graph.search import (
+from gryphon.graph import GraphStore
+from gryphon.parser import NodeInfo
+from gryphon.search import (
     detect_query_kind_boost,
     hybrid_search,
     rebuild_fts_index,
@@ -280,7 +280,7 @@ class TestHybridSearch:
 
     def test_out_mode_semantic(self, monkeypatch):
         """_out_mode is 'semantic' when only embeddings contribute."""
-        import code_review_graph.search as search_mod
+        import gryphon.search as search_mod
 
         node_id = self.store._conn.execute(
             "SELECT id FROM nodes WHERE name = 'authenticate'"
@@ -297,7 +297,7 @@ class TestHybridSearch:
 
     def test_out_mode_hybrid(self, monkeypatch):
         """_out_mode is 'hybrid' when both FTS and embeddings contribute."""
-        import code_review_graph.search as search_mod
+        import gryphon.search as search_mod
 
         rebuild_fts_index(self.store)
         node_id = self.store._conn.execute(

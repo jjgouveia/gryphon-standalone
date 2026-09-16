@@ -1,11 +1,11 @@
-<h1 align="center">code-review-graph</h1>
+<h1 align="center">gryphon</h1>
 
 <p align="center">
   <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
      target="_blank"
      rel="noopener noreferrer">
     <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fcode-review-graph | Trendshift"
+         alt="tirth8205%2Fgryphon | Trendshift"
          width="250"
          height="55" />
   </a>
@@ -26,20 +26,20 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/code-review-graph/"><img src="https://img.shields.io/pypi/v/code-review-graph?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/code-review-graph"><img src="https://img.shields.io/pepy/dt/code-review-graph?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/code-review-graph?style=flat-square" alt="Stars"></a>
+  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
+  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://code-review-graph.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
+  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
   <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
 
-AIコーディングツールはレビュータスクでコードベースの大きな範囲を読み直しがちです。`code-review-graph` はその問題を解決します。[Tree-sitter](https://tree-sitter.github.io/tree-sitter/) でコードの構造マップを構築し、変更を差分で追跡し、[MCP](https://modelcontextprotocol.io/) を通じてAIアシスタントに必要最小限のコンテキストだけを提供します。
+AIコーディングツールはレビュータスクでコードベースの大きな範囲を読み直しがちです。`gryphon` はその問題を解決します。[Tree-sitter](https://tree-sitter.github.io/tree-sitter/) でコードの構造マップを構築し、変更を差分で追跡し、[MCP](https://modelcontextprotocol.io/) を通じてAIアシスタントに必要最小限のコンテキストだけを提供します。
 
 <p align="center">
   <img src="diagrams/diagram1_before_vs_after.png" alt="トークン問題：flaskのコーパス全体を読むと143,594トークン、グラフからの回答は2,196トークン — 71.0分の1" width="85%" />
@@ -50,9 +50,9 @@ AIコーディングツールはレビュータスクでコードベースの大
 ## クイックスタート
 
 ```bash
-pip install code-review-graph                     # または: pipx install code-review-graph
-code-review-graph install          # 対応プラットフォームを自動検出して設定
-code-review-graph build            # コードベースを解析
+pip install gryphon                     # または: pipx install gryphon
+gryphon install          # 対応プラットフォームを自動検出して設定
+gryphon build            # コードベースを解析
 ```
 
 1つのコマンドですべてが完了します。`install` は使用中のAIコーディングツールを検出し、各ツールに適切なMCP設定を書き込み、プラットフォームルールにグラフ対応の指示を注入します。`uvx` と `pip`/`pipx` のどちらでインストールしたかを自動判別し、適切な設定を生成します。インストール後はエディタ/ツールを再起動してください。
@@ -64,13 +64,13 @@ code-review-graph build            # コードベースを解析
 特定のプラットフォームのみを設定する場合：
 
 ```bash
-code-review-graph install --platform codex       # Codexのみ設定
-code-review-graph install --platform cursor      # Cursorのみ設定
-code-review-graph install --platform claude-code  # Claude Codeのみ設定
-code-review-graph install --platform kiro         # Kiroのみ設定
+gryphon install --platform codex       # Codexのみ設定
+gryphon install --platform cursor      # Cursorのみ設定
+gryphon install --platform claude-code  # Claude Codeのみ設定
+gryphon install --platform kiro         # Kiroのみ設定
 ```
 
-Python 3.10以上が必要です。最良の体験のためには [uv](https://docs.astral.sh/uv/) のインストールを推奨します（MCP設定は利用可能な場合 `uvx` を使用し、そうでない場合は `code-review-graph` コマンドに直接フォールバックします）。
+Python 3.10以上が必要です。最良の体験のためには [uv](https://docs.astral.sh/uv/) のインストールを推奨します（MCP設定は利用可能な場合 `uvx` を使用し、そうでない場合は `gryphon` コマンドに直接フォールバックします）。
 
 セットアップ後、プロジェクトを開いてAIアシスタントに聞いてみましょう：
 
@@ -115,7 +115,7 @@ Build the code review graph for this project
 リポジトリが大きいほどトークンの無駄は深刻になります。グラフはコーパス全体をモデルに渡すのではなく、回答に必要な部分だけを返します。このリポジトリでは208,821のソーストークンが、質問あたり約3,190トークンになります。
 
 <p align="center">
-  <img src="diagrams/diagram6_monorepo_funnel.png" alt="code-review-graphリポジトリ：208,821のソーストークンが約3,190トークンのグラフ回答に収束 — 質問あたりのトークンは68分の1" width="80%" />
+  <img src="diagrams/diagram6_monorepo_funnel.png" alt="gryphonリポジトリ：208,821のソーストークンが約3,190トークンのグラフ回答に収束 — 質問あたりのトークンは68分の1" width="80%" />
 </p>
 
 ### 幅広い言語対応 + Jupyterノートブック
@@ -134,7 +134,7 @@ Build the code review graph for this project
   <img src="diagrams/diagram5_benchmark_board.png" alt="6つの実リポジトリでのベンチマーク：質問あたりのトークン削減率は中央値で約65倍（最大376倍）、グラフ由来の正解データに対する平均F1は0.71" width="85%" />
 </p>
 
-すべての数値は6つの実際のオープンソースリポジトリ（合計13コミット）に対する自動評価ランナーの結果です。`code-review-graph eval --all` で再現可能です。完全な再現手順と正規の数値は [`docs/REPRODUCING.md`](docs/REPRODUCING.md) をご覧ください。
+すべての数値は6つの実際のオープンソースリポジトリ（合計13コミット）に対する自動評価ランナーの結果です。`gryphon eval --all` で再現可能です。完全な再現手順と正規の数値は [`docs/REPRODUCING.md`](docs/REPRODUCING.md) をご覧ください。
 
 > 詳細なベンチマーク結果（トークン効率、影響精度、ビルド性能、既知の制限事項）については [英語版README](README.md) を参照してください。
 
@@ -170,7 +170,7 @@ Build the code review graph for this project
 | **マルチリポジトリ管理** | 複数リポジトリを登録し、横断検索が可能 |
 | **MCPプロンプト** | 5つのワークフローテンプレート：レビュー、アーキテクチャ、デバッグ、オンボーディング、マージ前チェック |
 | **全文検索** | FTS5によるハイブリッド検索（キーワードとベクトル類似度の組み合わせ） |
-| **ローカルストレージ** | `.code-review-graph/` 内のSQLiteファイル。コアのグラフ保存に外部DBやクラウドサービスは不要。 |
+| **ローカルストレージ** | `.gryphon/` 内のSQLiteファイル。コアのグラフ保存に外部DBやクラウドサービスは不要。 |
 | **ウォッチモード** | 作業中にグラフを継続的に更新 |
 
 ---
@@ -183,9 +183,9 @@ Build the code review graph for this project
 
 | コマンド | 説明 |
 |---------|------|
-| `/code-review-graph:build-graph` | コードグラフのビルドまたは再ビルド |
-| `/code-review-graph:review-delta` | 最後のコミット以降の変更をレビュー |
-| `/code-review-graph:review-pr` | 影響範囲分析付きのフルPRレビュー |
+| `/gryphon:build-graph` | コードグラフのビルドまたは再ビルド |
+| `/gryphon:review-delta` | 最後のコミット以降の変更をレビュー |
+| `/gryphon:review-pr` | 影響範囲分析付きのフルPRレビュー |
 
 </details>
 
@@ -194,24 +194,24 @@ Build the code review graph for this project
 <br>
 
 ```bash
-code-review-graph install          # 全プラットフォームを自動検出して設定
-code-review-graph install --platform <name>  # 特定のプラットフォームのみ設定
-code-review-graph build            # コードベース全体を解析
-code-review-graph update           # インクリメンタル更新（変更ファイルのみ）
-code-review-graph status           # グラフの統計情報
-code-review-graph watch            # ファイル変更時に自動更新
-code-review-graph visualize        # インタラクティブHTMLグラフを生成
-code-review-graph visualize --format graphml   # GraphML形式でエクスポート
-code-review-graph visualize --format svg       # SVG形式でエクスポート
-code-review-graph visualize --format obsidian  # Obsidianボールトとしてエクスポート
-code-review-graph visualize --format cypher    # Neo4j Cypher形式でエクスポート
-code-review-graph wiki             # コミュニティからMarkdown Wikiを生成
-code-review-graph detect-changes   # リスクスコア付き変更影響分析
-code-review-graph register <path>  # マルチリポジトリレジストリにリポジトリを登録
-code-review-graph unregister <id>  # レジストリからリポジトリを削除
-code-review-graph repos            # 登録済みリポジトリの一覧表示
-code-review-graph eval             # 評価ベンチマークの実行
-code-review-graph serve            # MCPサーバーの起動
+gryphon install          # 全プラットフォームを自動検出して設定
+gryphon install --platform <name>  # 特定のプラットフォームのみ設定
+gryphon build            # コードベース全体を解析
+gryphon update           # インクリメンタル更新（変更ファイルのみ）
+gryphon status           # グラフの統計情報
+gryphon watch            # ファイル変更時に自動更新
+gryphon visualize        # インタラクティブHTMLグラフを生成
+gryphon visualize --format graphml   # GraphML形式でエクスポート
+gryphon visualize --format svg       # SVG形式でエクスポート
+gryphon visualize --format obsidian  # Obsidianボールトとしてエクスポート
+gryphon visualize --format cypher    # Neo4j Cypher形式でエクスポート
+gryphon wiki             # コミュニティからMarkdown Wikiを生成
+gryphon detect-changes   # リスクスコア付き変更影響分析
+gryphon register <path>  # マルチリポジトリレジストリにリポジトリを登録
+gryphon unregister <id>  # レジストリからリポジトリを削除
+gryphon repos            # 登録済みリポジトリの一覧表示
+gryphon eval             # 評価ベンチマークの実行
+gryphon serve            # MCPサーバーの起動
 ```
 
 </details>
@@ -264,7 +264,7 @@ code-review-graph serve            # MCPサーバーの起動
 <summary><strong>設定</strong></summary>
 <br>
 
-インデックス対象から除外するパスを指定するには、リポジトリルートに `.code-review-graphignore` ファイルを作成します：
+インデックス対象から除外するパスを指定するには、リポジトリルートに `.gryphonignore` ファイルを作成します：
 
 ```
 generated/**
@@ -273,18 +273,18 @@ vendor/**
 node_modules/**
 ```
 
-注意：gitリポジトリでは追跡対象ファイルのみがインデックスされます（`git ls-files`）。そのため、gitignoreされたファイルは自動的にスキップされます。`.code-review-graphignore` は追跡対象ファイルの除外や、gitが利用できない環境で使用してください。
+注意：gitリポジトリでは追跡対象ファイルのみがインデックスされます（`git ls-files`）。そのため、gitignoreされたファイルは自動的にスキップされます。`.gryphonignore` は追跡対象ファイルの除外や、gitが利用できない環境で使用してください。
 
 オプションの依存グループ：
 
 ```bash
-pip install "code-review-graph[embeddings]"          # ローカルベクトル埋め込み (sentence-transformers)
-pip install "code-review-graph[google-embeddings]"   # Google Gemini埋め込み
-pip install "code-review-graph[communities]"         # コミュニティ検出 (igraph)
-pip install "code-review-graph[enrichment]"          # Python呼び出し解決の補強 (Jedi)
-pip install "code-review-graph[eval]"                # 評価ベンチマーク (matplotlib)
-pip install "code-review-graph[wiki]"                # LLMサマリー付きWiki生成 (ollama)
-pip install "code-review-graph[all]"                 # 全オプション依存
+pip install "gryphon[embeddings]"          # ローカルベクトル埋め込み (sentence-transformers)
+pip install "gryphon[google-embeddings]"   # Google Gemini埋め込み
+pip install "gryphon[communities]"         # コミュニティ検出 (igraph)
+pip install "gryphon[enrichment]"          # Python呼び出し解決の補強 (Jedi)
+pip install "gryphon[eval]"                # 評価ベンチマーク (matplotlib)
+pip install "gryphon[wiki]"                # LLMサマリー付きWiki生成 (ollama)
+pip install "gryphon[all]"                 # 全オプション依存
 ```
 
 OpenAI互換の埋め込み（本家OpenAI、Azure、または自前のゲートウェイ: new-api / LiteLLM / vLLM / LocalAI / Ollama openaiモード）は追加インストール不要です。環境変数を設定し、`embed_graph` に `provider="openai"` を渡すだけで動作します：
@@ -303,7 +303,7 @@ base URLがlocalhost（`127.0.0.1`、`localhost`、`0.0.0.0`、`::1`）を指し
 
 > **モデル選択のヒント。** `-preview` / `-beta` / `-exp` 付きのmodel ID（例：`google/gemini-embedding-2-preview`）は長期運用には避けてください。preview モデルは重みが変更される（次元が変わると全ノード re-embed 必須）か、予告なく deprecate される可能性があります。安定版 GA モデル推奨：`text-embedding-3-small` / `text-embedding-3-large`（OpenAI）、`Qwen/Qwen3-Embedding-8B`（vLLM / LocalAI 自前ホスト経由）、または `gemini-embedding-001`（ネイティブ Gemini provider 経由、`GOOGLE_API_KEY` が必要）。
 >
-> また注意：現状 `code-review-graph` は**関数シグネチャのみ**を埋め込みます（ノードあたり約10トークン、例：`"parse_file function (path: str) returns Tree"`）。長 context で関数 body を理解する能力で差をつけるモデル（Gemini 2 や Qwen3-8B の MTEB-code SOTA スコア）は、この入力長では小型モデルとの差がかなり縮まります。Body / docstring 埋め込みはフォローアップ拡張として追跡中です。
+> また注意：現状 `gryphon` は**関数シグネチャのみ**を埋め込みます（ノードあたり約10トークン、例：`"parse_file function (path: str) returns Tree"`）。長 context で関数 body を理解する能力で差をつけるモデル（Gemini 2 や Qwen3-8B の MTEB-code SOTA スコア）は、この入力長では小型モデルとの差がかなり縮まります。Body / docstring 埋め込みはフォローアップ拡張として追跡中です。
 
 </details>
 
@@ -312,8 +312,8 @@ base URLがlocalhost（`127.0.0.1`、`localhost`、`0.0.0.0`、`::1`）を指し
 ## コントリビュート
 
 ```bash
-git clone https://github.com/tirth8205/code-review-graph.git
-cd code-review-graph
+git clone https://github.com/tirth8205/gryphon.git
+cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
@@ -323,7 +323,7 @@ pytest
 <summary><strong>新しい言語の追加</strong></summary>
 <br>
 
-`code_review_graph/parser.py` を編集し、`EXTENSION_TO_LANGUAGE` に拡張子を追加します。合わせて `_CLASS_TYPES`、`_FUNCTION_TYPES`、`_IMPORT_TYPES`、`_CALL_TYPES` にノードタイプのマッピングを追加してください。テストフィクスチャを含めてPRを作成してください。
+`gryphon/parser.py` を編集し、`EXTENSION_TO_LANGUAGE` に拡張子を追加します。合わせて `_CLASS_TYPES`、`_FUNCTION_TYPES`、`_IMPORT_TYPES`、`_CALL_TYPES` にノードタイプのマッピングを追加してください。テストフィクスチャを含めてPRを作成してください。
 
 </details>
 
@@ -333,7 +333,7 @@ MIT。詳細は [LICENSE](LICENSE) を参照してください。
 
 <p align="center">
 <br>
-<a href="https://code-review-graph.com">code-review-graph.com</a><br><br>
-<code>pip install code-review-graph && code-review-graph install</code><br>
+<a href="https://gryphon.com">gryphon.com</a><br><br>
+<code>pip install gryphon && gryphon install</code><br>
 <sub>Codex、Claude Code、Cursor、Windsurf、Zed、Continue、OpenCode、Antigravity、Gemini CLI、Qwen、Kiro、Qoder、GitHub Copilotなど、対応するAIコーディングツールを自動検出して設定</sub>
 </p>

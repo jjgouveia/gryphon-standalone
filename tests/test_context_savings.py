@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from code_review_graph.context_savings import (
+from gryphon.context_savings import (
     estimate_context_savings,
     estimate_file_tokens,
     estimate_tokens,

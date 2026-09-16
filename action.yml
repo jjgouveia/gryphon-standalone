@@ -1,7 +1,7 @@
 # Composite GitHub Action: risk-scored, graph-aware PR review comments.
 # Local-first — the analysis runs entirely on the runner; no source code is
 # sent to any external service. See docs/GITHUB_ACTION.md for usage.
-name: "code-review-graph PR Review"
+name: "gryphon PR Review"
 description: >-
   Post a risk-scored, graph-aware review comment on pull requests.
   Local-first: builds a Tree-sitter knowledge graph on the runner and
@@ -28,7 +28,7 @@ inputs:
     required: false
     default: "none"
   python-version:
-    description: "Python version used to run code-review-graph."
+    description: "Python version used to run gryphon."
     required: false
     default: "3.12"
 
@@ -47,20 +47,20 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install code-review-graph
+    - name: Install gryphon
       shell: bash
-      run: python -m pip install --quiet code-review-graph
+      run: python -m pip install --quiet gryphon
 
     # Cache the SQLite knowledge graph between runs. The "schema10" segment
-    # tracks LATEST_VERSION in code_review_graph/migrations.py — bump it when
+    # tracks LATEST_VERSION in gryphon/migrations.py — bump it when
     # the database schema changes so stale caches are not restored.
     - name: Cache knowledge graph
       uses: actions/cache@v6
       with:
-        path: .code-review-graph
-        key: code-review-graph-schema10-${{ runner.os }}-${{ hashFiles('**/uv.lock', '**/poetry.lock', '**/requirements*.txt', '**/Pipfile.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock', '**/go.sum', '**/Cargo.lock', '**/Gemfile.lock', '**/composer.lock') }}
+        path: .gryphon
+        key: gryphon-schema10-${{ runner.os }}-${{ hashFiles('**/uv.lock', '**/poetry.lock', '**/requirements*.txt', '**/Pipfile.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock', '**/go.sum', '**/Cargo.lock', '**/Gemfile.lock', '**/composer.lock') }}
         restore-keys: |
-          code-review-graph-schema10-${{ runner.os }}-
+          gryphon-schema10-${{ runner.os }}-
 
     - name: Resolve diff base
       shell: bash
@@ -79,18 +79,18 @@ runs:
     - name: Build or update the graph
       shell: bash
       run: |
-        if [ -f .code-review-graph/graph.db ]; then
+        if [ -f .gryphon/graph.db ]; then
           # Cache hit: re-parse only the files that differ from the base ref.
           # If the restored database is unusable, fall back to a full build.
-          code-review-graph update --base "${CRG_BASE}" || code-review-graph build
+          gryphon update --base "${CRG_BASE}" || gryphon build
         else
-          code-review-graph build
+          gryphon build
         fi
 
     - name: Run risk-scored change analysis
       shell: bash
       run: |
-        code-review-graph detect-changes --base "${CRG_BASE}" \
+        gryphon detect-changes --base "${CRG_BASE}" \
           > "${RUNNER_TEMP}/crg-report.json"
 
     - name: Render markdown report
@@ -109,7 +109,7 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
-        marker='<!-- code-review-graph-report -->'
+        marker='<!-- gryphon-report -->'
         comment_id=$(gh api \
           "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
           --paginate \

@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 import pytest
 
-from code_review_graph import parser as parser_module
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.parser import CodeParser
+from gryphon import parser as parser_module
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.parser import CodeParser
 
 
 def _write_composer(repo: Path, data: object) -> Path:
@@ -787,7 +787,7 @@ def test_composer_process_pool_matches_serial_build(tmp_path):
     parallel_store = GraphStore(repo / "parallel.db")
     try:
         with patch(
-            "code_review_graph.incremental.get_all_tracked_files",
+            "gryphon.incremental.get_all_tracked_files",
             return_value=tracked,
         ):
             with patch.dict(

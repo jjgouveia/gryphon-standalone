@@ -5,7 +5,7 @@ description: Navigate and understand codebase structure using the knowledge grap
 
 ## Explore Codebase
 
-Use the code-review-graph MCP tools to find your way around the codebase.
+Use the gryphon MCP tools to find your way around the codebase.
 
 ### Steps
 

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import NodeInfo
-from code_review_graph.search import rebuild_fts_index
+from gryphon.graph import GraphStore
+from gryphon.parser import NodeInfo
+from gryphon.search import rebuild_fts_index
 
 @pytest.fixture
 def store():

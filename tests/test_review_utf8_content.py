@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from code_review_graph.tools.review import get_review_context
+from gryphon.tools.review import get_review_context
 
 
 def test_review_snippet_preserves_utf8_under_legacy_default(tmp_path, monkeypatch):
@@ -23,7 +23,7 @@ def test_review_snippet_preserves_utf8_under_legacy_default(tmp_path, monkeypatc
         "edges": [],
     }
     monkeypatch.setattr(
-        "code_review_graph.tools.review._get_store",
+        "gryphon.tools.review._get_store",
         lambda _root: (store, tmp_path),
     )
     result = get_review_context(changed_files=["module.py"], repo_root=str(tmp_path))

@@ -1,11 +1,11 @@
-<h1 align="center">code-review-graph</h1>
+<h1 align="center">gryphon</h1>
 
 <p align="center">
   <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
      target="_blank"
      rel="noopener noreferrer">
     <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fcode-review-graph | Trendshift"
+         alt="tirth8205%2Fgryphon | Trendshift"
          width="250"
          height="55" />
   </a>
@@ -26,20 +26,20 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/code-review-graph/"><img src="https://img.shields.io/pypi/v/code-review-graph?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/code-review-graph"><img src="https://img.shields.io/pepy/dt/code-review-graph?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/code-review-graph?style=flat-square" alt="Stars"></a>
+  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
+  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://code-review-graph.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
+  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
   <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
 
-AI 编码工具在审查任务中可能会反复读取代码库的大量内容。`code-review-graph` 解决了这个问题。它使用 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) 构建代码的结构化映射，增量跟踪变更，并通过 [MCP](https://modelcontextprotocol.io/) 为 AI 助手提供精准的上下文，使其只读取真正需要的内容。
+AI 编码工具在审查任务中可能会反复读取代码库的大量内容。`gryphon` 解决了这个问题。它使用 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) 构建代码的结构化映射，增量跟踪变更，并通过 [MCP](https://modelcontextprotocol.io/) 为 AI 助手提供精准的上下文，使其只读取真正需要的内容。
 
 <p align="center">
   <img src="diagrams/diagram1_before_vs_after.png" alt="Token 问题：读完 flask 的全部源码需要 143,594 个 token，而图给出的回答只需 2,196 个——减少 71.0 倍" width="85%" />
@@ -50,9 +50,9 @@ AI 编码工具在审查任务中可能会反复读取代码库的大量内容�
 ## 快速开始
 
 ```bash
-pip install code-review-graph                     # 或: pipx install code-review-graph
-code-review-graph install          # 自动检测并配置所有支持的平台
-code-review-graph build            # 解析代码库
+pip install gryphon                     # 或: pipx install gryphon
+gryphon install          # 自动检测并配置所有支持的平台
+gryphon build            # 解析代码库
 ```
 
 一条命令完成所有配置。`install` 会检测你安装了哪些 AI 编码工具，为每个工具写入正确的 MCP 配置，并将图感知指令注入平台规则。它会自动判断你是通过 `uvx` 还是 `pip`/`pipx` 安装的，并生成相应的配置。安装后请重启编辑器或工具。
@@ -64,13 +64,13 @@ code-review-graph build            # 解析代码库
 如需指定特定平台：
 
 ```bash
-code-review-graph install --platform codex       # 仅配置 Codex
-code-review-graph install --platform cursor      # 仅配置 Cursor
-code-review-graph install --platform claude-code  # 仅配置 Claude Code
-code-review-graph install --platform kiro         # 仅配置 Kiro
+gryphon install --platform codex       # 仅配置 Codex
+gryphon install --platform cursor      # 仅配置 Cursor
+gryphon install --platform claude-code  # 仅配置 Claude Code
+gryphon install --platform kiro         # 仅配置 Kiro
 ```
 
-需要 Python 3.10+。为获得最佳体验，建议安装 [uv](https://docs.astral.sh/uv/)（如果可用，MCP 配置将使用 `uvx`，否则直接使用 `code-review-graph` 命令）。
+需要 Python 3.10+。为获得最佳体验，建议安装 [uv](https://docs.astral.sh/uv/)（如果可用，MCP 配置将使用 `uvx`，否则直接使用 `gryphon` 命令）。
 
 然后打开项目，向 AI 助手发出指令：
 
@@ -115,7 +115,7 @@ Build the code review graph for this project
 仓库越大，token 浪费越让人心疼。图不会把整个语料交给模型，而是只返回与回答相关的那一部分：在本仓库中，208,821 个源码 token 会缩减为每个问题约 3,190 个 token。
 
 <p align="center">
-  <img src="diagrams/diagram6_monorepo_funnel.png" alt="code-review-graph 仓库：208,821 个源码 token 收敛为约 3,190 token 的图响应——每个问题的 token 减少 68 倍" width="80%" />
+  <img src="diagrams/diagram6_monorepo_funnel.png" alt="gryphon 仓库：208,821 个源码 token 收敛为约 3,190 token 的图响应——每个问题的 token 减少 68 倍" width="80%" />
 </p>
 
 ### 广泛语言覆盖 + Jupyter 笔记本
@@ -134,7 +134,7 @@ Build the code review graph for this project
   <img src="diagrams/diagram5_benchmark_board.png" alt="对 6 个真实仓库的基准测试：每个问题的 token 减少中位数约 65 倍（最高 376 倍），对图生成的基准答案平均 F1 为 0.71" width="85%" />
 </p>
 
-所有数据来自针对 6 个真实开源仓库（共 13 次提交）的自动化评估。可通过 `code-review-graph eval --all` 复现。完整基准测试数据请参阅[英文 README](README.md)。
+所有数据来自针对 6 个真实开源仓库（共 13 次提交）的自动化评估。可通过 `gryphon eval --all` 复现。完整基准测试数据请参阅[英文 README](README.md)。
 
 ---
 
@@ -168,7 +168,7 @@ Build the code review graph for this project
 | **多仓库注册** | 注册多个仓库，跨仓库搜索 |
 | **MCP 提示模板** | 5 种工作流模板：审查、架构、调试、入职引导、合并前检查 |
 | **全文搜索** | 基于 FTS5 的混合搜索，结合关键词和向量相似度 |
-| **本地存储** | SQLite 文件存储在 `.code-review-graph/` 中，核心图存储无需外部数据库或云服务 |
+| **本地存储** | SQLite 文件存储在 `.gryphon/` 中，核心图存储无需外部数据库或云服务 |
 | **监听模式** | 工作时持续更新图 |
 
 ---
@@ -181,9 +181,9 @@ Build the code review graph for this project
 
 | 命令 | 说明 |
 |------|------|
-| `/code-review-graph:build-graph` | 构建或重新构建代码图 |
-| `/code-review-graph:review-delta` | 审查自上次提交以来的变更 |
-| `/code-review-graph:review-pr` | 完整的 PR 审查，含影响半径分析 |
+| `/gryphon:build-graph` | 构建或重新构建代码图 |
+| `/gryphon:review-delta` | 审查自上次提交以来的变更 |
+| `/gryphon:review-pr` | 完整的 PR 审查，含影响半径分析 |
 
 </details>
 
@@ -192,24 +192,24 @@ Build the code review graph for this project
 <br>
 
 ```bash
-code-review-graph install          # 自动检测并配置所有平台
-code-review-graph install --platform <name>  # 指定特定平台
-code-review-graph build            # 解析整个代码库
-code-review-graph update           # 增量更新（仅变更文件）
-code-review-graph status           # 图统计信息
-code-review-graph watch            # 文件变更时自动更新
-code-review-graph visualize        # 生成交互式 HTML 图
-code-review-graph visualize --format graphml   # 导出为 GraphML
-code-review-graph visualize --format svg       # 导出为 SVG
-code-review-graph visualize --format obsidian  # 导出为 Obsidian 知识库
-code-review-graph visualize --format cypher    # 导出为 Neo4j Cypher
-code-review-graph wiki             # 从社区结构生成 Markdown Wiki
-code-review-graph detect-changes   # 风险评分的变更影响分析
-code-review-graph register <path>  # 将仓库注册到多仓库注册表
-code-review-graph unregister <id>  # 从注册表移除仓库
-code-review-graph repos            # 列出已注册的仓库
-code-review-graph eval             # 运行评估基准测试
-code-review-graph serve            # 启动 MCP 服务器
+gryphon install          # 自动检测并配置所有平台
+gryphon install --platform <name>  # 指定特定平台
+gryphon build            # 解析整个代码库
+gryphon update           # 增量更新（仅变更文件）
+gryphon status           # 图统计信息
+gryphon watch            # 文件变更时自动更新
+gryphon visualize        # 生成交互式 HTML 图
+gryphon visualize --format graphml   # 导出为 GraphML
+gryphon visualize --format svg       # 导出为 SVG
+gryphon visualize --format obsidian  # 导出为 Obsidian 知识库
+gryphon visualize --format cypher    # 导出为 Neo4j Cypher
+gryphon wiki             # 从社区结构生成 Markdown Wiki
+gryphon detect-changes   # 风险评分的变更影响分析
+gryphon register <path>  # 将仓库注册到多仓库注册表
+gryphon unregister <id>  # 从注册表移除仓库
+gryphon repos            # 列出已注册的仓库
+gryphon eval             # 运行评估基准测试
+gryphon serve            # 启动 MCP 服务器
 ```
 
 </details>
@@ -262,7 +262,7 @@ code-review-graph serve            # 启动 MCP 服务器
 <summary><strong>配置</strong></summary>
 <br>
 
-要排除特定路径不被索引，请在仓库根目录创建 `.code-review-graphignore` 文件：
+要排除特定路径不被索引，请在仓库根目录创建 `.gryphonignore` 文件：
 
 ```
 generated/**
@@ -271,18 +271,18 @@ vendor/**
 node_modules/**
 ```
 
-注意：在 git 仓库中，仅索引已跟踪的文件（`git ls-files`），因此 gitignore 中的文件会自动跳过。`.code-review-graphignore` 用于排除已跟踪的文件，或在没有 git 的环境中使用。
+注意：在 git 仓库中，仅索引已跟踪的文件（`git ls-files`），因此 gitignore 中的文件会自动跳过。`.gryphonignore` 用于排除已跟踪的文件，或在没有 git 的环境中使用。
 
 可选依赖组：
 
 ```bash
-pip install "code-review-graph[embeddings]"          # 本地向量嵌入 (sentence-transformers)
-pip install "code-review-graph[google-embeddings]"   # Google Gemini 嵌入
-pip install "code-review-graph[communities]"         # 社区检测 (igraph)
-pip install "code-review-graph[enrichment]"          # Python 调用解析增强 (Jedi)
-pip install "code-review-graph[eval]"                # 评估基准测试 (matplotlib)
-pip install "code-review-graph[wiki]"                # 使用 LLM 摘要生成 Wiki (ollama)
-pip install "code-review-graph[all]"                 # 所有可选依赖
+pip install "gryphon[embeddings]"          # 本地向量嵌入 (sentence-transformers)
+pip install "gryphon[google-embeddings]"   # Google Gemini 嵌入
+pip install "gryphon[communities]"         # 社区检测 (igraph)
+pip install "gryphon[enrichment]"          # Python 调用解析增强 (Jedi)
+pip install "gryphon[eval]"                # 评估基准测试 (matplotlib)
+pip install "gryphon[wiki]"                # 使用 LLM 摘要生成 Wiki (ollama)
+pip install "gryphon[all]"                 # 所有可选依赖
 ```
 
 OpenAI 兼容嵌入（真实 OpenAI、Azure，或自建网关如 new-api / LiteLLM / vLLM / LocalAI / Ollama openai 模式）无需额外安装 —— 只需设置环境变量并在 `embed_graph` 中传入 `provider="openai"`：
@@ -301,7 +301,7 @@ export CRG_OPENAI_BATCH_SIZE=100                        # 某些网关有更严�
 
 > **模型选择提示。** 避免用 `-preview` / `-beta` / `-exp` 结尾的 model ID（例如 `google/gemini-embedding-2-preview`）做长期使用——preview 模型可能更换权重（维度一变就要全量 re-embed）或被无预警下架。建议改用正式 GA 模型：`text-embedding-3-small` / `text-embedding-3-large`（OpenAI）、`Qwen/Qwen3-Embedding-8B`（经 vLLM / LocalAI 自宿主）、或 `gemini-embedding-001`（经原生 Gemini provider，需要 `GOOGLE_API_KEY`）。
 >
-> 另外请注意：目前 `code-review-graph` 只嵌入**函数签名**（每节点约 10 tokens，例如 `"parse_file function (path: str) returns Tree"`）。那些靠长 context 理解函数 body 来拉开差距的模型（Gemini 2 或 Qwen3-8B 在 MTEB-code 的 SOTA 分数）在这个输入长度下跟小模型的品质差距会小很多。Body / docstring 嵌入已列为后续增强任务。
+> 另外请注意：目前 `gryphon` 只嵌入**函数签名**（每节点约 10 tokens，例如 `"parse_file function (path: str) returns Tree"`）。那些靠长 context 理解函数 body 来拉开差距的模型（Gemini 2 或 Qwen3-8B 在 MTEB-code 的 SOTA 分数）在这个输入长度下跟小模型的品质差距会小很多。Body / docstring 嵌入已列为后续增强任务。
 
 </details>
 
@@ -310,8 +310,8 @@ export CRG_OPENAI_BATCH_SIZE=100                        # 某些网关有更严�
 ## 参与贡献
 
 ```bash
-git clone https://github.com/tirth8205/code-review-graph.git
-cd code-review-graph
+git clone https://github.com/tirth8205/gryphon.git
+cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
@@ -321,7 +321,7 @@ pytest
 <summary><strong>添加新语言支持</strong></summary>
 <br>
 
-编辑 `code_review_graph/parser.py`，将你的文件扩展名添加到 `EXTENSION_TO_LANGUAGE`，并在 `_CLASS_TYPES`、`_FUNCTION_TYPES`、`_IMPORT_TYPES` 和 `_CALL_TYPES` 中添加节点类型映射。附上测试用例文件，然后提交 PR。
+编辑 `gryphon/parser.py`，将你的文件扩展名添加到 `EXTENSION_TO_LANGUAGE`，并在 `_CLASS_TYPES`、`_FUNCTION_TYPES`、`_IMPORT_TYPES` 和 `_CALL_TYPES` 中添加节点类型映射。附上测试用例文件，然后提交 PR。
 
 </details>
 
@@ -331,7 +331,7 @@ MIT。详见 [LICENSE](LICENSE)。
 
 <p align="center">
 <br>
-<a href="https://code-review-graph.com">code-review-graph.com</a><br><br>
-<code>pip install code-review-graph && code-review-graph install</code><br>
+<a href="https://gryphon.com">gryphon.com</a><br><br>
+<code>pip install gryphon && gryphon install</code><br>
 <sub>自动检测并配置支持的 AI 编码工具，包括 Codex、Claude Code、Cursor、Windsurf、Zed、Continue、OpenCode、Antigravity、Gemini CLI、Qwen、Kiro、Qoder 和 GitHub Copilot</sub>
 </p>

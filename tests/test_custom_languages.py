@@ -1,7 +1,7 @@
 """Tests for config-driven custom language support (languages.toml, #320).
 
 Erlang is used as the end-to-end grammar: tree_sitter_language_pack ships
-it, but code-review-graph has no built-in ``.erl`` support (only Elixir on
+it, but gryphon has no built-in ``.erl`` support (only Elixir on
 the BEAM side), so it exercises the full bring-your-own-language path.
 """
 
@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph import custom_languages
-from code_review_graph.custom_languages import (
+from gryphon import custom_languages
+from gryphon.custom_languages import (
     CONFIG_RELATIVE_PATH,
     MAX_CUSTOM_LANGUAGES,
     load_custom_languages,
 )
-from code_review_graph.parser import (
+from gryphon.parser import (
     EXTENSION_TO_LANGUAGE,
     CodeParser,
     _builtin_language_names,
@@ -315,11 +315,11 @@ class TestParserIntegration:
         assert edges == []
 
     def test_full_build_includes_custom_language(self, tmp_path):
-        from code_review_graph.graph import GraphStore
-        from code_review_graph.incremental import full_build
+        from gryphon.graph import GraphStore
+        from gryphon.incremental import full_build
 
         repo, src = self._repo(tmp_path)
-        db_path = repo / ".code-review-graph" / "graph.db"
+        db_path = repo / ".gryphon" / "graph.db"
         store = GraphStore(db_path)
         try:
             stats = full_build(repo, store)

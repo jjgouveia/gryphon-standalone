@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser, EdgeInfo
+from gryphon.parser import CodeParser, EdgeInfo
 
 
 def _parse_java(source: str) -> tuple[list, list[EdgeInfo]]:

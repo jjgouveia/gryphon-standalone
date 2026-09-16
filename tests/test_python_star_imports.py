@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _call_targets(repo_root: Path, source_file: Path) -> set[str]:
@@ -132,7 +132,7 @@ def test_parse_worker_reuses_star_export_cache(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from code_review_graph.incremental import _parse_single_file
+    from gryphon.incremental import _parse_single_file
 
     helper = tmp_path / "helpers.py"
     helper.write_text(

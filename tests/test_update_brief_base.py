@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from code_review_graph.tools.build import build_or_update_graph
+from gryphon.tools.build import build_or_update_graph
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -26,7 +26,7 @@ def _commit(repo: Path, name: str) -> None:
 
 
 def test_update_brief_with_branch_base_uses_merge_base(tmp_path, monkeypatch, capsys):
-    from code_review_graph import cli
+    from gryphon import cli
 
     monkeypatch.setenv("CRG_SERIAL_PARSE", "1")
     repo = tmp_path / "repo"
@@ -45,7 +45,7 @@ def test_update_brief_with_branch_base_uses_merge_base(tmp_path, monkeypatch, ca
         sys,
         "argv",
         [
-            "code-review-graph",
+            "gryphon",
             "update",
             "--brief",
             "--base",

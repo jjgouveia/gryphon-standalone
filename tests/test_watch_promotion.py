@@ -6,7 +6,7 @@ import threading
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
 
-from code_review_graph.incremental import _load_ignore_patterns, _WatchSupervisor
+from gryphon.incremental import _load_ignore_patterns, _WatchSupervisor
 from tests.test_watch_robustness import FakeObserver
 
 
@@ -51,7 +51,7 @@ def supervisor_with_full_budget(root):
 
 
 def test_failed_promotion_keeps_coverage_and_retries(tmp_path, monkeypatch):
-    import code_review_graph.incremental as incremental_module
+    import gryphon.incremental as incremental_module
 
     clock = [1000.0]
     monkeypatch.setattr(incremental_module.time, "monotonic", lambda: clock[0])
@@ -98,7 +98,7 @@ def test_vanished_unadopted_directory_clears_transient_degradation(tmp_path):
 
 
 def test_polling_observer_keeps_events_across_promotion_failure(tmp_path, monkeypatch):
-    import code_review_graph.incremental as incremental_module
+    import gryphon.incremental as incremental_module
 
     # This test is about event delivery across a failed promotion, not about
     # the retry rate, so let the retry happen on the next tick.
@@ -157,7 +157,7 @@ def test_failed_promotion_waits_before_retrying(tmp_path, monkeypatch):
     On Linux every attempt walks the parent subtree and can leak an inotify
     instance, so retrying each tick consumes the quota it is waiting for.
     """
-    import code_review_graph.incremental as incremental_module
+    import gryphon.incremental as incremental_module
 
     clock = [1000.0]
     monkeypatch.setattr(incremental_module.time, "monotonic", lambda: clock[0])

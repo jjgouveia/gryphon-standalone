@@ -3,11 +3,11 @@
 import ast
 from pathlib import Path
 
-from code_review_graph.hints import _INTENT_TOOLS, _WORKFLOW, SessionState, generate_hints
+from gryphon.hints import _INTENT_TOOLS, _WORKFLOW, SessionState, generate_hints
 
 
 def test_all_hints_name_registered_mcp_tools():
-    tree = ast.parse((Path(__file__).parents[1] / "code_review_graph/main.py").read_text())
+    tree = ast.parse((Path(__file__).parents[1] / "gryphon/main.py").read_text())
     registered = {
         node.name
         for node in tree.body

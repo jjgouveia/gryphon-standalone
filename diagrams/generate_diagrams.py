@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate 9 Excalidraw diagrams for code-review-graph Medium article.
+"""Generate 9 Excalidraw diagrams for gryphon Medium article.
 
 All statistics match repo benchmarks exactly. No invented features or numbers.
 """
@@ -466,7 +466,7 @@ def d6():
             els.append(R(fx, fy, dw, dh, bg=shade, fs="solid", sc=GRY, sw=1, rough=0))
 
     gcx = gx + (cols*gapx)/2
-    els.append(TC(gcx, gy-35, "code-review-graph", 22, sc=DRK))
+    els.append(TC(gcx, gy-35, "gryphon", 22, sc=DRK))
     els.append(TC(gcx, gy+rows*gapy+8,  "1,326 nodes",     16, sc=GRY))
     els.append(TC(gcx, gy+rows*gapy+30, "208,821 source tokens", 14, sc=RED))
 
@@ -474,7 +474,7 @@ def d6():
     fx, fy, fw, fh = 470, 120, 210, 180
     els.append(R(fx, fy, fw, fh, bg=PRP_BG, fs="solid", sc=PRP))
     fcx = fx + fw/2
-    els.append(TC(fcx, fy+25,  "code-review-graph", 17, sc=PRP))
+    els.append(TC(fcx, fy+25,  "gryphon", 17, sc=PRP))
     els.append(TC(fcx, fy+65,  "parse \u2192", 13, sc=PRP, op=70))
     els.append(TC(fcx, fy+85,  "graph \u2192", 13, sc=PRP, op=70))
     els.append(TC(fcx, fy+105, "blast radius", 13, sc=PRP, op=70))
@@ -546,7 +546,7 @@ def d7():
     y = 310
     els.append(R(sx, y, bw, bh, bg=ORG_BG, fs="solid", sc=ORG))
     els.append(TC(sx+bw/2, y+10, "MCP Server", 22, sc=ORG))
-    els.append(TC(sx+bw/2, y+38, "code-review-graph serve", 13, sc=GRY))
+    els.append(TC(sx+bw/2, y+38, "gryphon serve", 13, sc=GRY))
 
     # Right annotation: what gets called
     els.append(R(rx, y-5, 380, 75, bg="#fff4e6", fs="solid", sc=ORG, op=60))
@@ -586,9 +586,9 @@ def d7():
 def d8():
     els = []
     els.append(TC(600, 20, "One Install, Every Platform", 36))
-    els.append(TC(600, 70, "code-review-graph install", 20, sc=PRP, ff=3))
+    els.append(TC(600, 70, "gryphon install", 20, sc=PRP, ff=3))
 
-    # 14 platforms \u2014 matches code_review_graph/skills.py PLATFORMS dict
+    # 14 platforms \u2014 matches gryphon/skills.py PLATFORMS dict
     platforms = [
         # Row 1 (7)
         ("Claude Code",     ".mcp.json",                                BLU, BLU_BG),

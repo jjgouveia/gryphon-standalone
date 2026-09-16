@@ -22,8 +22,8 @@ Closes #
 
 ```bash
 uv run pytest tests/ --tb=short -q
-uv run ruff check code_review_graph/
-uv run mypy code_review_graph/ --ignore-missing-imports --no-strict-optional
+uv run ruff check gryphon/
+uv run mypy gryphon/ --ignore-missing-imports --no-strict-optional
 ```
 
 ## Checklist
@@ -32,7 +32,7 @@ uv run mypy code_review_graph/ --ignore-missing-imports --no-strict-optional
 
 - [ ] Tests added for new functionality
 - [ ] All tests pass: `uv run pytest tests/ --tb=short -q`
-- [ ] Linting passes: `uv run ruff check code_review_graph/`
-- [ ] Type checking passes: `uv run mypy code_review_graph/ --ignore-missing-imports --no-strict-optional`
+- [ ] Linting passes: `uv run ruff check gryphon/`
+- [ ] Type checking passes: `uv run mypy gryphon/ --ignore-missing-imports --no-strict-optional`
 - [ ] Lines are at most 100 characters
 - [ ] Docs updated where behavior changed (README, `docs/`, docstrings)

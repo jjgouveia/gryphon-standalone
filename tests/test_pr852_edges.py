@@ -10,10 +10,10 @@ IN-clause batching with >450 changed files.
 import tempfile
 from pathlib import Path
 
-from code_review_graph.changes import analyze_changes
-from code_review_graph.flows import store_flows, trace_flows
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
+from gryphon.changes import analyze_changes
+from gryphon.flows import store_flows, trace_flows
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
 
 
 def _repo_root() -> str:

@@ -15,10 +15,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from code_review_graph.forget import forget_files
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, get_db_path
-from code_review_graph.postprocessing import run_post_processing
+from gryphon.forget import forget_files
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, get_db_path
+from gryphon.postprocessing import run_post_processing
 
 # main imports a helper from each module; forgetting util.py must re-bare main's
 # edge into it while keeping main's edge into the surviving shared.py.

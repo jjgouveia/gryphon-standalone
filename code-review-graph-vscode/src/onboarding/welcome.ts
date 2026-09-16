@@ -70,7 +70,7 @@ export function registerWalkthroughCommands(
  * Show a welcome notification if no graph database has been built yet
  * in any of the open workspace folders.
  *
- * Checks for `.code-review-graph/graph.db` in every workspace folder.
+ * Checks for `.gryphon/graph.db` in every workspace folder.
  * When none is found, a notification is shown with a button that opens
  * the built-in walkthrough.
  */
@@ -85,7 +85,7 @@ export async function showWelcomeIfNeeded(
     for (const folder of workspaceFolders) {
         const dbUri = vscode.Uri.joinPath(
             folder.uri,
-            '.code-review-graph',
+            '.gryphon',
             'graph.db',
         );
 
@@ -107,7 +107,7 @@ export async function showWelcomeIfNeeded(
     if (selection === 'Get Started') {
         await vscode.commands.executeCommand(
             'workbench.action.openWalkthrough',
-            'tirth8205.code-review-graph#codeReviewGraph.welcome',
+            'tirth8205.gryphon#codeReviewGraph.welcome',
         );
     }
 }

@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_review_graph.daemon_cli import _handle_restart, _handle_stop
+from gryphon.daemon_cli import _handle_restart, _handle_stop
 
 REAL_SLEEP = time.sleep
 PID = 4242
@@ -42,15 +42,15 @@ class TestStopWaitLoopEdges:
     def test_stop_breaks_when_process_dies_mid_wait(self, capsys):
         """Death partway through the wait loop stops polling and skips escalation."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=[True] * 10 + [False],
             ) as alive,
-            patch("code_review_graph.daemon.clear_pid") as clear,
-            patch("code_review_graph.daemon_cli.os.kill") as kill,
-            patch("code_review_graph.daemon_cli.time.sleep") as sleep,
+            patch("gryphon.daemon.clear_pid") as clear,
+            patch("gryphon.daemon_cli.os.kill") as kill,
+            patch("gryphon.daemon_cli.time.sleep") as sleep,
         ):
             _handle_stop(MagicMock())
 
@@ -65,15 +65,15 @@ class TestStopWaitLoopEdges:
     def test_stop_death_on_final_poll_avoids_escalation(self, capsys):
         """A False on the 50th and last liveness check must still break, not escalate."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=[True] * 49 + [False],
             ) as alive,
-            patch("code_review_graph.daemon.clear_pid") as clear,
-            patch("code_review_graph.daemon_cli.os.kill") as kill,
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon.clear_pid") as clear,
+            patch("gryphon.daemon_cli.os.kill") as kill,
+            patch("gryphon.daemon_cli.time.sleep"),
         ):
             _handle_stop(MagicMock())
 
@@ -85,15 +85,15 @@ class TestStopWaitLoopEdges:
     def test_wait_loop_crash_keeps_pid_file(self):
         """An unknown liveness result must not remove the PID file."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=RuntimeError("probe blew up"),
             ),
-            patch("code_review_graph.daemon.clear_pid") as clear,
-            patch("code_review_graph.daemon_cli.os.kill"),
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon.clear_pid") as clear,
+            patch("gryphon.daemon_cli.os.kill"),
+            patch("gryphon.daemon_cli.time.sleep"),
             pytest.raises(RuntimeError, match="probe blew up"),
         ):
             _handle_stop(MagicMock())
@@ -105,16 +105,16 @@ class TestForcedStopEdges:
     def test_missing_sigkill_falls_back_to_sigterm_plain_namespace(self, capsys):
         """The SIGTERM fallback must work with a real attribute miss, not a mock quirk."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=[True] * 50 + [False],
             ),
-            patch("code_review_graph.daemon.clear_pid") as clear,
-            patch("code_review_graph.daemon_cli.signal", _win_signal()),
-            patch("code_review_graph.daemon_cli.os.kill") as kill,
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon.clear_pid") as clear,
+            patch("gryphon.daemon_cli.signal", _win_signal()),
+            patch("gryphon.daemon_cli.os.kill") as kill,
+            patch("gryphon.daemon_cli.time.sleep"),
         ):
             _handle_stop(MagicMock())
 
@@ -130,18 +130,18 @@ class TestForcedStopEdges:
     def test_forced_stop_process_already_gone_is_swallowed(self, capsys):
         """The process dying exactly at the 5s boundary must not crash the escalation."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=[True] * 50 + [False],
             ),
-            patch("code_review_graph.daemon.clear_pid") as clear,
+            patch("gryphon.daemon.clear_pid") as clear,
             patch(
-                "code_review_graph.daemon_cli.os.kill",
+                "gryphon.daemon_cli.os.kill",
                 side_effect=[None, ProcessLookupError()],
             ),
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon_cli.time.sleep"),
         ):
             _handle_stop(MagicMock())
 
@@ -154,17 +154,17 @@ class TestRestartInterleavings:
         """Escalation during restart on Windows must not prevent the new start."""
         args = MagicMock()
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 side_effect=[True] * 50 + [False],
             ),
-            patch("code_review_graph.daemon.clear_pid") as clear,
-            patch("code_review_graph.daemon_cli.signal", _win_signal()),
-            patch("code_review_graph.daemon_cli.os.kill") as kill,
-            patch("code_review_graph.daemon_cli.time.sleep"),
-            patch("code_review_graph.daemon_cli._handle_start") as start,
+            patch("gryphon.daemon.clear_pid") as clear,
+            patch("gryphon.daemon_cli.signal", _win_signal()),
+            patch("gryphon.daemon_cli.os.kill") as kill,
+            patch("gryphon.daemon_cli.time.sleep"),
+            patch("gryphon.daemon_cli._handle_start") as start,
         ):
             _handle_restart(args)
 
@@ -175,16 +175,16 @@ class TestRestartInterleavings:
     def test_restart_aborts_start_when_forced_stop_fails(self):
         """A hard escalation failure aborts the restart and retains the PID file."""
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=PID),
-            patch("code_review_graph.daemon.pid_alive", return_value=True),
-            patch("code_review_graph.daemon.clear_pid") as clear,
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=PID),
+            patch("gryphon.daemon.pid_alive", return_value=True),
+            patch("gryphon.daemon.clear_pid") as clear,
             patch(
-                "code_review_graph.daemon_cli.os.kill",
+                "gryphon.daemon_cli.os.kill",
                 side_effect=[None, OSError("kill rejected")],
             ),
-            patch("code_review_graph.daemon_cli.time.sleep"),
-            patch("code_review_graph.daemon_cli._handle_start") as start,
+            patch("gryphon.daemon_cli.time.sleep"),
+            patch("gryphon.daemon_cli._handle_start") as start,
             pytest.raises(OSError, match="kill rejected"),
         ):
             _handle_restart(MagicMock())
@@ -198,7 +198,7 @@ class TestStopRealProcess:
     def test_graceful_stop_of_real_process(self, tmp_path, monkeypatch, capsys):
         """End to end on POSIX: SIGTERM stops a real child and removes the PID file."""
         monkeypatch.setenv("CRG_HOME", str(tmp_path))
-        from code_review_graph.daemon import default_pid_path, write_pid
+        from gryphon.daemon import default_pid_path, write_pid
 
         proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
         try:
@@ -224,7 +224,7 @@ class TestStopRealProcess:
     def test_sigterm_ignoring_process_is_force_stopped(self, tmp_path, monkeypatch, capsys):
         """A child that ignores SIGTERM must be escalated to SIGKILL and reaped."""
         monkeypatch.setenv("CRG_HOME", str(tmp_path))
-        from code_review_graph.daemon import default_pid_path, write_pid
+        from gryphon.daemon import default_pid_path, write_pid
 
         child_src = (
             "import signal, time\n"
@@ -244,7 +244,7 @@ class TestStopRealProcess:
 
             # Shrink the 5s wait to ~0.5s of real polling.
             with patch(
-                "code_review_graph.daemon_cli.time.sleep",
+                "gryphon.daemon_cli.time.sleep",
                 new=lambda _s: REAL_SLEEP(0.01),
             ):
                 _handle_stop(MagicMock())

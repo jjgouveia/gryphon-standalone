@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser, NodeInfo
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser, NodeInfo
 
 
 def _qualified(node: NodeInfo) -> str:

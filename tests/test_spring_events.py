@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, incremental_update
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, incremental_update
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 
 def _parse_java(path: Path, source: str):
@@ -101,7 +101,7 @@ def _event_calls(store: GraphStore):
 def test_event_resolver_does_not_cross_link_same_named_packages(tmp_path: Path) -> None:
     _write_event_package(tmp_path, "alpha")
     _write_event_package(tmp_path, "beta")
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
 
     with GraphStore(graph_dir / "graph.db") as store:
@@ -121,7 +121,7 @@ def test_event_resolver_does_not_cross_link_same_named_packages(tmp_path: Path) 
 
 def test_incremental_listener_change_removes_stale_event_call(tmp_path: Path) -> None:
     _, _, listener = _write_event_package(tmp_path, "alpha")
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
 
     with GraphStore(graph_dir / "graph.db") as store:
@@ -151,7 +151,7 @@ def test_incremental_listener_change_removes_stale_event_call(tmp_path: Path) ->
 
 def test_event_query_patterns_return_publishers_and_listeners(tmp_path: Path) -> None:
     _write_event_package(tmp_path, "alpha")
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         full_build(tmp_path, store)
@@ -201,7 +201,7 @@ def test_event_query_patterns_respect_max_results_and_report_count(tmp_path: Pat
             "}\n",
             encoding="utf-8",
         )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         full_build(tmp_path, store)

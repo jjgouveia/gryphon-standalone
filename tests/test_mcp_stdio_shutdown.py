@@ -70,7 +70,7 @@ def test_stdio_server_parallel_build_then_eof_exits_cleanly(tmp_path):
         [
             sys.executable,
             "-m",
-            "code_review_graph",
+            "gryphon",
             "serve",
             "--repo",
             str(tmp_path),
@@ -127,7 +127,7 @@ def test_stdio_server_parallel_build_then_eof_exits_cleanly(tmp_path):
         assert build_payload["status"] == "ok"
         assert build_payload["build_type"] == "full"
         assert build_payload["files_parsed"] == 10
-        assert (tmp_path / ".code-review-graph" / "graph.db").is_file()
+        assert (tmp_path / ".gryphon" / "graph.db").is_file()
 
         assert proc.stdin is not None
         proc.stdin.close()

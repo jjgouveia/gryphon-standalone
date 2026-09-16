@@ -5,14 +5,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.review import get_affected_flows_func
+from gryphon.parser import CodeParser
+from gryphon.tools.review import get_affected_flows_func
 
 
 def test_affected_flows_empty_result_includes_truncated(monkeypatch, tmp_path):
     store = MagicMock()
     monkeypatch.setattr(
-        "code_review_graph.tools.review._get_store",
+        "gryphon.tools.review._get_store",
         lambda _root: (store, tmp_path),
     )
 

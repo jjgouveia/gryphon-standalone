@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-import code_review_graph.tools  # noqa: F401 - exposes lazy patch targets
-from code_review_graph import cli
+import gryphon.tools  # noqa: F401 - exposes lazy patch targets
+from gryphon import cli
 
 
 @pytest.mark.parametrize(
@@ -98,11 +98,11 @@ def test_tool_command_forwards_typed_arguments_as_json(
     data_dir.mkdir()
     (data_dir / "graph.db").touch()
     monkeypatch.setenv("CRG_DATA_DIR", str(data_dir))
-    argv = ["code-review-graph", *arguments, "--repo", str(nested)]
+    argv = ["gryphon", *arguments, "--repo", str(nested)]
     result = {"status": "ok", "tool": tool_name}
 
     with patch.object(sys, "argv", argv):
-        with patch(f"code_review_graph.tools.{tool_name}", return_value=result) as tool:
+        with patch(f"gryphon.tools.{tool_name}", return_value=result) as tool:
             cli.main()
 
     assert json.loads(capsys.readouterr().out) == result
@@ -122,7 +122,7 @@ def test_tool_command_forwards_typed_arguments_as_json(
     ],
 )
 def test_tool_commands_reject_invalid_or_ambiguous_arguments(arguments):
-    with patch.object(sys, "argv", ["code-review-graph", *arguments]):
+    with patch.object(sys, "argv", ["gryphon", *arguments]):
         with pytest.raises(SystemExit) as exc_info:
             cli.main()
     assert exc_info.value.code == 2
@@ -137,7 +137,7 @@ def test_tool_command_missing_graph_exits_nonzero(tmp_path, monkeypatch, capsys)
     with patch.object(
         sys,
         "argv",
-        ["code-review-graph", "query", "callers_of", "target", "--repo", str(repo)],
+        ["gryphon", "query", "callers_of", "target", "--repo", str(repo)],
     ):
         with pytest.raises(SystemExit) as exc_info:
             cli.main()

@@ -10,8 +10,8 @@ unicode changed-file paths.
 import tempfile
 from pathlib import Path
 
-from code_review_graph.graph import EdgeInfo, GraphStore, NodeInfo
-from code_review_graph.tools.review import get_affected_flows_func
+from gryphon.graph import EdgeInfo, GraphStore, NodeInfo
+from gryphon.tools.review import get_affected_flows_func
 
 MINIMAL_KEYS = {"id", "name", "criticality", "depth", "node_count", "file_count"}
 
@@ -23,9 +23,9 @@ class _FlowFixture:
         self.tmp_dir = tempfile.mkdtemp()
         self.root = Path(self.tmp_dir).resolve()
         (self.root / ".git").mkdir()
-        (self.root / ".code-review-graph").mkdir()
+        (self.root / ".gryphon").mkdir()
 
-        db_path = str(self.root / ".code-review-graph" / "graph.db")
+        db_path = str(self.root / ".gryphon" / "graph.db")
         self.store = GraphStore(db_path)
 
         shared_py = (self.root / "shared.py").as_posix()
@@ -56,7 +56,7 @@ class _FlowFixture:
             ))
         self.store.commit()
 
-        from code_review_graph.flows import store_flows, trace_flows
+        from gryphon.flows import store_flows, trace_flows
         store_flows(self.store, trace_flows(self.store))
 
     def teardown_method(self):

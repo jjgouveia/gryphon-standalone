@@ -1,7 +1,7 @@
 """End-to-end tests that drive the MCP server with a real MCP client.
 
 Everything else in the suite calls the tool functions in-process. These tests
-spawn ``python -m code_review_graph serve`` as a subprocess and talk to it over
+spawn ``python -m gryphon serve`` as a subprocess and talk to it over
 stdio with the ``mcp`` client library — the exact transport Claude Code, Cursor,
 Codex and Zed use. They therefore cover the parts nothing else does: the CLI
 argument wiring, the JSON-RPC handshake, tool registration and schema
@@ -166,14 +166,14 @@ def _server_env(crg_home: Path) -> dict[str, str]:
 def _server_params(repo: Path, crg_home: Path) -> Any:
     """Stdio launch parameters, as an MCP client config file would supply them.
 
-    ``python -m code_review_graph`` is the runnable entry point: ``cli.py`` has
-    no ``__main__`` guard, so ``-m code_review_graph.cli`` would exit without
+    ``python -m gryphon`` is the runnable entry point: ``cli.py`` has
+    no ``__main__`` guard, so ``-m gryphon.cli`` would exit without
     starting a server. stdio is the default transport (``--http`` opts out), so
     there is no ``--stdio`` flag to pass.
     """
     return StdioServerParameters(
         command=sys.executable,
-        args=["-m", "code_review_graph", "serve", "--repo", str(repo)],
+        args=["-m", "gryphon", "serve", "--repo", str(repo)],
         env=_server_env(crg_home),
         cwd=str(repo),
     )
@@ -233,7 +233,7 @@ async def test_mcp_client_full_review_journey(tmp_path: Path) -> None:
         ) as session:
             # --- handshake -------------------------------------------------
             init = await asyncio.wait_for(session.initialize(), timeout=CALL_TIMEOUT)
-            assert init.serverInfo.name == "code-review-graph"
+            assert init.serverInfo.name == "gryphon"
             assert init.capabilities.tools is not None
 
             # --- tool discovery --------------------------------------------
@@ -273,7 +273,7 @@ async def test_mcp_client_full_review_journey(tmp_path: Path) -> None:
             assert built["files_parsed"] == 3, built["summary"]
             assert built["total_nodes"] >= 7
             assert built["errors"] == []
-            assert (repo / ".code-review-graph" / "graph.db").is_file()
+            assert (repo / ".gryphon" / "graph.db").is_file()
 
             # --- minimal context (documented first call) --------------------
             context = _payload(
@@ -358,7 +358,7 @@ async def test_mcp_client_rejects_repo_root_outside_a_project(tmp_path: Path) ->
     repo = _make_fixture_repo(tmp_path)
     crg_home = tmp_path / "crg-home"
     crg_home.mkdir()
-    # Exists, readable, and deliberately has no .git / .svn / .code-review-graph.
+    # Exists, readable, and deliberately has no .git / .svn / .gryphon.
     outsider = tmp_path / "outside"
     outsider.mkdir()
     (outsider / "secrets.txt").write_text("not yours\n", encoding="utf-8")
@@ -392,7 +392,7 @@ def test_cli_daemon_status_reports_no_daemon(tmp_path: Path) -> None:
     crg_home.mkdir()
 
     completed = subprocess.run(
-        [sys.executable, "-m", "code_review_graph", "daemon", "status"],
+        [sys.executable, "-m", "gryphon", "daemon", "status"],
         cwd=str(tmp_path),
         env=_server_env(crg_home),
         capture_output=True,

@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.tools.query import get_impact_radius, query_graph
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.tools.query import get_impact_radius, query_graph
 
 
 def _build(tmp_path: Path, files: dict[str, str]) -> GraphStore:
@@ -22,7 +22,7 @@ def _build(tmp_path: Path, files: dict[str, str]) -> GraphStore:
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source, encoding="utf-8")
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir(exist_ok=True)
     store = GraphStore(graph_dir / "graph.db")
     full_build(tmp_path, store)

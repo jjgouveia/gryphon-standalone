@@ -6,7 +6,7 @@ import pytest
 
 
 def test_973_child_watch_failure_preserves_recursive_root_coverage(tmp_path, monkeypatch):
-    from code_review_graph.incremental import _load_ignore_patterns, _WatchSupervisor
+    from gryphon.incremental import _load_ignore_patterns, _WatchSupervisor
     from tests.test_watch_robustness import FakeObserver
 
     source = tmp_path / "src"
@@ -33,7 +33,7 @@ def test_973_child_watch_failure_preserves_recursive_root_coverage(tmp_path, mon
 
 
 def test_973_failed_root_collapse_preserves_existing_child_coverage(tmp_path, monkeypatch):
-    from code_review_graph.incremental import _load_ignore_patterns, _WatchSupervisor
+    from gryphon.incremental import _load_ignore_patterns, _WatchSupervisor
     from tests.test_watch_robustness import FakeObserver
 
     source = tmp_path / "src"
@@ -69,7 +69,7 @@ def test_973_failed_replan_keeps_delivering_deep_edits(tmp_path, monkeypatch, tr
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers.polling import PollingObserver
 
-    from code_review_graph.incremental import _load_ignore_patterns, _WatchSupervisor
+    from gryphon.incremental import _load_ignore_patterns, _WatchSupervisor
 
     source = tmp_path / "src"
     file = source / "deep" / "held.py"

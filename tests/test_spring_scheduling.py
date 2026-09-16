@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 SOURCE = """
 import java.util.concurrent.TimeUnit;
@@ -78,7 +78,7 @@ def test_scheduled_metadata_preserves_repeatable_values(tmp_path: Path) -> None:
 def test_schedule_queries_follow_triggers_edges(tmp_path: Path) -> None:
     path = tmp_path / "Tasks.java"
     nodes, edges = _parsed(path)
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     db_path = graph_dir / "graph.db"
     with GraphStore(db_path) as store:

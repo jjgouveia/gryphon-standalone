@@ -50,11 +50,11 @@ from typing import Any
 
 import pytest
 
-from code_review_graph import main as crg_main
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.tools import analysis_tools, community_tools, review
-from code_review_graph.tools import refactor_tools as refactor_mod
+from gryphon import main as crg_main
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.tools import analysis_tools, community_tools, review
+from gryphon.tools import refactor_tools as refactor_mod
 
 try:  # pragma: no cover - exercised only when tiktoken is installed
     import tiktoken
@@ -80,7 +80,7 @@ _FUNCS_PER_MODULE = 12
 
 def _write_fixture_repo(root: Path) -> list[str]:
     """Generate a deterministic multi-package Python repo. Returns rel paths."""
-    (root / ".code-review-graph").mkdir(parents=True, exist_ok=True)
+    (root / ".gryphon").mkdir(parents=True, exist_ok=True)
     rel_paths: list[str] = []
 
     for pkg in range(_PACKAGES):
@@ -132,7 +132,7 @@ def graph_repo(tmp_path_factory) -> dict[str, Any]:
     root = tmp_path_factory.mktemp("token-budget-repo")
     rel_paths = _write_fixture_repo(root)
 
-    db_path = root / ".code-review-graph" / "graph.db"
+    db_path = root / ".gryphon" / "graph.db"
     # Serial parsing keeps the build deterministic and avoids spawning a
     # ProcessPoolExecutor inside the test session.
     os.environ["CRG_SERIAL_PARSE"] = "1"
@@ -186,7 +186,7 @@ def count_tokens(value: Any) -> int:
 # A sentinel that pushes any result cap past its hard ceiling.
 HUGE = 10**6
 
-# Tools whose result lists live in code_review_graph/tools/query.py. That
+# Tools whose result lists live in gryphon/tools/query.py. That
 # module is owned elsewhere and its unbounded worst cases are reported, not
 # fixed, by this change:
 #   * get_impact_radius  -- changed_nodes and edges ignore max_results
@@ -483,7 +483,7 @@ def _pick_row(repo: dict[str, Any], sql: str, column: int) -> Any:
     communities tables with fresh ids, so ids captured once in the fixture
     go stale mid-module.
     """
-    with GraphStore(Path(repo["root"]) / ".code-review-graph" / "graph.db") as store:
+    with GraphStore(Path(repo["root"]) / ".gryphon" / "graph.db") as store:
         rows = store._conn.execute(sql).fetchall()
     return rows[0][column] if rows else None
 
@@ -498,7 +498,7 @@ def _register_fixture(repo: dict[str, Any]) -> None:
     registry tool called from here otherwise returns the "no repositories
     registered" short-circuit and measures none of its own bounds.
     """
-    from code_review_graph.registry import Registry
+    from gryphon.registry import Registry
 
     Registry().register(repo["root"], alias=_FIXTURE_ALIAS)
 
@@ -601,7 +601,7 @@ def test_worst_case_args_stay_in_budget(name, repo):
     spec = BUDGETS[name]
     if spec["worst_max"] is None:
         pytest.skip(
-            f"{name} is bounded in code_review_graph/tools/query.py, which "
+            f"{name} is bounded in gryphon/tools/query.py, which "
             "this change does not own; its unbounded worst case is reported "
             "rather than fixed (see QUERY_OWNED_UNBOUNDED)."
         )

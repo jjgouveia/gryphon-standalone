@@ -6,8 +6,8 @@ import argparse
 import json
 from pathlib import Path
 
-from code_review_graph import skills, uninstall
-from code_review_graph.cli import _handle_init
+from gryphon import skills, uninstall
+from gryphon.cli import _handle_init
 
 
 def _args(tmp_path: Path, platform: str) -> argparse.Namespace:
@@ -38,7 +38,7 @@ def test_copilot_cli_install_reinstall_uninstall_lifecycle(
                     "current-server": {"command": "keep-current"},
                 },
                 "servers": {
-                    "code-review-graph": {},
+                    "gryphon": {},
                     "legacy-server": {"command": "keep-legacy"},
                 },
                 "theme": "dark",
@@ -46,7 +46,7 @@ def test_copilot_cli_install_reinstall_uninstall_lifecycle(
         ),
         encoding="utf-8",
     )
-    legacy_instruction = repo / ".github" / "code-review-graph.instruction.md"
+    legacy_instruction = repo / ".github" / "gryphon.instruction.md"
     legacy_instruction.parent.mkdir(parents=True)
     legacy_instruction.write_text(
         "# User notes\n\n" + skills._COPILOT_SECTION,
@@ -64,7 +64,7 @@ def test_copilot_cli_install_reinstall_uninstall_lifecycle(
         repo
         / ".github"
         / "instructions"
-        / "code-review-graph.instructions.md"
+        / "gryphon.instructions.md"
     )
     first_instruction = current_instruction.read_bytes()
     _handle_init(args)
@@ -75,8 +75,8 @@ def test_copilot_cli_install_reinstall_uninstall_lifecycle(
     assert installed["mcpServers"]["current-server"] == {
         "command": "keep-current",
     }
-    assert installed["mcpServers"]["code-review-graph"]["type"] == "local"
-    assert installed["mcpServers"]["code-review-graph"]["tools"] == ["*"]
+    assert installed["mcpServers"]["gryphon"]["type"] == "local"
+    assert installed["mcpServers"]["gryphon"]["tools"] == ["*"]
     assert installed["servers"] == {
         "legacy-server": {"command": "keep-legacy"},
     }
@@ -100,15 +100,15 @@ def test_copilot_cli_install_reinstall_uninstall_lifecycle(
 
 def test_handle_init_codex_skips_claude_skills(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(
-        "code_review_graph.incremental.find_repo_root",
+        "gryphon.incremental.find_repo_root",
         lambda: tmp_path,
     )
     monkeypatch.setattr(
-        "code_review_graph.incremental.ensure_repo_gitignore_excludes_crg",
+        "gryphon.incremental.ensure_repo_gitignore_excludes_crg",
         lambda repo_root: "created",
     )
     monkeypatch.setattr(
-        "code_review_graph.skills.install_platform_configs",
+        "gryphon.skills.install_platform_configs",
         lambda repo_root, target, dry_run=False: ["Codex"],
     )
 
@@ -126,9 +126,9 @@ def test_handle_init_codex_skips_claude_skills(monkeypatch, tmp_path, capsys):
         called["git_hook"] = True
         return repo_root / ".git" / "hooks" / "pre-commit"
 
-    monkeypatch.setattr("code_review_graph.skills.generate_skills", _generate_skills)
-    monkeypatch.setattr("code_review_graph.skills.install_codex_hooks", _install_codex_hooks)
-    monkeypatch.setattr("code_review_graph.skills.install_git_hook", _install_git_hook)
+    monkeypatch.setattr("gryphon.skills.generate_skills", _generate_skills)
+    monkeypatch.setattr("gryphon.skills.install_codex_hooks", _install_codex_hooks)
+    monkeypatch.setattr("gryphon.skills.install_git_hook", _install_git_hook)
 
     _handle_init(_args(tmp_path, "codex"))
     out = capsys.readouterr().out
@@ -141,22 +141,22 @@ def test_handle_init_codex_skips_claude_skills(monkeypatch, tmp_path, capsys):
 
 def test_handle_init_cursor_installs_cursor_hooks(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(
-        "code_review_graph.incremental.find_repo_root",
+        "gryphon.incremental.find_repo_root",
         lambda: tmp_path,
     )
     monkeypatch.setattr(
-        "code_review_graph.incremental.ensure_repo_gitignore_excludes_crg",
+        "gryphon.incremental.ensure_repo_gitignore_excludes_crg",
         lambda repo_root: "created",
     )
     monkeypatch.setattr(
-        "code_review_graph.skills.install_platform_configs",
+        "gryphon.skills.install_platform_configs",
         lambda repo_root, target, dry_run=False: ["Cursor"],
     )
     monkeypatch.setitem(
-        __import__("code_review_graph.skills", fromlist=["PLATFORMS"]).PLATFORMS,
+        __import__("gryphon.skills", fromlist=["PLATFORMS"]).PLATFORMS,
         "cursor",
         {
-            **__import__("code_review_graph.skills", fromlist=["PLATFORMS"]).PLATFORMS["cursor"],
+            **__import__("gryphon.skills", fromlist=["PLATFORMS"]).PLATFORMS["cursor"],
             "detect": lambda: True,
         },
     )
@@ -167,7 +167,7 @@ def test_handle_init_cursor_installs_cursor_hooks(monkeypatch, tmp_path, capsys)
         called["cursor_hooks"] = True
         return Path("/tmp/fake-cursor-hooks.json")
 
-    monkeypatch.setattr("code_review_graph.skills.install_cursor_hooks", _install_cursor_hooks)
+    monkeypatch.setattr("gryphon.skills.install_cursor_hooks", _install_cursor_hooks)
 
     _handle_init(_args(tmp_path, "cursor"))
     out = capsys.readouterr().out
@@ -179,22 +179,22 @@ def test_handle_init_cursor_installs_cursor_hooks(monkeypatch, tmp_path, capsys)
 def test_handle_init_codebuddy_installs_only_codebuddy_native_files(
     monkeypatch, tmp_path, capsys
 ):
-    import code_review_graph.skills as skills_module
+    import gryphon.skills as skills_module
 
     assert "codebuddy" in __import__(
-        "code_review_graph.cli", fromlist=["_PLATFORM_CHOICES"]
+        "gryphon.cli", fromlist=["_PLATFORM_CHOICES"]
     )._PLATFORM_CHOICES
 
     monkeypatch.setattr(
-        "code_review_graph.incremental.find_repo_root",
+        "gryphon.incremental.find_repo_root",
         lambda: tmp_path,
     )
     monkeypatch.setattr(
-        "code_review_graph.incremental.ensure_repo_gitignore_excludes_crg",
+        "gryphon.incremental.ensure_repo_gitignore_excludes_crg",
         lambda repo_root: "created",
     )
     monkeypatch.setattr(
-        "code_review_graph.skills.install_platform_configs",
+        "gryphon.skills.install_platform_configs",
         lambda repo_root, target, dry_run=False: ["CodeBuddy Code"],
     )
 

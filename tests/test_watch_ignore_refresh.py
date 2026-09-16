@@ -11,8 +11,8 @@ from watchdog.events import (
     FileMovedEvent,
 )
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import (
+from gryphon.graph import GraphStore
+from gryphon.incremental import (
     _create_watch_handler,
     _load_ignore_patterns,
     _should_ignore,
@@ -49,7 +49,7 @@ def test_first_maven_output_is_ignored_before_cache_expiry(tmp_path, store):
 
     # A file-only delivery must suffice: native backends can omit directory events.
     with patch(
-        "code_review_graph.incremental._scan_nested_output_dirs",
+        "gryphon.incremental._scan_nested_output_dirs",
         side_effect=AssertionError("ordinary file event rescanned module tree"),
     ):
         handler.process([FileCreatedEvent(str(output))])
@@ -62,7 +62,7 @@ def test_new_manifest_purges_previously_indexed_output_unless_kept(tmp_path, sto
     output = write_source(tmp_path / "module" / "target" / "generated.py")
     user = write_source(tmp_path / "module" / "src" / "user.py")
     if keep:
-        (tmp_path / ".code-review-graphignore").write_text("!module/target\n")
+        (tmp_path / ".gryphonignore").write_text("!module/target\n")
     incremental_update(tmp_path, store, changed_files=[str(output), str(user)])
     callback = Mock(return_value=None)
     handler = _create_watch_handler(tmp_path, store, callback)
@@ -70,7 +70,7 @@ def test_new_manifest_purges_previously_indexed_output_unless_kept(tmp_path, sto
     manifest.write_text("<project/>")
 
     with patch(
-        "code_review_graph.incremental.collect_all_files",
+        "gryphon.incremental.collect_all_files",
         side_effect=AssertionError("metadata event inventoried repository"),
     ):
         handler.process([FileCreatedEvent(str(manifest))])
@@ -86,7 +86,7 @@ def test_ignore_edit_purges_and_removal_indexes_without_source_event(tmp_path, s
     incremental_update(tmp_path, store, changed_files=[str(generated), str(user)])
     callback = Mock(return_value=None)
     handler = _create_watch_handler(tmp_path, store, callback)
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("generated/\n")
 
     handler.process([FileModifiedEvent(str(config))])
@@ -105,7 +105,7 @@ def test_ignore_edit_purges_and_removal_indexes_without_source_event(tmp_path, s
 def test_removing_keep_purges_inferred_output(tmp_path, store):
     output = write_source(tmp_path / "module" / "target" / "user.py")
     (output.parent.parent / "pom.xml").write_text("<project/>")
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("!module/target\n")
     incremental_update(tmp_path, store, changed_files=[output.relative_to(tmp_path).as_posix()])
     handler = _create_watch_handler(tmp_path, store, None)
@@ -126,11 +126,11 @@ def test_gitignore_edit_preserves_existing_explicit_update_semantics(tmp_path, s
 
     with (
         patch(
-            "code_review_graph.incremental._scan_nested_output_dirs",
+            "gryphon.incremental._scan_nested_output_dirs",
             side_effect=AssertionError("ordinary file batch rescanned module tree"),
         ),
         patch(
-            "code_review_graph.incremental.collect_all_files",
+            "gryphon.incremental.collect_all_files",
             side_effect=AssertionError("ordinary file batch inventoried repository"),
         ),
     ):
@@ -146,7 +146,7 @@ def test_adding_keep_indexes_existing_output_without_source_event(tmp_path, stor
     assert store.get_all_files() == []
     callback = Mock(return_value=None)
     handler = _create_watch_handler(tmp_path, store, callback)
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("!module/target\n")
 
     handler.process([FileCreatedEvent(str(config))])
@@ -171,7 +171,7 @@ def test_keep_does_not_override_explicit_exclusion(tmp_path, store):
     output = write_source(tmp_path / "module" / "target" / "user.py")
     (output.parent.parent / "pom.xml").write_text("<project/>")
     handler = _create_watch_handler(tmp_path, store, None)
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("!module/target\nmodule/target/\n")
 
     handler.process([FileCreatedEvent(str(config))])
@@ -185,7 +185,7 @@ def test_cache_expiry_refreshes_snapshot_and_purges_stored_output(tmp_path, stor
     incremental_update(tmp_path, store, changed_files=[str(output), str(user)])
     handler = _create_watch_handler(tmp_path, store, None)
     (output.parent.parent / "pom.xml").write_text("<project/>")
-    monkeypatch.setattr("code_review_graph.incremental._NESTED_IGNORE_TTL_SECONDS", 0)
+    monkeypatch.setattr("gryphon.incremental._NESTED_IGNORE_TTL_SECONDS", 0)
 
     handler.process([FileModifiedEvent(str(user))])
     handler.raise_if_failed()
@@ -213,7 +213,7 @@ def test_ignore_purge_removes_exact_legacy_spelling(tmp_path, store):
     store._invalidate_cache()
     assert legacy in store.get_all_files()
     handler = _create_watch_handler(tmp_path, store, None)
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("generated/\n")
 
     handler.process([FileCreatedEvent(str(config))])
@@ -227,7 +227,7 @@ def test_ignore_purge_refuses_partially_foreign_graph_before_mutation(tmp_path, 
     foreign = write_source(tmp_path.parent / (tmp_path.name + "-foreign") / "user.py")
     incremental_update(tmp_path, store, changed_files=[str(output)])
     # Preserve a legitimate File marker outside this root, as in a mixed legacy graph.
-    from code_review_graph.parser import CodeParser
+    from gryphon.parser import CodeParser
 
     nodes, _ = CodeParser(foreign.parent).parse_file(foreign)
     for node in nodes:
@@ -235,7 +235,7 @@ def test_ignore_purge_refuses_partially_foreign_graph_before_mutation(tmp_path, 
     store.commit()
     before = store.get_all_files()
     handler = _create_watch_handler(tmp_path, store, None)
-    config = tmp_path / ".code-review-graphignore"
+    config = tmp_path / ".gryphonignore"
     config.write_text("generated/\n")
 
     handler.process([FileCreatedEvent(str(config))])
@@ -250,7 +250,7 @@ def test_parent_directory_modification_does_not_rescan_ordinary_batch(tmp_path, 
     user = write_source(tmp_path / "src" / "user.py")
     handler = _create_watch_handler(tmp_path, store, None)
     with patch(
-        "code_review_graph.incremental._scan_nested_output_dirs",
+        "gryphon.incremental._scan_nested_output_dirs",
         side_effect=AssertionError("parent directory notification rescanned module tree"),
     ):
         handler.process([FileModifiedEvent(str(user)), DirModifiedEvent(str(user.parent))])
@@ -270,7 +270,7 @@ def test_new_source_file_at_inferred_output_root_is_indexed(
     module.mkdir()
     (module / "pom.xml").write_text("<project/>")
     if explicit_ignore:
-        (tmp_path / ".code-review-graphignore").write_text("module/target/\n")
+        (tmp_path / ".gryphonignore").write_text("module/target/\n")
     handler = _create_watch_handler(tmp_path, store, None)
     target = module / "target"
     source = module / "script" if event_type == "moved" else target

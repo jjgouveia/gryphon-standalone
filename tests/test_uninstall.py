@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pytest
 
-from code_review_graph import skills, uninstall
+from gryphon import skills, uninstall
 
 
 def _write(path: Path, content: str) -> None:
@@ -64,8 +64,8 @@ def test_uninstall_removes_mcp_entry_for_every_current_platform_spec(
         _write(
             config_path,
             "theme = \"dark\"\n\n"
-            "[mcp_servers.code-review-graph]\n"
-            "command = \"code-review-graph\"\n\n"
+            "[mcp_servers.gryphon]\n"
+            "command = \"gryphon\"\n\n"
             "[mcp_servers.other]\ncommand = \"other\"\n",
         )
     elif spec["format"] == "yaml":
@@ -73,20 +73,20 @@ def test_uninstall_removes_mcp_entry_for_every_current_platform_spec(
             config_path,
             "theme: dark\n\n"
             f"{spec['key']}:\n"
-            "  code-review-graph:\n"
-            "    command: code-review-graph\n"
+            "  gryphon:\n"
+            "    command: gryphon\n"
             "  other:\n"
             "    url: https://example.test/mcp\n",
         )
     else:
         if spec["format"] == "array":
             container: object = [
-                {"name": "code-review-graph", "command": "code-review-graph"},
+                {"name": "gryphon", "command": "gryphon"},
                 {"name": "other", "url": "https://example.test/mcp"},
             ]
         else:
             container = {
-                "code-review-graph": {"command": "code-review-graph"},
+                "gryphon": {"command": "gryphon"},
                 "other": {"url": "https://example.test/mcp"},
             }
         _write_json(config_path, {spec["key"]: container, "theme": "dark"})
@@ -96,7 +96,7 @@ def test_uninstall_removes_mcp_entry_for_every_current_platform_spec(
     assert report.errors == []
     if spec["format"] == "toml":
         text = config_path.read_text(encoding="utf-8")
-        assert "[mcp_servers.code-review-graph]" not in text
+        assert "[mcp_servers.gryphon]" not in text
         assert "[mcp_servers.other]" in text
         assert 'theme = "dark"' in text
     elif spec["format"] == "yaml":
@@ -133,7 +133,7 @@ def test_platform_inventory_is_derived_not_hard_coded(
             "needs_type": False,
         },
     )
-    _write_json(config, {"servers": {"code-review-graph": {}, "mine": {}}})
+    _write_json(config, {"servers": {"gryphon": {}, "mine": {}}})
 
     uninstall.run(repo=fake_repo, keep_data=True)
 
@@ -150,11 +150,11 @@ def test_copilot_cli_uninstall_removes_current_and_legacy_entries(
         config,
         {
             "mcpServers": {
-                "code-review-graph": {"type": "local"},
+                "gryphon": {"type": "local"},
                 "current-server": {"command": "keep-current"},
             },
             "servers": {
-                "code-review-graph": {},
+                "gryphon": {},
                 "legacy-server": {"command": "keep-legacy"},
             },
             "theme": "dark",
@@ -184,7 +184,7 @@ def test_source_pr_legacy_mcp_paths_remain_supported(
     for path in (repo_legacy, user_legacy):
         _write_json(
             path,
-            {"mcpServers": {"code-review-graph": {}, "other": {}}},
+            {"mcpServers": {"gryphon": {}, "other": {}}},
         )
 
     uninstall.run(repo=fake_repo, keep_data=True)
@@ -207,7 +207,7 @@ def test_jsonc_comments_trailing_commas_and_https_survive(
         "  // keep top-level comment\n"
         f'  "{spec["key"]}": {{\n'
         "    // remove only the next member\n"
-        '    "code-review-graph": {"command": "code-review-graph"},\n'
+        '    "gryphon": {"command": "gryphon"},\n'
         "    // keep server comment\n"
         '    "other": {"url": "https://example.test/a//b"},\n'
         "  },\n"
@@ -224,7 +224,7 @@ def test_jsonc_comments_trailing_commas_and_https_survive(
     assert "keep server comment" in raw
     assert "keep trailing comment" in raw
     assert "https://example.test/a//b" in raw
-    assert "code-review-graph" not in raw
+    assert "gryphon" not in raw
     assert _read_jsonc(path)[spec["key"]]["other"]["url"].startswith("https://")
 
 
@@ -237,7 +237,7 @@ def test_gemini_shared_settings_removes_mcp_and_owned_hooks(
         settings,
         {
             "mcpServers": {
-                "code-review-graph": {"command": "code-review-graph"},
+                "gryphon": {"command": "gryphon"},
                 "other": {"command": "other"},
             },
             "hooks": {
@@ -348,13 +348,13 @@ def test_source_pr_legacy_hook_commands_are_removed_exactly(
     repo_arg = json.dumps(fake_repo.resolve().as_posix())
     legacy_repo_command = (
         "git rev-parse --git-dir >/dev/null 2>&1"
-        " && code-review-graph update --skip-flows"
+        " && gryphon update --skip-flows"
         f" --repo {repo_arg}"
         " || true"
     )
     legacy_codex_command = (
         "git rev-parse --git-dir >/dev/null 2>&1"
-        " && code-review-graph status"
+        " && gryphon status"
         " || echo 'Not a git repo, skipping'"
     )
     _write_json(
@@ -421,10 +421,10 @@ def test_instruction_inventory_and_git_hook_are_surgical(
     _write(
         hook,
         "#!/bin/sh\necho user-hook\n"
-        "# Installed by code-review-graph. Remove this file to disable pre-commit graph checks.\n"
-        "if command -v code-review-graph >/dev/null 2>&1; then\n"
-        "    code-review-graph update || true\n"
-        "    code-review-graph detect-changes --brief || true\n"
+        "# Installed by gryphon. Remove this file to disable pre-commit graph checks.\n"
+        "if command -v gryphon >/dev/null 2>&1; then\n"
+        "    gryphon update || true\n"
+        "    gryphon detect-changes --brief || true\n"
         "fi\n",
     )
 
@@ -444,8 +444,8 @@ def test_uninstall_cleans_current_and_legacy_copilot_instruction_paths(
         fake_repo
         / ".github"
         / "instructions"
-        / "code-review-graph.instructions.md",
-        fake_repo / ".github" / "code-review-graph.instruction.md",
+        / "gryphon.instructions.md",
+        fake_repo / ".github" / "gryphon.instruction.md",
     )
     for path in paths:
         _write(path, "# User notes\n\n" + skills._COPILOT_SECTION)
@@ -616,7 +616,7 @@ def test_only_installer_owned_gitignore_block_is_removed(
     gitignore = fake_repo / ".gitignore"
     _write(
         gitignore,
-        "dist/\n# Added by code-review-graph\n.code-review-graph/\ncoverage/\n",
+        "dist/\n# Added by gryphon\n.gryphon/\ncoverage/\n",
     )
 
     uninstall.run(repo=fake_repo, keep_data=True)
@@ -624,9 +624,9 @@ def test_only_installer_owned_gitignore_block_is_removed(
     assert gitignore.read_text(encoding="utf-8") == "dist/\ncoverage/\n"
 
     # An unmarked entry may have been written by the user before install.
-    _write(gitignore, "dist/\n.code-review-graph/\n")
+    _write(gitignore, "dist/\n.gryphon/\n")
     uninstall.run(repo=fake_repo, keep_data=True)
-    assert gitignore.read_text(encoding="utf-8") == "dist/\n.code-review-graph/\n"
+    assert gitignore.read_text(encoding="utf-8") == "dist/\n.gryphon/\n"
 
 
 def test_dry_run_is_meaningful_and_byte_for_byte_read_only(
@@ -634,8 +634,8 @@ def test_dry_run_is_meaningful_and_byte_for_byte_read_only(
     fake_home: Path,
 ) -> None:
     config = fake_repo / ".mcp.json"
-    _write_json(config, {"mcpServers": {"code-review-graph": {}}})
-    data = fake_repo / ".code-review-graph" / "graph.db"
+    _write_json(config, {"mcpServers": {"gryphon": {}}})
+    data = fake_repo / ".gryphon" / "graph.db"
     data.parent.mkdir()
     data.write_bytes(b"graph")
     plugin = fake_home / ".config" / "opencode" / "plugins" / "crg-plugin.ts"
@@ -664,7 +664,7 @@ def test_failed_atomic_config_write_preserves_original_bytes(
     config = fake_repo / ".mcp.json"
     _write_json(
         config,
-        {"mcpServers": {"code-review-graph": {}, "other": {"command": "mine"}}},
+        {"mcpServers": {"gryphon": {}, "other": {"command": "mine"}}},
     )
     original = config.read_bytes()
 
@@ -692,7 +692,7 @@ def test_atomic_config_replace_preserves_file_mode(
     fake_home: Path,
 ) -> None:
     config = fake_repo / ".mcp.json"
-    _write_json(config, {"mcpServers": {"code-review-graph": {}, "other": {}}})
+    _write_json(config, {"mcpServers": {"gryphon": {}, "other": {}}})
     config.chmod(0o640)
 
     report = uninstall.run(
@@ -711,10 +711,10 @@ def test_non_repository_directory_is_refused_without_deleting_data(
     fake_home: Path,
 ) -> None:
     ordinary_directory = tmp_path / "ordinary-directory"
-    data = ordinary_directory / ".code-review-graph" / "unrelated.txt"
+    data = ordinary_directory / ".gryphon" / "unrelated.txt"
     config = ordinary_directory / ".mcp.json"
     _write(data, "not owned by CRG")
-    _write_json(config, {"mcpServers": {"code-review-graph": {}}})
+    _write_json(config, {"mcpServers": {"gryphon": {}}})
 
     report = uninstall.run(
         repo=ordinary_directory,
@@ -722,7 +722,7 @@ def test_non_repository_directory_is_refused_without_deleting_data(
     )
 
     assert data.read_text(encoding="utf-8") == "not owned by CRG"
-    assert _read_jsonc(config) == {"mcpServers": {"code-review-graph": {}}}
+    assert _read_jsonc(config) == {"mcpServers": {"gryphon": {}}}
     assert report.total_actions == 0
     assert any(
         str(ordinary_directory) in item and "Git or SVN repository" in item
@@ -736,7 +736,7 @@ def test_repository_subdirectory_normalises_to_vcs_root(
 ) -> None:
     nested = fake_repo / "src" / "package"
     nested.mkdir(parents=True)
-    data = fake_repo / ".code-review-graph" / "graph.db"
+    data = fake_repo / ".gryphon" / "graph.db"
     data.parent.mkdir()
     data.write_bytes(b"graph")
 
@@ -758,10 +758,10 @@ def test_symlink_and_out_of_boundary_paths_are_skipped(
     outside_data = tmp_path / "outside-data"
     outside_data.mkdir()
     _write(outside_data / "keep.txt", "keep")
-    os.symlink(outside_data, fake_repo / ".code-review-graph", target_is_directory=True)
+    os.symlink(outside_data, fake_repo / ".gryphon", target_is_directory=True)
 
     outside_config = tmp_path / "outside-config.json"
-    _write_json(outside_config, {"servers": {"code-review-graph": {}, "other": {}}})
+    _write_json(outside_config, {"servers": {"gryphon": {}, "other": {}}})
     monkeypatch.setitem(
         skills.PLATFORMS,
         "malicious-path",
@@ -778,9 +778,9 @@ def test_symlink_and_out_of_boundary_paths_are_skipped(
     report = uninstall.run(repo=fake_repo)
 
     assert (outside_data / "keep.txt").read_text(encoding="utf-8") == "keep"
-    assert (fake_repo / ".code-review-graph").is_symlink()
+    assert (fake_repo / ".gryphon").is_symlink()
     assert _read_jsonc(outside_config)["servers"] == {
-        "code-review-graph": {},
+        "gryphon": {},
         "other": {},
     }
     assert any("boundary" in item or "symlink" in item for item in report.skipped_paths)
@@ -795,10 +795,10 @@ def test_malformed_config_is_unchanged_and_other_cleanup_continues(
     malformed_toml = fake_home / ".codex" / "config.toml"
     _write(
         malformed_toml,
-        'broken = "unterminated\n[mcp_servers.code-review-graph]\ncommand = "crg"\n',
+        'broken = "unterminated\n[mcp_servers.gryphon]\ncommand = "crg"\n',
     )
     valid = fake_repo / ".mcp.json"
-    _write_json(valid, {"mcpServers": {"code-review-graph": {}, "other": {}}})
+    _write_json(valid, {"mcpServers": {"gryphon": {}, "other": {}}})
 
     report = uninstall.run(repo=fake_repo, keep_data=True)
 
@@ -814,9 +814,9 @@ def test_partial_filesystem_failure_is_reported_and_does_not_stop_cleanup(
     fake_home: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    blocked = fake_repo / ".code-review-graph.db"
+    blocked = fake_repo / ".gryphon.db"
     blocked.write_bytes(b"db")
-    removable = fake_repo / ".code-review-graph.db-wal"
+    removable = fake_repo / ".gryphon.db-wal"
     removable.write_bytes(b"wal")
     original_unlink = Path.unlink
 
@@ -839,7 +839,7 @@ def test_second_run_is_idempotent(
     fake_home: Path,
 ) -> None:
     config = fake_repo / ".mcp.json"
-    _write_json(config, {"mcpServers": {"code-review-graph": {}, "other": {}}})
+    _write_json(config, {"mcpServers": {"gryphon": {}, "other": {}}})
 
     first = uninstall.run(repo=fake_repo, keep_data=True)
     second = uninstall.run(repo=fake_repo, keep_data=True)
@@ -854,16 +854,16 @@ def test_keep_flags_preserve_data_and_user_configuration(
     fake_repo: Path,
     fake_home: Path,
 ) -> None:
-    repo_data = fake_repo / ".code-review-graph"
+    repo_data = fake_repo / ".gryphon"
     repo_data.mkdir()
     (repo_data / "graph.db").write_bytes(b"db")
-    legacy = fake_repo / ".code-review-graph.db"
+    legacy = fake_repo / ".gryphon.db"
     legacy.write_bytes(b"db")
-    user_data = fake_home / ".code-review-graph"
+    user_data = fake_home / ".gryphon"
     user_data.mkdir()
     (user_data / "registry.json").write_text("{}", encoding="utf-8")
     user_config = fake_home / ".qwen" / "settings.json"
-    _write_json(user_config, {"mcpServers": {"code-review-graph": {}}})
+    _write_json(user_config, {"mcpServers": {"gryphon": {}}})
 
     uninstall.run(
         repo=fake_repo,
@@ -874,7 +874,7 @@ def test_keep_flags_preserve_data_and_user_configuration(
     assert repo_data.exists()
     assert legacy.exists()
     assert user_data.exists()
-    assert "code-review-graph" in _read_jsonc(user_config)["mcpServers"]
+    assert "gryphon" in _read_jsonc(user_config)["mcpServers"]
 
 
 def test_all_repos_reads_registry_before_removing_user_data(
@@ -885,11 +885,11 @@ def test_all_repos_reads_registry_before_removing_user_data(
     registered = tmp_path / "registered"
     (registered / ".git").mkdir(parents=True)
     registered_config = registered / ".mcp.json"
-    _write_json(registered_config, {"mcpServers": {"code-review-graph": {}}})
+    _write_json(registered_config, {"mcpServers": {"gryphon": {}}})
     external_data = tmp_path / "external-data"
     external_data.mkdir()
     (external_data / "graph.db").write_bytes(b"keep")
-    registry_dir = fake_home / ".code-review-graph"
+    registry_dir = fake_home / ".gryphon"
     registry_dir.mkdir()
     _write_json(
         registry_dir / "registry.json",
@@ -909,31 +909,31 @@ def test_cli_dry_run_and_confirmation_are_safe(
     fake_home: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from code_review_graph import cli
+    from gryphon import cli
 
     config = fake_repo / ".mcp.json"
-    _write_json(config, {"mcpServers": {"code-review-graph": {}}})
+    _write_json(config, {"mcpServers": {"gryphon": {}}})
 
     with patch.object(
         sys,
         "argv",
-        ["code-review-graph", "uninstall", "--repo", str(fake_repo), "--dry-run"],
+        ["gryphon", "uninstall", "--repo", str(fake_repo), "--dry-run"],
     ):
         cli.main()
     assert "dry-run" in capsys.readouterr().out.lower()
-    assert "code-review-graph" in config.read_text(encoding="utf-8")
+    assert "gryphon" in config.read_text(encoding="utf-8")
 
     with (
         patch.object(
             sys,
             "argv",
-            ["code-review-graph", "uninstall", "--repo", str(fake_repo)],
+            ["gryphon", "uninstall", "--repo", str(fake_repo)],
         ),
         patch.object(cli, "_confirm_yes_no", return_value=False),
     ):
         cli.main()
     assert "aborted" in capsys.readouterr().out.lower()
-    assert "code-review-graph" in config.read_text(encoding="utf-8")
+    assert "gryphon" in config.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -955,8 +955,8 @@ def _write_codex_config(path: Path) -> None:
     _write(
         path,
         'theme = "dark"\n\n'
-        "[mcp_servers.code-review-graph]\n"
-        'command = "code-review-graph"\n\n'
+        "[mcp_servers.gryphon]\n"
+        'command = "gryphon"\n\n'
         "[mcp_servers.other]\n"
         'command = "other"\n',
     )
@@ -968,11 +968,11 @@ def test_platform_scoped_unbind_removes_only_target_and_keeps_data(
 ) -> None:
     """Unbinding one platform removes its MCP entry but keeps data + siblings."""
     claude_config = fake_repo / ".mcp.json"
-    _write_json(claude_config, {"mcpServers": {"code-review-graph": {}, "other": {}}})
+    _write_json(claude_config, {"mcpServers": {"gryphon": {}, "other": {}}})
     codex_config = fake_home / ".codex" / "config.toml"
     _write_codex_config(codex_config)
 
-    data_db = fake_repo / ".code-review-graph" / "graph.db"
+    data_db = fake_repo / ".gryphon" / "graph.db"
     _write(data_db, "graph")
 
     report = uninstall.run(repo=fake_repo, platforms=["claude"])
@@ -981,7 +981,7 @@ def test_platform_scoped_unbind_removes_only_target_and_keeps_data(
     # Claude's binding is gone, its sibling entry survives.
     assert _read_jsonc(claude_config) == {"mcpServers": {"other": {}}}
     # Codex was never named, so its binding is untouched.
-    assert "[mcp_servers.code-review-graph]" in codex_config.read_text(encoding="utf-8")
+    assert "[mcp_servers.gryphon]" in codex_config.read_text(encoding="utf-8")
     # Graph data is preserved even though keep_data was not requested.
     assert data_db.exists()
 
@@ -992,17 +992,17 @@ def test_platform_scoped_unbind_targets_user_scope_toml(
 ) -> None:
     """A user-scope platform (Codex/TOML) unbinds without touching repo configs."""
     claude_config = fake_repo / ".mcp.json"
-    _write_json(claude_config, {"mcpServers": {"code-review-graph": {}}})
+    _write_json(claude_config, {"mcpServers": {"gryphon": {}}})
     codex_config = fake_home / ".codex" / "config.toml"
     _write_codex_config(codex_config)
 
     uninstall.run(repo=fake_repo, platforms=["codex"])
 
     text = codex_config.read_text(encoding="utf-8")
-    assert "[mcp_servers.code-review-graph]" not in text
+    assert "[mcp_servers.gryphon]" not in text
     assert "[mcp_servers.other]" in text
     # Claude was not named, so its repo binding stays put.
-    assert "code-review-graph" in claude_config.read_text(encoding="utf-8")
+    assert "gryphon" in claude_config.read_text(encoding="utf-8")
 
 
 def test_cli_uninstall_platform_scopes_to_one_binding(
@@ -1010,10 +1010,10 @@ def test_cli_uninstall_platform_scopes_to_one_binding(
     fake_home: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from code_review_graph import cli
+    from gryphon import cli
 
     claude_config = fake_repo / ".mcp.json"
-    _write_json(claude_config, {"mcpServers": {"code-review-graph": {}, "other": {}}})
+    _write_json(claude_config, {"mcpServers": {"gryphon": {}, "other": {}}})
     codex_config = fake_home / ".codex" / "config.toml"
     _write_codex_config(codex_config)
 
@@ -1021,7 +1021,7 @@ def test_cli_uninstall_platform_scopes_to_one_binding(
         sys,
         "argv",
         [
-            "code-review-graph", "uninstall",
+            "gryphon", "uninstall",
             "--platform", "claude", "--repo", str(fake_repo), "--yes",
         ],
     ):
@@ -1030,4 +1030,4 @@ def test_cli_uninstall_platform_scopes_to_one_binding(
     out = capsys.readouterr().out.lower()
     assert "unbind" in out
     assert _read_jsonc(claude_config) == {"mcpServers": {"other": {}}}
-    assert "[mcp_servers.code-review-graph]" in codex_config.read_text(encoding="utf-8")
+    assert "[mcp_servers.gryphon]" in codex_config.read_text(encoding="utf-8")

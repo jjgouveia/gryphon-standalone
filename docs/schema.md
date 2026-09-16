@@ -1,8 +1,8 @@
 # Knowledge Graph Schema
 
-The graph is one SQLite database, `.code-review-graph/graph.db`, opened in WAL mode.
-The base tables and indexes come from `_SCHEMA_SQL` in `code_review_graph/graph.py`.
-Everything else is added by the versioned migrations in `code_review_graph/migrations.py`.
+The graph is one SQLite database, `.gryphon/graph.db`, opened in WAL mode.
+The base tables and indexes come from `_SCHEMA_SQL` in `gryphon/graph.py`.
+Everything else is added by the versioned migrations in `gryphon/migrations.py`.
 The current schema version is 10.
 
 ## Node Types
@@ -249,7 +249,7 @@ CREATE TABLE risk_index (
 
 ### Embeddings
 
-`EmbeddingStore` in `code_review_graph/embeddings.py` creates this table in the same
+`EmbeddingStore` in `gryphon/embeddings.py` creates this table in the same
 `graph.db` when embeddings are first generated. It is not part of the migration chain; a
 missing `provider` column is added when the store opens.
 

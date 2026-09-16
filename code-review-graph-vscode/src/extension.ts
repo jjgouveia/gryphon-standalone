@@ -22,15 +22,15 @@ let scmDecorationProvider: ScmDecorationProvider | undefined;
 
 /**
  * Locate the graph database file in the workspace.
- * Checks `.code-review-graph/graph.db` first, then falls back to `.code-review-graph.db`.
+ * Checks `.gryphon/graph.db` first, then falls back to `.gryphon.db`.
  */
 function findGraphDb(workspaceRoot: string): string | undefined {
-  const primary = path.join(workspaceRoot, ".code-review-graph", "graph.db");
+  const primary = path.join(workspaceRoot, ".gryphon", "graph.db");
   if (fs.existsSync(primary)) {
     return primary;
   }
 
-  const fallback = path.join(workspaceRoot, ".code-review-graph.db");
+  const fallback = path.join(workspaceRoot, ".gryphon.db");
   if (fs.existsSync(fallback)) {
     return fallback;
   }
@@ -536,7 +536,7 @@ function registerCommands(
         vscode.window.showInformationMessage("Code Graph: Embeddings computed.");
       } else {
         const msg = result.stderr.includes("not installed")
-          ? "Install embeddings support: pip install code-review-graph[embeddings]"
+          ? "Install embeddings support: pip install gryphon[embeddings]"
           : `Embedding failed: ${result.stderr}`;
         vscode.window.showErrorMessage(`Code Graph: ${msg}`);
       }
@@ -793,7 +793,7 @@ async function reinitialize(
  */
 function watchGraphDb(context: vscode.ExtensionContext): void {
   const watcher = vscode.workspace.createFileSystemWatcher(
-    "**/.code-review-graph/graph.db"
+    "**/.gryphon/graph.db"
   );
 
   const dbPathRef = { current: "" };

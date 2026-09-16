@@ -124,13 +124,13 @@ export class CliWrapper {
     }
 
     /**
-     * Install the `code-review-graph` package using the specified installer.
+     * Install the `gryphon` package using the specified installer.
      */
     async installBackend(installer: 'uv' | 'pipx' | 'pip'): Promise<CliResult> {
         const commandMap: Record<typeof installer, { bin: string; args: string[] }> = {
-            uv: { bin: 'uv', args: ['pip', 'install', 'code-review-graph'] },
-            pipx: { bin: 'pipx', args: ['install', 'code-review-graph'] },
-            pip: { bin: 'pip3', args: ['install', 'code-review-graph'] },
+            uv: { bin: 'uv', args: ['pip', 'install', 'gryphon'] },
+            pipx: { bin: 'pipx', args: ['install', 'gryphon'] },
+            pip: { bin: 'pip3', args: ['install', 'gryphon'] },
         };
 
         const { bin, args } = commandMap[installer];
@@ -160,7 +160,7 @@ export class CliWrapper {
         const configured = vscode.workspace
             .getConfiguration('codeReviewGraph')
             .get<string>('cliPath', '');
-        return configured || 'code-review-graph';
+        return configured || 'gryphon';
     }
 
     /**
@@ -200,7 +200,7 @@ function toCliResult(err: unknown): CliResult {
         return {
             success: false,
             stdout: '',
-            stderr: 'CLI binary not found. Is code-review-graph installed?',
+            stderr: 'CLI binary not found. Is gryphon installed?',
         };
     }
 

@@ -5,9 +5,9 @@ import threading
 import time
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser, EdgeInfo, NodeInfo
-from code_review_graph.refactor import (
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser, EdgeInfo, NodeInfo
+from gryphon.refactor import (
     REFACTOR_EXPIRY_SECONDS,
     _pending_refactors,
     _refactor_lock,
@@ -530,7 +530,7 @@ class TestFindDeadCode:
 
     def test_find_dead_code_excludes_parsed_python_decorated_class(self):
         """Decorator metadata must survive parsing before dead-code analysis."""
-        from code_review_graph.parser import CodeParser
+        from gryphon.parser import CodeParser
 
         nodes, _ = CodeParser().parse_bytes(
             Path("/repo/widget.py"),
@@ -615,7 +615,7 @@ class TestApplyRefactor:
 
     def test_apply_refactor_validates_id(self):
         """apply_refactor rejects nonexistent refactor_id."""
-        # Use a real temp dir as repo_root (needs .git or .code-review-graph)
+        # Use a real temp dir as repo_root (needs .git or .gryphon)
         tmp_dir = Path(tempfile.mkdtemp())
         (tmp_dir / ".git").mkdir()
         try:

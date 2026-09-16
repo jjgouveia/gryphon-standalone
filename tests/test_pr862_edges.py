@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def test_import_name_with_trailing_kdoc_still_attributes_calls(tmp_path: Path) -> None:

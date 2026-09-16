@@ -19,9 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.changes import parse_git_diff_ranges
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import (
+from gryphon.changes import parse_git_diff_ranges
+from gryphon.graph import GraphStore
+from gryphon.incremental import (
     _commit_object_exists,
     collect_all_files,
     full_build,
@@ -32,10 +32,10 @@ from code_review_graph.incremental import (
     resolve_incremental_base,
     resolve_review_base,
 )
-from code_review_graph.tools._common import graph_provenance
-from code_review_graph.tools.build import build_or_update_graph
-from code_review_graph.tools.context import get_minimal_context
-from code_review_graph.wiki import get_wiki_page
+from gryphon.tools._common import graph_provenance
+from gryphon.tools.build import build_or_update_graph
+from gryphon.tools.context import get_minimal_context
+from gryphon.wiki import get_wiki_page
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -260,7 +260,7 @@ def test_review_base_falls_back_when_merge_base_is_unavailable(
             return subprocess.CompletedProcess(command, 1, stdout="", stderr="no ancestor")
         return real_run(*args, **kwargs)
 
-    monkeypatch.setattr("code_review_graph.incremental.subprocess.run", fail_merge_base)
+    monkeypatch.setattr("gryphon.incremental.subprocess.run", fail_merge_base)
 
     branch = _git_ok(git_repo, "branch", "--show-current").stdout.strip()
     assert resolve_review_base(git_repo, branch) == branch
@@ -386,7 +386,7 @@ def test_full_build_with_recurse_submodules(
     git_repo_with_submodule: Path,
 ) -> None:
     """full_build with recurse_submodules parses submodule files."""
-    db_path = git_repo_with_submodule / ".code-review-graph" / "graph.db"
+    db_path = git_repo_with_submodule / ".gryphon" / "graph.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     store = GraphStore(db_path)
     try:
@@ -529,7 +529,7 @@ def test_automatic_update_after_empty_commit_refreshes_freshness(
     repo = _init_repo(tmp_path)
     commit_a = _git_ok(repo, "rev-parse", "HEAD").stdout.strip()
     build_or_update_graph(full_rebuild=True, repo_root=str(repo), postprocess="none")
-    graph_path = repo / ".code-review-graph" / "graph.db"
+    graph_path = repo / ".gryphon" / "graph.db"
 
     with GraphStore(graph_path) as store:
         structure_at_a = _graph_structure_snapshot(store)
@@ -573,7 +573,7 @@ def test_automatic_update_after_unsupported_file_commit_refreshes_freshness(
     _git_ok(repo, "commit", "-m", "add unsupported notes")
     commit_a = _git_ok(repo, "rev-parse", "HEAD").stdout.strip()
     build_or_update_graph(full_rebuild=True, repo_root=str(repo), postprocess="none")
-    graph_path = repo / ".code-review-graph" / "graph.db"
+    graph_path = repo / ".gryphon" / "graph.db"
 
     with GraphStore(graph_path) as store:
         structure_at_a = _graph_structure_snapshot(store)
@@ -616,7 +616,7 @@ def test_explicit_changed_files_update_records_head_when_files_stored(
     _git_ok(repo, "commit", "-m", "change alpha")
     commit_b = _git_ok(repo, "rev-parse", "HEAD").stdout.strip()
 
-    with GraphStore(repo / ".code-review-graph" / "graph.db") as store:
+    with GraphStore(repo / ".gryphon" / "graph.db") as store:
         result = incremental_update(repo, store, changed_files=["a.py"])
         stored_sha = store.get_metadata("git_head_sha")
 
@@ -643,7 +643,7 @@ def test_failed_automatic_update_does_not_claim_graph_is_current(
         raise RuntimeError("forced parse failure")
 
     monkeypatch.setattr(
-        "code_review_graph.incremental.CodeParser.parse_bytes",
+        "gryphon.incremental.CodeParser.parse_bytes",
         fail_parse,
     )
     result = build_or_update_graph(
@@ -653,7 +653,7 @@ def test_failed_automatic_update_does_not_claim_graph_is_current(
         postprocess="none",
     )
 
-    with GraphStore(repo / ".code-review-graph" / "graph.db") as store:
+    with GraphStore(repo / ".gryphon" / "graph.db") as store:
         stored_sha = store.get_metadata("git_head_sha")
 
     # The failure is visible in status, errors and summary, but the anchor
@@ -773,7 +773,7 @@ def test_update_without_usable_anchor_falls_back_to_full_rebuild(
     build_or_update_graph(full_rebuild=True, repo_root=str(repo), postprocess="none")
 
     # Corrupt the anchor to an unreachable SHA (as a history rewrite would).
-    from code_review_graph.incremental import get_db_path
+    from gryphon.incremental import get_db_path
 
     store = GraphStore(str(get_db_path(repo)))
     try:
@@ -805,7 +805,7 @@ def test_update_missing_graph_ignores_explicit_incremental_base(
     assert res["build_type"] == "full"
     assert res["base_resolved"] is None
     assert res["files_parsed"] == 2
-    with GraphStore(repo / ".code-review-graph" / "graph.db") as store:
+    with GraphStore(repo / ".gryphon" / "graph.db") as store:
         assert store.get_nodes_by_file(str(repo / "a.py"))
         assert store.get_nodes_by_file(str(repo / "beta.py"))
 
@@ -814,7 +814,7 @@ def test_update_repairs_existing_empty_graph(
     tmp_path: Path,
 ) -> None:
     repo = _init_repo(tmp_path)
-    graph_path = repo / ".code-review-graph" / "graph.db"
+    graph_path = repo / ".gryphon" / "graph.db"
     with GraphStore(graph_path):
         pass
     _commit_file(repo, "beta")
@@ -839,8 +839,8 @@ def test_status_then_update_builds_complete_queryable_graph(
     monkeypatch,
     capsys,
 ) -> None:
-    from code_review_graph import cli
-    from code_review_graph.tools.query import query_graph
+    from gryphon import cli
+    from gryphon.tools.query import query_graph
 
     repo = tmp_path / "queryable-repo"
     repo.mkdir()
@@ -868,7 +868,7 @@ def test_status_then_update_builds_complete_queryable_graph(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["code-review-graph", "status", "--repo", str(repo)],
+        ["gryphon", "status", "--repo", str(repo)],
     )
     with pytest.raises(SystemExit) as exc_info:
         cli.main()
@@ -887,7 +887,7 @@ def test_status_then_update_builds_complete_queryable_graph(
         sys,
         "argv",
         [
-            "code-review-graph",
+            "gryphon",
             "update",
             "--repo",
             str(repo),
@@ -922,7 +922,7 @@ def test_update_explicit_base_bypasses_auto_resolution(tmp_path: Path) -> None:
 def test_mcp_tool_base_defaults_to_none() -> None:
     """The MCP wrapper must default base to None so omitted-base calls reach
     the auto-resolution path instead of a hardcoded HEAD~1."""
-    from code_review_graph.main import build_or_update_graph_tool
+    from gryphon.main import build_or_update_graph_tool
 
     # FastMCP may wrap the tool; the underlying callable is stored on ``.fn``.
     fn = getattr(build_or_update_graph_tool, "fn", build_or_update_graph_tool)
@@ -935,7 +935,7 @@ def test_cli_update_brief_default_base_does_not_crash(
     """`update --brief` with no explicit --base must not crash. The base now
     defaults to None, which the brief impact path cannot pass to git directly;
     it has to reuse the resolved base."""
-    from code_review_graph import cli
+    from gryphon import cli
 
     repo = _init_repo(tmp_path)
     build_or_update_graph(full_rebuild=True, repo_root=str(repo), postprocess="none")
@@ -944,7 +944,7 @@ def test_cli_update_brief_default_base_does_not_crash(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["code-review-graph", "update", "--brief", "--repo", str(repo)],
+        ["gryphon", "update", "--brief", "--repo", str(repo)],
     )
     cli.main()  # would raise AttributeError/TypeError on a None base before the fix
 

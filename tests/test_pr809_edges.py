@@ -16,8 +16,8 @@ from unittest.mock import patch
 
 import pytest
 
-from code_review_graph import cli
-from code_review_graph.graph import GraphStore
+from gryphon import cli
+from gryphon.graph import GraphStore
 
 READ_ONLY_COMMANDS = ["status", "detect-changes", "visualize", "wiki", "watch"]
 
@@ -52,14 +52,14 @@ def _make_git_repo(tmp_path: Path) -> Path:
 
 
 def _run_cli(argv: list[str]) -> pytest.ExceptionInfo:
-    with patch.object(sys, "argv", ["code-review-graph", *argv]):
+    with patch.object(sys, "argv", ["gryphon", *argv]):
         with pytest.raises(SystemExit) as exc_info:
             cli.main()
     return exc_info
 
 
 def _run_cli_ok(argv: list[str]) -> None:
-    with patch.object(sys, "argv", ["code-review-graph", *argv]):
+    with patch.object(sys, "argv", ["gryphon", *argv]):
         cli.main()
 
 
@@ -94,7 +94,7 @@ def test_registry_pointed_data_dir_is_not_created(
     assert "No graph found" in capsys.readouterr().err
     assert not pointed.exists()
     assert registry_file.read_bytes() == before
-    assert not (repo / ".code-review-graph").exists()
+    assert not (repo / ".gryphon").exists()
 
 
 @pytest.mark.parametrize("command", READ_ONLY_COMMANDS)
@@ -116,9 +116,9 @@ def test_deep_missing_crg_data_dir_tree_not_created(
 
 
 def test_legacy_migration_still_runs_for_wiki(tmp_path, isolated_env, capsys):
-    """wiki on a legacy .code-review-graph.db migrates it instead of failing."""
+    """wiki on a legacy .gryphon.db migrates it instead of failing."""
     repo = _make_repo(tmp_path)
-    legacy = repo / ".code-review-graph.db"
+    legacy = repo / ".gryphon.db"
     _build_min_graph(legacy)
 
     _run_cli_ok(["wiki", "--repo", str(repo)])
@@ -126,22 +126,22 @@ def test_legacy_migration_still_runs_for_wiki(tmp_path, isolated_env, capsys):
     out = capsys.readouterr().out
     assert "Output:" in out
     assert not legacy.exists()
-    assert (repo / ".code-review-graph" / "graph.db").exists()
+    assert (repo / ".gryphon" / "graph.db").exists()
 
 
 def test_legacy_migration_still_runs_for_visualize_json(
     tmp_path, isolated_env, capsys,
 ):
     repo = _make_repo(tmp_path)
-    legacy = repo / ".code-review-graph.db"
+    legacy = repo / ".gryphon.db"
     _build_min_graph(legacy)
 
     _run_cli_ok(["visualize", "--repo", str(repo), "--format", "json"])
 
     assert "JSON exported" in capsys.readouterr().out
     assert not legacy.exists()
-    assert (repo / ".code-review-graph" / "graph.db").exists()
-    assert (repo / ".code-review-graph" / "graph.json").exists()
+    assert (repo / ".gryphon" / "graph.db").exists()
+    assert (repo / ".gryphon" / "graph.json").exists()
 
 
 def test_crg_data_dir_blocks_legacy_migration(
@@ -149,7 +149,7 @@ def test_crg_data_dir_blocks_legacy_migration(
 ):
     """With CRG_DATA_DIR set, the legacy DB must be left alone and no dir made."""
     repo = _make_repo(tmp_path)
-    legacy = repo / ".code-review-graph.db"
+    legacy = repo / ".gryphon.db"
     _build_min_graph(legacy)
     external = tmp_path / "external-data"
     monkeypatch.setenv("CRG_DATA_DIR", str(external))
@@ -212,7 +212,7 @@ def test_visualize_with_graph_and_data_dir_writes_no_registry(
     assert "JSON exported" in capsys.readouterr().out
     assert (data_dir / "graph.json").exists()
     assert not (isolated_env / "registry.json").exists()
-    assert not (repo / ".code-review-graph").exists()
+    assert not (repo / ".gryphon").exists()
 
 
 def test_wiki_with_graph_and_data_dir_writes_no_registry(
@@ -227,7 +227,7 @@ def test_wiki_with_graph_and_data_dir_writes_no_registry(
     assert "Output:" in capsys.readouterr().out
     assert (data_dir / "wiki").is_dir()
     assert not (isolated_env / "registry.json").exists()
-    assert not (repo / ".code-review-graph").exists()
+    assert not (repo / ".gryphon").exists()
 
 
 def test_status_with_graph_and_data_dir_reads_in_place(
@@ -241,7 +241,7 @@ def test_status_with_graph_and_data_dir_reads_in_place(
 
     assert "Nodes: 0" in capsys.readouterr().out
     assert not (isolated_env / "registry.json").exists()
-    assert not (repo / ".code-review-graph").exists()
+    assert not (repo / ".gryphon").exists()
 
 
 def test_detect_changes_no_graph_real_git_repo_with_commit(
@@ -267,4 +267,4 @@ def test_detect_changes_no_graph_real_git_repo_with_commit(
 
     assert exc_info.value.code == 1
     assert "No graph found" in capsys.readouterr().err
-    assert not (repo / ".code-review-graph").exists()
+    assert not (repo / ".gryphon").exists()

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
 
 
 def _parse(path: Path, source: str):
@@ -261,8 +261,8 @@ endmodule
         assert all(not target.endswith(".member") for target in targets)
 
     def test_signal_nodes_are_excluded_from_function_analyses(self, tmp_path):
-        from code_review_graph.flows import detect_entry_points
-        from code_review_graph.refactor import find_dead_code
+        from gryphon.flows import detect_entry_points
+        from gryphon.refactor import find_dead_code
 
         path = tmp_path / "analysis.sv"
         nodes, edges = _parse(
@@ -485,7 +485,7 @@ impl MemoryRepository {
     def test_full_and_incremental_builds_keep_resolved_rust_calls(
         self, tmp_path, monkeypatch,
     ):
-        from code_review_graph.incremental import full_build, incremental_update
+        from gryphon.incremental import full_build, incremental_update
 
         monkeypatch.setenv("CRG_SERIAL_PARSE", "1")
         (tmp_path / ".git").mkdir()
@@ -633,7 +633,7 @@ class SecondService {
     def test_incremental_update_reresolves_only_changed_php_file(
         self, tmp_path, monkeypatch,
     ):
-        from code_review_graph.incremental import full_build, incremental_update
+        from gryphon.incremental import full_build, incremental_update
 
         monkeypatch.setenv("CRG_SERIAL_PARSE", "1")
         (tmp_path / ".git").mkdir()

@@ -10,9 +10,9 @@ tables counting once, NULL ``extra`` rows, ordering/dedup guarantees of
 import time
 from unittest.mock import patch
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import _reconcile_stale_files, full_build
-from code_review_graph.parser import EdgeInfo, NodeInfo
+from gryphon.graph import GraphStore
+from gryphon.incremental import _reconcile_stale_files, full_build
+from gryphon.parser import EdgeInfo, NodeInfo
 
 
 def _add_orphan_function(store, path, name="orphan_fn"):
@@ -135,7 +135,7 @@ class TestOrphanPurgeBoundaries:
             store.commit()
 
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["sample.py"],
             ):
                 result = full_build(tmp_path, store)
@@ -157,7 +157,7 @@ class TestOrphanPurgeBoundaries:
             _add_orphan_edge(store, outside)
             store.commit()
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["sample.py"],
             ):
                 result = full_build(repo, store)
@@ -184,7 +184,7 @@ class TestOrphanPurgeBoundaries:
             _add_orphan_function(store, orphan, name="加载")
             store.commit()
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["sample.py"],
             ):
                 result = full_build(tmp_path, store)
@@ -204,7 +204,7 @@ class TestOrphanPurgeBoundaries:
             store.commit()
 
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["live.py"],
             ):
                 full_build(tmp_path, store)
@@ -244,7 +244,7 @@ class TestOrphanPurgeBoundaries:
             store.commit()
 
             with patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["sample.py"],
             ):
                 result = full_build(tmp_path, store)

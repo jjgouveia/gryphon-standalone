@@ -32,7 +32,7 @@ and changes the pre-commit hook). Then review and merge #880.
 
 ## 2. Current state
 
-- `~/.code-review-graph/registry.json` is `{"repos": [{path, alias?, data_dir?}]}`
+- `~/.gryphon/registry.json` is `{"repos": [{path, alias?, data_dir?}]}`
   with no version key. `Registry` has `register(path, alias=None, data_dir=None)`
   (re-registering a path updates alias and data_dir), `unregister`, `list_repos`,
   `find_by_alias`, `find_by_path`, `set_data_dir`, `get_data_dir_for_repo`.

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-import code_review_graph.communities as communities_module
-from code_review_graph.communities import (
+import gryphon.communities as communities_module
+from gryphon.communities import (
     IGRAPH_AVAILABLE,
     _compute_cohesion,
     _compute_cohesion_batch,
@@ -18,8 +18,8 @@ from code_review_graph.communities import (
     incremental_detect_communities,
     store_communities,
 )
-from code_review_graph.graph import GraphEdge, GraphNode, GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
+from gryphon.graph import GraphEdge, GraphNode, GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
 
 
 def _community_node(

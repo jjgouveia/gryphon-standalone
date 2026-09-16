@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, get_db_path, incremental_update
-from code_review_graph.tools.build import build_or_update_graph
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, get_db_path, incremental_update
+from gryphon.tools.build import build_or_update_graph
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -37,7 +37,7 @@ def _commit(repo: Path, name: str, body: str) -> str:
 
 
 def _fail_parsing(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
-    from code_review_graph.parser import CodeParser
+    from gryphon.parser import CodeParser
 
     original = CodeParser.parse_bytes
 
@@ -149,7 +149,7 @@ def test_build_tool_with_only_a_failed_file_does_not_claim_up_to_date(repo, monk
 
 
 def test_cli_update_warns_about_failed_files(repo, monkeypatch, capsys):
-    from code_review_graph import cli
+    from gryphon import cli
 
     build_or_update_graph(full_rebuild=True, repo_root=str(repo), postprocess="none")
     (repo / "bad.py").write_text("def bad():\n    pass\n")
@@ -158,7 +158,7 @@ def test_cli_update_warns_about_failed_files(repo, monkeypatch, capsys):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["code-review-graph", "update", "--repo", str(repo), "--skip-postprocess"],
+        ["gryphon", "update", "--repo", str(repo), "--skip-postprocess"],
     )
     cli.main()
     captured = capsys.readouterr()

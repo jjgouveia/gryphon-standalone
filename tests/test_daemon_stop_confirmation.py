@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_review_graph.daemon import default_pid_path, read_pid, write_pid
-from code_review_graph.daemon_cli import _handle_restart, _handle_stop
+from gryphon.daemon import default_pid_path, read_pid, write_pid
+from gryphon.daemon_cli import _handle_restart, _handle_stop
 
 PID = 4242
 
@@ -29,11 +29,11 @@ def test_restart_waits_for_forced_exit_confirmation(tmp_path, monkeypatch, force
         assert not default_pid_path().exists()
 
     with (
-        patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-        patch("code_review_graph.daemon.pid_alive", side_effect=alive),
-        patch("code_review_graph.daemon_cli.os.kill") as kill,
-        patch("code_review_graph.daemon_cli.time.sleep") as sleep,
-        patch("code_review_graph.daemon_cli._handle_start", side_effect=start) as started,
+        patch("gryphon.daemon.is_daemon_running", return_value=True),
+        patch("gryphon.daemon.pid_alive", side_effect=alive),
+        patch("gryphon.daemon_cli.os.kill") as kill,
+        patch("gryphon.daemon_cli.time.sleep") as sleep,
+        patch("gryphon.daemon_cli._handle_start", side_effect=start) as started,
     ):
         _handle_restart(MagicMock())
 
@@ -50,11 +50,11 @@ def test_restart_retains_pid_when_forced_signal_does_not_end_process(tmp_path, m
     monkeypatch.setenv("CRG_HOME", str(tmp_path))
     write_pid(PID)
     with (
-        patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-        patch("code_review_graph.daemon.pid_alive", return_value=True) as alive,
-        patch("code_review_graph.daemon_cli.os.kill"),
-        patch("code_review_graph.daemon_cli.time.sleep") as sleep,
-        patch("code_review_graph.daemon_cli._handle_start") as started,
+        patch("gryphon.daemon.is_daemon_running", return_value=True),
+        patch("gryphon.daemon.pid_alive", return_value=True) as alive,
+        patch("gryphon.daemon_cli.os.kill"),
+        patch("gryphon.daemon_cli.time.sleep") as sleep,
+        patch("gryphon.daemon_cli._handle_start") as started,
         pytest.raises(SystemExit) as error,
     ):
         _handle_restart(MagicMock())
@@ -70,13 +70,13 @@ def test_restart_retains_pid_when_forced_exit_probe_fails(tmp_path, monkeypatch)
     monkeypatch.setenv("CRG_HOME", str(tmp_path))
     write_pid(PID)
     with (
-        patch("code_review_graph.daemon.is_daemon_running", return_value=True),
+        patch("gryphon.daemon.is_daemon_running", return_value=True),
         patch(
-            "code_review_graph.daemon.pid_alive", side_effect=[True] * 50 + [RuntimeError("probe")]
+            "gryphon.daemon.pid_alive", side_effect=[True] * 50 + [RuntimeError("probe")]
         ),
-        patch("code_review_graph.daemon_cli.os.kill"),
-        patch("code_review_graph.daemon_cli.time.sleep"),
-        patch("code_review_graph.daemon_cli._handle_start") as started,
+        patch("gryphon.daemon_cli.os.kill"),
+        patch("gryphon.daemon_cli.time.sleep"),
+        patch("gryphon.daemon_cli._handle_start") as started,
         pytest.raises(RuntimeError, match="probe"),
     ):
         _handle_restart(MagicMock())
@@ -90,11 +90,11 @@ def test_restart_retains_pid_when_forced_signal_fails(tmp_path, monkeypatch, fai
     monkeypatch.setenv("CRG_HOME", str(tmp_path))
     write_pid(PID)
     with (
-        patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-        patch("code_review_graph.daemon.pid_alive", return_value=True),
-        patch("code_review_graph.daemon_cli.os.kill", side_effect=[None, failure]),
-        patch("code_review_graph.daemon_cli.time.sleep"),
-        patch("code_review_graph.daemon_cli._handle_start") as started,
+        patch("gryphon.daemon.is_daemon_running", return_value=True),
+        patch("gryphon.daemon.pid_alive", return_value=True),
+        patch("gryphon.daemon_cli.os.kill", side_effect=[None, failure]),
+        patch("gryphon.daemon_cli.time.sleep"),
+        patch("gryphon.daemon_cli._handle_start") as started,
         pytest.raises(type(failure)),
     ):
         _handle_restart(MagicMock())
@@ -111,9 +111,9 @@ def test_restart_clears_stale_pid_before_starting(tmp_path, monkeypatch):
         assert read_pid() is None
 
     with (
-        patch("code_review_graph.daemon.pid_alive", return_value=False),
-        patch("code_review_graph.daemon_cli.os.kill") as kill,
-        patch("code_review_graph.daemon_cli._handle_start", side_effect=start) as started,
+        patch("gryphon.daemon.pid_alive", return_value=False),
+        patch("gryphon.daemon_cli.os.kill") as kill,
+        patch("gryphon.daemon_cli._handle_start", side_effect=start) as started,
     ):
         _handle_restart(MagicMock())
 
@@ -124,8 +124,8 @@ def test_restart_clears_stale_pid_before_starting(tmp_path, monkeypatch):
 def test_stop_does_not_signal_if_pid_disappears_after_running_check(tmp_path, monkeypatch):
     monkeypatch.setenv("CRG_HOME", str(tmp_path))
     with (
-        patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-        patch("code_review_graph.daemon_cli.os.kill") as kill,
+        patch("gryphon.daemon.is_daemon_running", return_value=True),
+        patch("gryphon.daemon_cli.os.kill") as kill,
         pytest.raises(SystemExit) as error,
     ):
         _handle_stop(MagicMock())

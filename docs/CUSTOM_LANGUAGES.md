@@ -1,6 +1,6 @@
 # Custom Languages (Bring Your Own Language)
 
-code-review-graph has built-in parsers for more than 35 languages. The
+gryphon has built-in parsers for more than 35 languages. The
 [tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack)
 it depends on bundles many more grammars. If your repository uses a language
 the graph does not cover (Erlang, Haskell, OCaml, Fortran, Ada, Clojure, ...),
@@ -8,7 +8,7 @@ you can add it with a config file. No fork, no code changes.
 
 ## Quick start
 
-Create `<repo_root>/.code-review-graph/languages.toml`:
+Create `<repo_root>/.gryphon/languages.toml`:
 
 ```toml
 [languages.erlang]
@@ -24,7 +24,7 @@ comment = "Erlang via the bundled tree-sitter-erlang grammar"
 Then rebuild:
 
 ```bash
-code-review-graph build
+gryphon build
 ```
 
 Files with the configured extensions are parsed with the named grammar. The
@@ -214,5 +214,5 @@ If a language needs more than the generic walker gives, open an issue.
   `python -c "import tree_sitter_language_pack as t; t.get_language('erlang')"`.
   It raises `LookupError` if it is not.
 - The config is read when a parser is constructed and cached by file mtime and
-  size. `update` re-parses only changed files, so run `code-review-graph build`
+  size. `update` re-parses only changed files, so run `gryphon build`
   after editing the config to apply it to every file.

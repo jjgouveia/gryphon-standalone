@@ -2,8 +2,8 @@
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, incremental_update
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, incremental_update
 
 
 def test_909_partial_root_overlap_is_refused_before_purge(tmp_path):

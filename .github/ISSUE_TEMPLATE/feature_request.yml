@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a new capability or an improvement to code-review-graph
+description: Suggest a new capability or an improvement to gryphon
 title: "[Feature]: "
 labels: ["enhancement"]
 body:

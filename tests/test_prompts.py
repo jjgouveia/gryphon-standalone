@@ -2,7 +2,7 @@
 
 from fastmcp.prompts.prompt import Message
 
-from code_review_graph.prompts import (
+from gryphon.prompts import (
     architecture_map_prompt,
     debug_issue_prompt,
     onboard_developer_prompt,

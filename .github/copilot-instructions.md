@@ -1,7 +1,7 @@
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
+<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
 
-**This project has a knowledge graph. Start with the code-review-graph
+**This project has a knowledge graph. Start with the gryphon
 MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
 gives you structural context (callers, dependents, test coverage) that file search cannot.
 
@@ -42,4 +42,4 @@ gives you structural context (callers, dependents, test coverage) that file sear
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
-<!-- /code-review-graph MCP tools -->
+<!-- /gryphon MCP tools -->

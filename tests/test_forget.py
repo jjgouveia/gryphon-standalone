@@ -14,11 +14,11 @@ from unittest.mock import patch
 
 import pytest
 
-from code_review_graph import cli
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import get_db_path
-from code_review_graph.parser import NodeInfo
-from code_review_graph.search import rebuild_fts_index
+from gryphon import cli
+from gryphon.graph import GraphStore
+from gryphon.incremental import get_db_path
+from gryphon.parser import NodeInfo
+from gryphon.search import rebuild_fts_index
 
 
 class TestMatchFilesToForget:
@@ -103,7 +103,7 @@ def seeded_repo(tmp_path: Path) -> tuple[Path, dict[str, str]]:
 
 
 def _run_forget(repo_root: Path, *patterns: str, dry_run: bool = False) -> None:
-    argv = ["code-review-graph", "forget", *patterns, "--repo", str(repo_root)]
+    argv = ["gryphon", "forget", *patterns, "--repo", str(repo_root)]
     if dry_run:
         argv.append("--dry-run")
     with patch.object(sys, "argv", argv):

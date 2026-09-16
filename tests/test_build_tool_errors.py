@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.tools.build import build_or_update_graph
+from gryphon.tools.build import build_or_update_graph
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -40,7 +40,7 @@ def _break_change_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
     def failing(*_args, **_kwargs):
         raise RuntimeError("git diff failed while discovering changed files (rc=128)")
 
-    monkeypatch.setattr("code_review_graph.incremental.get_changed_files", failing)
+    monkeypatch.setattr("gryphon.incremental.get_changed_files", failing)
 
 
 def test_build_tool_reports_discovery_failure_as_error_status(built_repo, monkeypatch):
@@ -54,10 +54,10 @@ def test_build_tool_reports_discovery_failure_as_error_status(built_repo, monkey
 
 
 def test_cli_update_exits_nonzero_on_discovery_failure(built_repo, monkeypatch, capsys):
-    from code_review_graph import cli
+    from gryphon import cli
 
     _break_change_discovery(monkeypatch)
-    monkeypatch.setattr(sys, "argv", ["code-review-graph", "update", "--repo", str(built_repo)])
+    monkeypatch.setattr(sys, "argv", ["gryphon", "update", "--repo", str(built_repo)])
     with pytest.raises(SystemExit) as exc_info:
         cli.main()
     assert exc_info.value.code == 1

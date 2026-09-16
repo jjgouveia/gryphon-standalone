@@ -3,13 +3,13 @@
 import os
 import subprocess
 
-from code_review_graph.skills import install_git_hook
+from gryphon.skills import install_git_hook
 
 LEGACY_SCRIPT = """#!/bin/sh
-# Installed by code-review-graph. Remove this file to disable pre-commit graph checks.
-if command -v code-review-graph >/dev/null 2>&1; then
-    code-review-graph update || true
-    code-review-graph detect-changes --brief || true
+# Installed by gryphon. Remove this file to disable pre-commit graph checks.
+if command -v gryphon >/dev/null 2>&1; then
+    gryphon update || true
+    gryphon detect-changes --brief || true
 fi
 """
 
@@ -47,10 +47,10 @@ def hook_repo(tmp_path, monkeypatch):
     monkeypatch.setenv("CRG_HOOK_LOG", str(commands))
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    binary = bin_dir / "code-review-graph"
+    binary = bin_dir / "gryphon"
     binary.write_text(
         '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CRG_HOOK_LOG"\n'
-        "mkdir -p .code-review-graph\ntouch .code-review-graph/graph.db\n"
+        "mkdir -p .gryphon\ntouch .gryphon/graph.db\n"
     )
     binary.chmod(0o755)
     monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ["PATH"])
@@ -70,7 +70,7 @@ def test_shared_hook_skips_linked_worktree_graph_creation(tmp_path, monkeypatch)
     git(repo, "worktree", "add", "-b", "feature", str(linked))
     result = commit_change(linked)
     assert not commands.exists()
-    assert not (linked / ".code-review-graph").exists()
+    assert not (linked / ".gryphon").exists()
     assert "linked worktree" in result.stderr
 
 

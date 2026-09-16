@@ -2,10 +2,10 @@
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.tools.query import query_graph
-from code_review_graph.tools.review import get_review_context
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.tools.query import query_graph
+from gryphon.tools.review import get_review_context
 
 
 @pytest.mark.parametrize("specifier,extension", [(".mjs", ".mts"), (".cjs", ".cts")])
@@ -27,7 +27,7 @@ def test_full_build_indexes_node_typescript_imports_and_call_context(
         (tmp_path / "dependency.ts").write_text(
             "export function calculate(value: number): number { return value - 1; }\n"
         )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         built = full_build(tmp_path, store)

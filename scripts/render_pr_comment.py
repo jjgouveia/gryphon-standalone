@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Render a risk-scored PR comment from ``code-review-graph detect-changes`` JSON.
+"""Render a risk-scored PR comment from ``gryphon detect-changes`` JSON.
 
-Reads the JSON document printed by ``code-review-graph detect-changes
+Reads the JSON document printed by ``gryphon detect-changes
 --base <ref>`` (the full, non ``--brief`` output) and emits GitHub-flavoured
 markdown suitable for a sticky pull-request comment. Also implements the
 risk gate behind the composite action's ``fail-on-risk`` input.
@@ -28,10 +28,10 @@ from typing import Any
 
 logger = logging.getLogger("render_pr_comment")
 
-MARKER = "<!-- code-review-graph-report -->"
-REPO_URL = "https://github.com/tirth8205/code-review-graph"
+MARKER = "<!-- gryphon-report -->"
+REPO_URL = "https://github.com/tirth8205/gryphon"
 FOOTER = (
-    f"*Powered by [code-review-graph]({REPO_URL}) — "
+    f"*Powered by [gryphon]({REPO_URL}) — "
     "local-first analysis; no code leaves the CI runner.*"
 )
 
@@ -62,7 +62,7 @@ def relativize_path(value: Any) -> str:
     repo is checked out under an absolute prefix
     (``/home/runner/work/<repo>/<repo>/...``), which is ugly in a PR comment
     and leaks the runner layout. We strip that prefix so the reader sees
-    ``code_review_graph/embeddings.py`` instead.
+    ``gryphon/embeddings.py`` instead.
 
     Handles both bare paths and ``path::symbol`` qualified names (the
     ``::symbol`` suffix is preserved). Already-relative paths and non-path
@@ -224,7 +224,7 @@ def render_markdown(
         str(g.get("qualified_name") or g.get("name") or "") for g in gaps
     }
 
-    lines: list[str] = [MARKER, "", "## code-review-graph review", ""]
+    lines: list[str] = [MARKER, "", "## gryphon review", ""]
     lines.append(
         f"**Overall risk: {score:.2f} ({risk_level(score).upper()})** — "
         f"{len(changed)} changed function(s)/class(es), "
@@ -272,7 +272,7 @@ def render_no_changes() -> str:
         [
             MARKER,
             "",
-            "## code-review-graph review",
+            "## gryphon review",
             "",
             "No analyzable code changes detected against the base branch.",
             "",

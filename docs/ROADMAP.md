@@ -5,7 +5,7 @@
 Releases after v2.3.6 are listed in [CHANGELOG.md](../CHANGELOG.md).
 
 ### v2.3.6
-- Custom languages without forking: `.code-review-graph/languages.toml` maps extensions and node types to any tree-sitter-language-pack grammar (`docs/CUSTOM_LANGUAGES.md`)
+- Custom languages without forking: `.gryphon/languages.toml` maps extensions and node types to any tree-sitter-language-pack grammar (`docs/CUSTOM_LANGUAGES.md`)
 - GitHub Action for risk-scored PR review comments: graph built or restored on the CI runner, one sticky comment per PR, optional `fail-on-risk` gate; used on this repository via `.github/workflows/pr-review.yml` (`docs/GITHUB_ACTION.md`)
 - `agent_baseline` benchmark: graph queries against a grep-and-read-top-k baseline, in all six pinned eval configs
 - Co-change ground truth for `impact_accuracy`; the graph-derived metric is labelled a circular upper bound
@@ -18,7 +18,7 @@ Releases after v2.3.6 are listed in [CHANGELOG.md](../CHANGELOG.md).
 ### v2.3.5
 - Token Savings panel on `detect-changes --brief` and the new `update --brief`, with a per-category breakdown that sums to the graph response size
 - `--verify` flag cross-checks the displayed savings against OpenAI's `cl100k_base` tokenizer; the calibration table in `docs/REPRODUCING.md` puts the estimate within about 1% of real tokens in aggregate
-- `code-review-graph embed` subcommand for explicit embedding generation
+- `gryphon embed` subcommand for explicit embedding generation
 - Deterministic eval pipeline: pinned upstream SHAs in every config, full clones with `returncode` checks, fixed-seed Leiden community detection (`CRG_LEIDEN_SEED`)
 - `multi_hop_retrieval` benchmark: 11 curated two-step tool-chain tasks; average score 0.909
 - Richer embedding text and identifier-aware search boost lift multi-hop accuracy from 0.545 to 0.909
@@ -42,10 +42,10 @@ Releases after v2.3.6 are listed in [CHANGELOG.md](../CHANGELOG.md).
 - Community PR sweep and VS Code accessibility improvements
 
 ### v2.2.0
-- Multi-repo watch daemon (`crg-daemon` / `code-review-graph daemon`)
-- TOML daemon configuration (`~/.code-review-graph/watch.toml`)
-- One `code-review-graph watch` child process per repo, config-file watching with reconciliation, PID file, health checks with restart
-- Standalone `crg-daemon` entry point (7 subcommands) and a `daemon` subcommand group in the main CLI
+- Multi-repo watch daemon (`gryphon-daemon` / `gryphon daemon`)
+- TOML daemon configuration (`~/.gryphon/watch.toml`)
+- One `gryphon watch` child process per repo, config-file watching with reconciliation, PID file, health checks with restart
+- Standalone `gryphon-daemon` entry point (7 subcommands) and a `daemon` subcommand group in the main CLI
 
 ### v2.0.0
 - 22 MCP tools (up from 9) and 5 MCP prompts
@@ -82,7 +82,7 @@ Releases after v2.3.6 are listed in [CHANGELOG.md](../CHANGELOG.md).
 - 24 audit fixes: C/C++ support, performance, CI hardening
 
 ### v1.5.x
-- Generated files moved to `.code-review-graph/`
+- Generated files moved to `.gryphon/`
 - Visualisation: collapsed start, search, edge toggles
 - Works without git
 

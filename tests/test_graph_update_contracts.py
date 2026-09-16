@@ -4,9 +4,9 @@ import sqlite3
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
+from gryphon.tools.query import query_graph
 
 
 def function(path, name, *, parent=None, params=""):
@@ -23,7 +23,7 @@ def function(path, name, *, parent=None, params=""):
 
 
 def graph_path(root):
-    directory = root / ".code-review-graph"
+    directory = root / ".gryphon"
     directory.mkdir()
     return directory / "graph.db"
 

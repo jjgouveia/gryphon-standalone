@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from code_review_graph import parser as parser_module
-from code_review_graph.parser import CodeParser
+from gryphon import parser as parser_module
+from gryphon.parser import CodeParser
 
 
 @pytest.fixture(autouse=True)

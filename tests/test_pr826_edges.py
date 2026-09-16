@@ -12,7 +12,7 @@ import os
 import subprocess
 import sys
 
-from code_review_graph import cli
+from gryphon import cli
 
 
 def _legacy_stream(encoding: str = "cp1252", **kwargs):
@@ -50,7 +50,7 @@ def test_none_streams_do_not_crash(monkeypatch):
     """pythonw-style None streams must be skipped and main() must survive."""
     monkeypatch.setattr(sys, "stdout", None)
     monkeypatch.setattr(sys, "stderr", None)
-    monkeypatch.setattr(sys, "argv", ["code-review-graph"])
+    monkeypatch.setattr(sys, "argv", ["gryphon"])
     cli._configure_utf8_stdio()
     cli.main()  # print() to a None stdout is a silent no-op
 
@@ -60,9 +60,9 @@ def test_stream_with_none_encoding_is_left_alone(monkeypatch):
     fake_out = io.StringIO()
     monkeypatch.setattr(sys, "stdout", fake_out)
     monkeypatch.setattr(sys, "stderr", io.StringIO())
-    monkeypatch.setattr(sys, "argv", ["code-review-graph"])
+    monkeypatch.setattr(sys, "argv", ["gryphon"])
     cli.main()
-    assert "code-review-graph" in fake_out.getvalue()
+    assert "gryphon" in fake_out.getvalue()
     assert fake_out.encoding is None
 
 
@@ -150,7 +150,7 @@ def test_ascii_stream_is_upgraded_and_banner_prints(monkeypatch):
     raw_err, wrapper_err = _legacy_stream(encoding="ascii")
     monkeypatch.setattr(sys, "stdout", wrapper)
     monkeypatch.setattr(sys, "stderr", wrapper_err)
-    monkeypatch.setattr(sys, "argv", ["code-review-graph"])
+    monkeypatch.setattr(sys, "argv", ["gryphon"])
     cli.main()
     wrapper.flush()
     out = raw.getvalue().decode("utf-8")
@@ -188,8 +188,8 @@ def test_subprocess_with_pythonioencoding_cp1252_renders_banner():
         [
             sys.executable,
             "-c",
-            "import sys; from code_review_graph.cli import main; "
-            "sys.argv = ['code-review-graph']; main()",
+            "import sys; from gryphon.cli import main; "
+            "sys.argv = ['gryphon']; main()",
         ],
         capture_output=True,
         env=env,
@@ -209,12 +209,12 @@ def test_subprocess_version_flag_with_ascii_encoding():
         [
             sys.executable,
             "-c",
-            "import sys; from code_review_graph.cli import main; "
-            "sys.argv = ['code-review-graph', '--version']; main()",
+            "import sys; from gryphon.cli import main; "
+            "sys.argv = ['gryphon', '--version']; main()",
         ],
         capture_output=True,
         env=env,
         timeout=120,
     )
     assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
-    assert b"code-review-graph" in result.stdout
+    assert b"gryphon" in result.stdout

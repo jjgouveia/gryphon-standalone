@@ -2,8 +2,8 @@
 
 import subprocess
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.tools.review import get_review_context
+from gryphon.graph import GraphStore
+from gryphon.tools.review import get_review_context
 
 
 def test_review_context_excludes_base_only_changes(tmp_path, monkeypatch):
@@ -34,7 +34,7 @@ def test_review_context_excludes_base_only_changes(tmp_path, monkeypatch):
     git("checkout", "feature")
     store = GraphStore(tmp_path / "graph.db")
     monkeypatch.setattr(
-        "code_review_graph.tools.review._get_store",
+        "gryphon.tools.review._get_store",
         lambda _root: (store, repo),
     )
     result = get_review_context(base="main", repo_root=str(repo), include_source=False)

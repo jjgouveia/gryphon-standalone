@@ -1,6 +1,6 @@
 """Tests for the context-aware hints system."""
 
-from code_review_graph.hints import (
+from gryphon.hints import (
     _MAX_PER_CATEGORY,
     SessionState,
     generate_hints,

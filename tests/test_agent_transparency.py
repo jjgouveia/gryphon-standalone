@@ -8,19 +8,19 @@ from types import SimpleNamespace
 
 import pytest
 
-import code_review_graph.main as main_module
-import code_review_graph.tools._common as common_module
-import code_review_graph.tools.query as query_module
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
-from code_review_graph.tools.query import query_graph, semantic_search_nodes
+import gryphon.main as main_module
+import gryphon.tools._common as common_module
+import gryphon.tools.query as query_module
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
+from gryphon.tools.query import query_graph, semantic_search_nodes
 
 
 def _make_repo(tmp_path: Path, name: str = "repo") -> tuple[Path, GraphStore]:
     root = tmp_path / name
     root.mkdir()
     (root / ".git").mkdir()
-    graph_dir = root / ".code-review-graph"
+    graph_dir = root / ".gryphon"
     graph_dir.mkdir()
     return root, GraphStore(graph_dir / "graph.db")
 

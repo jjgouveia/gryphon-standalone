@@ -1,4 +1,4 @@
-"""Tests for code_review_graph.memory module."""
+"""Tests for gryphon.memory module."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.memory import clear_memories, list_memories, save_result
+from gryphon.memory import clear_memories, list_memories, save_result
 
 
 def test_save_result_basic(tmp_path: Path) -> None:
     """Save Q&A result normally and verify file creation and contents."""
     question = "How to build the graph?"
-    answer = "Run `code-review-graph build`."
+    answer = "Run `gryphon build`."
 
     saved_path = save_result(
         question=question,
@@ -32,7 +32,7 @@ def test_save_result_basic(tmp_path: Path) -> None:
 
 def test_save_result_with_nodes(tmp_path: Path) -> None:
     """Passing nodes list should include them in the frontmatter."""
-    nodes = ["code_review_graph.cli.main", "code_review_graph.memory.save_result"]
+    nodes = ["gryphon.cli.main", "gryphon.memory.save_result"]
 
     saved_path = save_result(
         question="What functions handle memory?",
@@ -83,7 +83,7 @@ def test_save_result_uses_repo_root_default(tmp_path: Path) -> None:
         repo_root=tmp_path,
     )
 
-    expected_dir = tmp_path / ".code-review-graph" / "memory"
+    expected_dir = tmp_path / ".gryphon" / "memory"
     assert saved_path.parent == expected_dir
     assert saved_path.exists()
 

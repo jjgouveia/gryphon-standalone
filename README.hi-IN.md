@@ -1,11 +1,11 @@
-<h1 align="center">code-review-graph</h1>
+<h1 align="center">gryphon</h1>
 
 <p align="center">
   <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
      target="_blank"
      rel="noopener noreferrer">
     <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fcode-review-graph | Trendshift"
+         alt="tirth8205%2Fgryphon | Trendshift"
          width="250"
          height="55" />
   </a>
@@ -26,20 +26,20 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/code-review-graph/"><img src="https://img.shields.io/pypi/v/code-review-graph?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/code-review-graph"><img src="https://img.shields.io/pepy/dt/code-review-graph?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/code-review-graph?style=flat-square" alt="Stars"></a>
+  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
+  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://code-review-graph.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
+  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
   <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
 
-AI कोडिंग टूल्स रिव्यू टास्क में आपके कोडबेस के बड़े हिस्से दोबारा पढ़ सकते हैं। `code-review-graph` इस समस्या को हल करता है। यह [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) से आपके कोड का स्ट्रक्चरल मैप बनाता है, बदलावों को इंक्रीमेंटली ट्रैक करता है, और [MCP](https://modelcontextprotocol.io/) के ज़रिए आपके AI असिस्टेंट को सटीक कॉन्टेक्स्ट देता है ताकि वह केवल ज़रूरी कोड ही पढ़े।
+AI कोडिंग टूल्स रिव्यू टास्क में आपके कोडबेस के बड़े हिस्से दोबारा पढ़ सकते हैं। `gryphon` इस समस्या को हल करता है। यह [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) से आपके कोड का स्ट्रक्चरल मैप बनाता है, बदलावों को इंक्रीमेंटली ट्रैक करता है, और [MCP](https://modelcontextprotocol.io/) के ज़रिए आपके AI असिस्टेंट को सटीक कॉन्टेक्स्ट देता है ताकि वह केवल ज़रूरी कोड ही पढ़े।
 
 <p align="center">
   <img src="diagrams/diagram1_before_vs_after.png" alt="टोकन समस्या: flask का पूरा कॉर्पस पढ़ने में 143,594 टोकन लगते हैं, ग्राफ का उत्तर 2,196 टोकन में — 71.0 गुना कम" width="85%" />
@@ -50,9 +50,9 @@ AI कोडिंग टूल्स रिव्यू टास्क मे�
 ## त्वरित शुरुआत
 
 ```bash
-pip install code-review-graph                     # या: pipx install code-review-graph
-code-review-graph install          # सभी समर्थित प्लेटफ़ॉर्म को स्वचालित रूप से पहचानता और कॉन्फ़िगर करता है
-code-review-graph build            # अपना कोडबेस पार्स करें
+pip install gryphon                     # या: pipx install gryphon
+gryphon install          # सभी समर्थित प्लेटफ़ॉर्म को स्वचालित रूप से पहचानता और कॉन्फ़िगर करता है
+gryphon build            # अपना कोडबेस पार्स करें
 ```
 
 एक कमांड सब कुछ सेट कर देता है। `install` पहचान लेता है कि आपके पास कौन से AI कोडिंग टूल हैं, प्रत्येक के लिए सही MCP कॉन्फ़िगरेशन लिखता है, और आपके प्लेटफ़ॉर्म रूल्स में ग्राफ-अवेयर निर्देश जोड़ता है। यह स्वचालित रूप से पहचानता है कि आपने `uvx` या `pip`/`pipx` से इंस्टॉल किया है और उसके अनुसार कॉन्फ़िग बनाता है। इंस्टॉल के बाद अपना एडिटर/टूल रीस्टार्ट करें।
@@ -64,13 +64,13 @@ code-review-graph build            # अपना कोडबेस पार�
 किसी विशेष प्लेटफ़ॉर्म को टार्गेट करने के लिए:
 
 ```bash
-code-review-graph install --platform codex       # केवल Codex कॉन्फ़िगर करें
-code-review-graph install --platform cursor      # केवल Cursor कॉन्फ़िगर करें
-code-review-graph install --platform claude-code  # केवल Claude Code कॉन्फ़िगर करें
-code-review-graph install --platform kiro         # केवल Kiro कॉन्फ़िगर करें
+gryphon install --platform codex       # केवल Codex कॉन्फ़िगर करें
+gryphon install --platform cursor      # केवल Cursor कॉन्फ़िगर करें
+gryphon install --platform claude-code  # केवल Claude Code कॉन्फ़िगर करें
+gryphon install --platform kiro         # केवल Kiro कॉन्फ़िगर करें
 ```
 
-Python 3.10+ आवश्यक है। सबसे अच्छे अनुभव के लिए [uv](https://docs.astral.sh/uv/) इंस्टॉल करें (MCP कॉन्फ़िग उपलब्ध होने पर `uvx` का उपयोग करेगा, अन्यथा सीधे `code-review-graph` कमांड पर फ़ॉलबैक करेगा)।
+Python 3.10+ आवश्यक है। सबसे अच्छे अनुभव के लिए [uv](https://docs.astral.sh/uv/) इंस्टॉल करें (MCP कॉन्फ़िग उपलब्ध होने पर `uvx` का उपयोग करेगा, अन्यथा सीधे `gryphon` कमांड पर फ़ॉलबैक करेगा)।
 
 फिर अपना प्रोजेक्ट खोलें और अपने AI असिस्टेंट से कहें:
 
@@ -115,7 +115,7 @@ Build the code review graph for this project
 रिपॉज़िटरी जितनी बड़ी, टोकन की बर्बादी उतनी ही ज़्यादा चुभती है। पूरा कॉर्पस मॉडल को देने के बजाय ग्राफ उसका केवल उत्तर-भर हिस्सा लौटाता है: इस रिपॉज़िटरी में 208,821 सोर्स टोकन प्रति प्रश्न लगभग 3,190 टोकन बन जाते हैं।
 
 <p align="center">
-  <img src="diagrams/diagram6_monorepo_funnel.png" alt="code-review-graph रिपॉज़िटरी: 208,821 सोर्स टोकन सिमटकर लगभग 3,190 टोकन के ग्राफ उत्तर बनते हैं — प्रति प्रश्न 68 गुना कम टोकन" width="80%" />
+  <img src="diagrams/diagram6_monorepo_funnel.png" alt="gryphon रिपॉज़िटरी: 208,821 सोर्स टोकन सिमटकर लगभग 3,190 टोकन के ग्राफ उत्तर बनते हैं — प्रति प्रश्न 68 गुना कम टोकन" width="80%" />
 </p>
 
 ### व्यापक भाषा सपोर्ट + Jupyter नोटबुक
@@ -134,7 +134,7 @@ Build the code review graph for this project
   <img src="diagrams/diagram5_benchmark_board.png" alt="6 वास्तविक रिपॉज़िटरीज़ पर बेंचमार्क: प्रति प्रश्न टोकन कमी का माध्य लगभग 65 गुना (अधिकतम 376 गुना), ग्राफ-आधारित ग्राउंड ट्रुथ पर औसत F1 0.71" width="85%" />
 </p>
 
-सभी आंकड़े 6 वास्तविक ओपन-सोर्स रिपॉज़िटरीज़ (कुल 13 कमिट्स) पर स्वचालित मूल्यांकन रनर से आते हैं। `code-review-graph eval --all` से पुनः प्राप्त करें। विस्तृत बेंचमार्क डेटा के लिए [अंग्रेज़ी README](README.md) देखें।
+सभी आंकड़े 6 वास्तविक ओपन-सोर्स रिपॉज़िटरीज़ (कुल 13 कमिट्स) पर स्वचालित मूल्यांकन रनर से आते हैं। `gryphon eval --all` से पुनः प्राप्त करें। विस्तृत बेंचमार्क डेटा के लिए [अंग्रेज़ी README](README.md) देखें।
 
 ---
 
@@ -168,7 +168,7 @@ Build the code review graph for this project
 | **मल्टी-रिपो रजिस्ट्री** | कई रिपॉज़ रजिस्टर करें, सभी में सर्च करें |
 | **MCP प्रॉम्प्ट्स** | 5 वर्कफ़्लो टेम्प्लेट: review, architecture, debug, onboard, pre-merge |
 | **फ़ुल-टेक्स्ट सर्च** | कीवर्ड और वेक्टर सिमिलैरिटी को मिलाकर FTS5-संचालित हाइब्रिड सर्च |
-| **लोकल स्टोरेज** | `.code-review-graph/` में SQLite फ़ाइल। core graph storage के लिए बाहरी डेटाबेस या क्लाउड सर्विस की ज़रूरत नहीं। |
+| **लोकल स्टोरेज** | `.gryphon/` में SQLite फ़ाइल। core graph storage के लिए बाहरी डेटाबेस या क्लाउड सर्विस की ज़रूरत नहीं। |
 | **वॉच मोड** | काम करते समय लगातार ग्राफ अपडेट |
 
 ---
@@ -181,9 +181,9 @@ Build the code review graph for this project
 
 | कमांड | विवरण |
 |-------|--------|
-| `/code-review-graph:build-graph` | कोड ग्राफ बनाएं या रीबिल्ड करें |
-| `/code-review-graph:review-delta` | पिछले कमिट के बाद से बदलावों की समीक्षा करें |
-| `/code-review-graph:review-pr` | ब्लास्ट-रेडियस विश्लेषण के साथ पूर्ण PR रिव्यू |
+| `/gryphon:build-graph` | कोड ग्राफ बनाएं या रीबिल्ड करें |
+| `/gryphon:review-delta` | पिछले कमिट के बाद से बदलावों की समीक्षा करें |
+| `/gryphon:review-pr` | ब्लास्ट-रेडियस विश्लेषण के साथ पूर्ण PR रिव्यू |
 
 </details>
 
@@ -192,24 +192,24 @@ Build the code review graph for this project
 <br>
 
 ```bash
-code-review-graph install          # सभी प्लेटफ़ॉर्म को स्वचालित रूप से पहचानें और कॉन्फ़िगर करें
-code-review-graph install --platform <name>  # किसी विशेष प्लेटफ़ॉर्म को टार्गेट करें
-code-review-graph build            # पूरा कोडबेस पार्स करें
-code-review-graph update           # इंक्रीमेंटल अपडेट (केवल बदली हुई फ़ाइलें)
-code-review-graph status           # ग्राफ़ आंकड़े
-code-review-graph watch            # फ़ाइल बदलाव पर ऑटो-अपडेट
-code-review-graph visualize        # इंटरैक्टिव HTML ग्राफ जनरेट करें
-code-review-graph visualize --format graphml   # GraphML के रूप में एक्सपोर्ट
-code-review-graph visualize --format svg       # SVG के रूप में एक्सपोर्ट
-code-review-graph visualize --format obsidian  # Obsidian वॉल्ट के रूप में एक्सपोर्ट
-code-review-graph visualize --format cypher    # Neo4j Cypher के रूप में एक्सपोर्ट
-code-review-graph wiki             # कम्युनिटीज़ से मार्कडाउन विकी जनरेट करें
-code-review-graph detect-changes   # रिस्क-स्कोर्ड चेंज इम्पैक्ट विश्लेषण
-code-review-graph register <path>  # मल्टी-रिपो रजिस्ट्री में रिपो रजिस्टर करें
-code-review-graph unregister <id>  # रजिस्ट्री से रिपो हटाएं
-code-review-graph repos            # रजिस्टर्ड रिपॉज़िटरीज़ की सूची
-code-review-graph eval             # मूल्यांकन बेंचमार्क चलाएं
-code-review-graph serve            # MCP सर्वर शुरू करें
+gryphon install          # सभी प्लेटफ़ॉर्म को स्वचालित रूप से पहचानें और कॉन्फ़िगर करें
+gryphon install --platform <name>  # किसी विशेष प्लेटफ़ॉर्म को टार्गेट करें
+gryphon build            # पूरा कोडबेस पार्स करें
+gryphon update           # इंक्रीमेंटल अपडेट (केवल बदली हुई फ़ाइलें)
+gryphon status           # ग्राफ़ आंकड़े
+gryphon watch            # फ़ाइल बदलाव पर ऑटो-अपडेट
+gryphon visualize        # इंटरैक्टिव HTML ग्राफ जनरेट करें
+gryphon visualize --format graphml   # GraphML के रूप में एक्सपोर्ट
+gryphon visualize --format svg       # SVG के रूप में एक्सपोर्ट
+gryphon visualize --format obsidian  # Obsidian वॉल्ट के रूप में एक्सपोर्ट
+gryphon visualize --format cypher    # Neo4j Cypher के रूप में एक्सपोर्ट
+gryphon wiki             # कम्युनिटीज़ से मार्कडाउन विकी जनरेट करें
+gryphon detect-changes   # रिस्क-स्कोर्ड चेंज इम्पैक्ट विश्लेषण
+gryphon register <path>  # मल्टी-रिपो रजिस्ट्री में रिपो रजिस्टर करें
+gryphon unregister <id>  # रजिस्ट्री से रिपो हटाएं
+gryphon repos            # रजिस्टर्ड रिपॉज़िटरीज़ की सूची
+gryphon eval             # मूल्यांकन बेंचमार्क चलाएं
+gryphon serve            # MCP सर्वर शुरू करें
 ```
 
 </details>
@@ -262,7 +262,7 @@ code-review-graph serve            # MCP सर्वर शुरू करे�
 <summary><strong>कॉन्फ़िगरेशन</strong></summary>
 <br>
 
-इंडेक्सिंग से पथ बाहर करने के लिए, अपनी रिपॉज़िटरी रूट में `.code-review-graphignore` फ़ाइल बनाएं:
+इंडेक्सिंग से पथ बाहर करने के लिए, अपनी रिपॉज़िटरी रूट में `.gryphonignore` फ़ाइल बनाएं:
 
 ```
 generated/**
@@ -271,18 +271,18 @@ vendor/**
 node_modules/**
 ```
 
-नोट: git रिपॉज़ में, केवल ट्रैक की गई फ़ाइलें इंडेक्स होती हैं (`git ls-files`), इसलिए gitignore की गई फ़ाइलें स्वचालित रूप से छोड़ दी जाती हैं। `.code-review-graphignore` का उपयोग ट्रैक की गई फ़ाइलों को बाहर करने या git उपलब्ध न होने पर करें।
+नोट: git रिपॉज़ में, केवल ट्रैक की गई फ़ाइलें इंडेक्स होती हैं (`git ls-files`), इसलिए gitignore की गई फ़ाइलें स्वचालित रूप से छोड़ दी जाती हैं। `.gryphonignore` का उपयोग ट्रैक की गई फ़ाइलों को बाहर करने या git उपलब्ध न होने पर करें।
 
 वैकल्पिक डिपेंडेंसी ग्रुप:
 
 ```bash
-pip install "code-review-graph[embeddings]"          # लोकल वेक्टर एम्बेडिंग (sentence-transformers)
-pip install "code-review-graph[google-embeddings]"   # Google Gemini एम्बेडिंग
-pip install "code-review-graph[communities]"         # कम्युनिटी डिटेक्शन (igraph)
-pip install "code-review-graph[enrichment]"          # Python call-resolution enrichment (Jedi)
-pip install "code-review-graph[eval]"                # मूल्यांकन बेंचमार्क (matplotlib)
-pip install "code-review-graph[wiki]"                # LLM सारांश के साथ विकी जनरेशन (ollama)
-pip install "code-review-graph[all]"                 # सभी वैकल्पिक डिपेंडेंसीज़
+pip install "gryphon[embeddings]"          # लोकल वेक्टर एम्बेडिंग (sentence-transformers)
+pip install "gryphon[google-embeddings]"   # Google Gemini एम्बेडिंग
+pip install "gryphon[communities]"         # कम्युनिटी डिटेक्शन (igraph)
+pip install "gryphon[enrichment]"          # Python call-resolution enrichment (Jedi)
+pip install "gryphon[eval]"                # मूल्यांकन बेंचमार्क (matplotlib)
+pip install "gryphon[wiki]"                # LLM सारांश के साथ विकी जनरेशन (ollama)
+pip install "gryphon[all]"                 # सभी वैकल्पिक डिपेंडेंसीज़
 ```
 
 OpenAI-compatible एम्बेडिंग्स (असली OpenAI, Azure, या सेल्फ-होस्टेड गेटवे जैसे new-api / LiteLLM / vLLM / LocalAI / Ollama openai मोड) के लिए कोई अतिरिक्त इंस्टॉल की ज़रूरत नहीं — बस एनवायरनमेंट वेरिएबल्स सेट करें और `embed_graph` को `provider="openai"` पास करें:
@@ -301,7 +301,7 @@ export CRG_OPENAI_BATCH_SIZE=100                        # टाइट बैच
 
 > **मॉडल चुनने की सलाह।** लंबे समय के उपयोग के लिए `-preview` / `-beta` / `-exp` वाले model ID (जैसे `google/gemini-embedding-2-preview`) से बचें — preview मॉडल्स के वज़न बदल सकते हैं (डाइमेंशन बदलने पर पूरा re-embed करना पड़ेगा) या बिना नोटिस deprecate हो सकते हैं। स्टेबल GA मॉडल्स की सलाह दी जाती है: `text-embedding-3-small` / `text-embedding-3-large` (OpenAI), `Qwen/Qwen3-Embedding-8B` (vLLM / LocalAI सेल्फ-होस्टेड के ज़रिए), या `gemini-embedding-001` (नेटिव Gemini provider के ज़रिए, `GOOGLE_API_KEY` चाहिए).
 >
-> साथ ही ध्यान दें: वर्तमान में `code-review-graph` केवल **फ़ंक्शन सिग्नेचर** एम्बेड करता है (प्रति नोड ~10 tokens, जैसे `"parse_file function (path: str) returns Tree"`). जिन मॉडल्स की क्वालिटी का मुख्य source लंबे context में function body को समझना है (जैसे Gemini 2 या Qwen3-8B के MTEB-code SOTA स्कोर्स), वे इस इनपुट लंबाई पर छोटे मॉडल्स से कम अंतर दिखाएंगे। Body / docstring एम्बेडिंग को फ़ॉलो-अप एन्हांसमेंट के रूप में ट्रैक किया जा रहा है।
+> साथ ही ध्यान दें: वर्तमान में `gryphon` केवल **फ़ंक्शन सिग्नेचर** एम्बेड करता है (प्रति नोड ~10 tokens, जैसे `"parse_file function (path: str) returns Tree"`). जिन मॉडल्स की क्वालिटी का मुख्य source लंबे context में function body को समझना है (जैसे Gemini 2 या Qwen3-8B के MTEB-code SOTA स्कोर्स), वे इस इनपुट लंबाई पर छोटे मॉडल्स से कम अंतर दिखाएंगे। Body / docstring एम्बेडिंग को फ़ॉलो-अप एन्हांसमेंट के रूप में ट्रैक किया जा रहा है।
 
 </details>
 
@@ -310,8 +310,8 @@ export CRG_OPENAI_BATCH_SIZE=100                        # टाइट बैच
 ## योगदान
 
 ```bash
-git clone https://github.com/tirth8205/code-review-graph.git
-cd code-review-graph
+git clone https://github.com/tirth8205/gryphon.git
+cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
@@ -321,7 +321,7 @@ pytest
 <summary><strong>नई भाषा जोड़ना</strong></summary>
 <br>
 
-`code_review_graph/parser.py` में अपना एक्सटेंशन `EXTENSION_TO_LANGUAGE` में जोड़ें, साथ ही `_CLASS_TYPES`, `_FUNCTION_TYPES`, `_IMPORT_TYPES`, और `_CALL_TYPES` में नोड टाइप मैपिंग जोड़ें। एक टेस्ट फ़िक्सचर शामिल करें और PR खोलें।
+`gryphon/parser.py` में अपना एक्सटेंशन `EXTENSION_TO_LANGUAGE` में जोड़ें, साथ ही `_CLASS_TYPES`, `_FUNCTION_TYPES`, `_IMPORT_TYPES`, और `_CALL_TYPES` में नोड टाइप मैपिंग जोड़ें। एक टेस्ट फ़िक्सचर शामिल करें और PR खोलें।
 
 </details>
 
@@ -331,7 +331,7 @@ MIT। [LICENSE](LICENSE) देखें।
 
 <p align="center">
 <br>
-<a href="https://code-review-graph.com">code-review-graph.com</a><br><br>
-<code>pip install code-review-graph && code-review-graph install</code><br>
+<a href="https://gryphon.com">gryphon.com</a><br><br>
+<code>pip install gryphon && gryphon install</code><br>
 <sub>Codex, Claude Code, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen, Kiro, Qoder, और GitHub Copilot सहित समर्थित AI कोडिंग टूल्स को स्वचालित रूप से पहचानता और कॉन्फ़िगर करता है</sub>
 </p>

@@ -67,7 +67,7 @@ jobs:
           MAX_BODY_BYTES: "65000"
           MAX_PR_NUMBER_BYTES: "12"
           MAX_REPORT_BYTES: "60000"
-          TRUSTED_MARKER: <!-- code-review-graph-report -->
+          TRUSTED_MARKER: <!-- gryphon-report -->
           VALIDATED_PR_NUMBER: ${{ runner.temp }}/crg-pr-number.txt
         run: |
           set -euo pipefail
@@ -113,9 +113,9 @@ jobs:
           marker = os.environ["TRUSTED_MARKER"]
           text = text.replace(marker, "")
           text = text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\n")
-          if not text.startswith("## code-review-graph review\n"):
+          if not text.startswith("## gryphon review\n"):
               raise SystemExit("Report has an unexpected heading")
-          if "*Powered by [code-review-graph]" not in text:
+          if "*Powered by [gryphon]" not in text:
               raise SystemExit("Report is missing its expected footer")
 
           # Prevent PR-controlled report text from creating GitHub mentions.
@@ -152,7 +152,7 @@ jobs:
             --paginate \
             --jq '.[] | select(
               .user.login == "github-actions[bot]" and
-              (.body | startswith("<!-- code-review-graph-report -->"))
+              (.body | startswith("<!-- gryphon-report -->"))
             ) | .id' | sed -n '1p')
           if [ -n "${comment_id}" ]; then
             gh api --method PATCH --silent \

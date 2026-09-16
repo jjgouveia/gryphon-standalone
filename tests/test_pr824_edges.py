@@ -10,7 +10,7 @@ CRLF endings, malformed imports, scale, and end-to-end file resolution.
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _import_targets(repo_root: Path, source_file: Path) -> set[str]:

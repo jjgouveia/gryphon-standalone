@@ -33,7 +33,7 @@ jobs:
         # pinned repos. Report-only: `|| true` keeps regressions and
         # transient clone failures from failing the default branch.
         run: |
-          code-review-graph eval \
+          gryphon eval \
             --repo httpx,flask \
             --benchmark token_efficiency,impact_accuracy,agent_baseline \
             --output-dir evaluate/results || true
@@ -51,7 +51,7 @@ jobs:
         if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          from code_review_graph.eval.reporter import generate_full_report
+          from gryphon.eval.reporter import generate_full_report
 
           print("# Weekly eval (report-only)")
           print()

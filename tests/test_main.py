@@ -14,10 +14,10 @@ import threading
 
 import pytest
 
-import code_review_graph.incremental as incremental_module
-import code_review_graph.tools.docs as docs_module
-from code_review_graph import main as crg_main
-from code_review_graph.http_origin_guard import LoopbackOriginGuard
+import gryphon.incremental as incremental_module
+import gryphon.tools.docs as docs_module
+from gryphon import main as crg_main
+from gryphon.http_origin_guard import LoopbackOriginGuard
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +67,7 @@ def test_docs_wrapper_falls_back_to_packaged_docs_with_resolved_repo(
     tmp_path, monkeypatch,
 ):
     """The server's resolved repo must not hide wheel-packaged docs."""
-    package_dir = tmp_path / "site-packages" / "code_review_graph"
+    package_dir = tmp_path / "site-packages" / "gryphon"
     tools_dir = package_dir / "tools"
     docs_dir = package_dir / "docs"
     tools_dir.mkdir(parents=True)
@@ -78,7 +78,7 @@ def test_docs_wrapper_falls_back_to_packaged_docs_with_resolved_repo(
     )
 
     repo_root = tmp_path / "repo"
-    (repo_root / ".code-review-graph").mkdir(parents=True)
+    (repo_root / ".gryphon").mkdir(parents=True)
     monkeypatch.setattr(docs_module, "__file__", str(tools_dir / "docs.py"))
     monkeypatch.setattr(crg_main, "_default_repo_root", str(repo_root))
     tool = getattr(crg_main.get_docs_section_tool, "fn", None)

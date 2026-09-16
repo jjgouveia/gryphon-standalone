@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_review_graph.daemon import (
+from gryphon.daemon import (
     DaemonConfig,
     WatchDaemon,
     WatchRepo,
@@ -139,7 +139,7 @@ class TestConfigParsing:
         assert cfg.repos[0].path == str(repo_a.resolve())
 
     def test_load_config_no_git_dir(self, tmp_path):
-        """Repos without .git or .code-review-graph are skipped."""
+        """Repos without .git or .gryphon are skipped."""
         bare = tmp_path / "bare-dir"
         bare.mkdir()
 
@@ -176,7 +176,7 @@ class TestConfigParsing:
 
     def test_serialize_toml_escapes_backslashes_and_quotes(self):
         """Windows paths and quotes must survive serialize -> parse."""
-        from code_review_graph.daemon import tomllib
+        from gryphon.daemon import tomllib
 
         config = DaemonConfig(
             session_name='quo"ted',
@@ -191,7 +191,7 @@ class TestConfigParsing:
 
     def test_serialize_toml_escapes_control_characters(self):
         """TOML-forbidden control characters must survive serialize -> parse."""
-        from code_review_graph.daemon import tomllib
+        from gryphon.daemon import tomllib
 
         weird = "line1\nline2\ttabbed\x01ctrl\x7fdel"
         config = DaemonConfig(
@@ -311,7 +311,7 @@ class TestPIDManagement:
         assert is_daemon_running(pid_path) is True
         mock_kill.assert_called_once_with(1234, 0)
 
-    @patch("code_review_graph.daemon.pid_alive", return_value=False)
+    @patch("gryphon.daemon.pid_alive", return_value=False)
     def test_is_daemon_running_dead(self, mock_alive, pid_path):
         """A dead PID clears the stale PID file and returns False.
 
@@ -350,7 +350,7 @@ class TestPIDManagement:
 class TestPidAlive:
     def test_pid_alive_for_live_pid(self):
         """The current process is always alive."""
-        from code_review_graph.daemon import pid_alive
+        from gryphon.daemon import pid_alive
 
         assert pid_alive(os.getpid()) is True
 
@@ -358,7 +358,7 @@ class TestPidAlive:
         """A reaped child process is reported dead."""
         import subprocess
 
-        from code_review_graph.daemon import pid_alive
+        from gryphon.daemon import pid_alive
 
         proc = subprocess.Popen(
             [sys.executable, "-c", "pass"],
@@ -373,7 +373,7 @@ class TestPidAlive:
     @patch("os.kill", side_effect=PermissionError)
     def test_pid_alive_permission_error_means_alive(self, mock_kill):
         """EPERM means the process exists but is owned by another user."""
-        from code_review_graph.daemon import pid_alive
+        from gryphon.daemon import pid_alive
 
         assert pid_alive(12345) is True
 
@@ -381,7 +381,7 @@ class TestPidAlive:
     @patch("os.kill", side_effect=OSError(87, "The parameter is incorrect"))
     def test_pid_alive_unexpected_oserror_means_not_alive(self, mock_kill):
         """Regression #511: unexpected OSError is not-alive-safe, no crash."""
-        from code_review_graph.daemon import pid_alive
+        from gryphon.daemon import pid_alive
 
         assert pid_alive(12345) is False
 
@@ -418,7 +418,7 @@ class TestPidAliveWindows:
 
     def test_alive_when_wait_times_out(self):
         """Valid handle + WAIT_TIMEOUT (0x102) means the process is alive."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=1234, wait_result=0x102)
         assert _pid_alive_windows(4242, kernel32) is True
@@ -430,7 +430,7 @@ class TestPidAliveWindows:
 
     def test_dead_when_handle_is_signaled(self):
         """Valid handle + WAIT_OBJECT_0 (0x0) means the process exited."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=1234, wait_result=0x0)
         assert _pid_alive_windows(4242, kernel32) is False
@@ -438,10 +438,10 @@ class TestPidAliveWindows:
 
     def test_alive_when_wait_fails(self, caplog):
         """WAIT_FAILED cannot prove death, and records the Win32 error."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=1234, wait_result=0xFFFFFFFF, last_error=6)
-        with caplog.at_level("DEBUG", logger="code_review_graph.daemon"):
+        with caplog.at_level("DEBUG", logger="gryphon.daemon"):
             assert _pid_alive_windows(4242, kernel32) is True
         assert "WaitForSingleObject on PID 4242 failed (error 6)" in caplog.text
         assert kernel32.closed == [1234]
@@ -451,7 +451,7 @@ class TestPidAliveWindows:
         import ctypes
         from ctypes import wintypes
 
-        from code_review_graph.daemon import pid_alive
+        from gryphon.daemon import pid_alive
 
         kernel32 = MagicMock()
         kernel32.OpenProcess.return_value = 1234
@@ -475,7 +475,7 @@ class TestPidAliveWindows:
 
     def test_alive_on_access_denied(self):
         """NULL handle + ERROR_ACCESS_DENIED (5) means alive (other user)."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=0, last_error=5)
         assert _pid_alive_windows(4242, kernel32) is True
@@ -484,7 +484,7 @@ class TestPidAliveWindows:
 
     def test_dead_on_other_open_error(self):
         """NULL handle + ERROR_INVALID_PARAMETER (87) means the PID is gone."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=0, last_error=87)
         assert _pid_alive_windows(4242, kernel32) is False
@@ -492,7 +492,7 @@ class TestPidAliveWindows:
 
     def test_injected_get_last_error_wins(self):
         """An explicit get_last_error callable overrides kernel32.GetLastError."""
-        from code_review_graph.daemon import _pid_alive_windows
+        from gryphon.daemon import _pid_alive_windows
 
         kernel32 = _FakeKernel32(handle=0, last_error=87)
         assert _pid_alive_windows(4242, kernel32, get_last_error=lambda: 5) is True
@@ -510,15 +510,15 @@ class TestWatchDaemon:
         repo_a = tmp_path / "repo-a"
         repo_a.mkdir()
         (repo_a / ".git").mkdir()
-        (repo_a / ".code-review-graph").mkdir()
+        (repo_a / ".gryphon").mkdir()
         # Create graph.db so _initial_build is skipped
-        (repo_a / ".code-review-graph" / "graph.db").touch()
+        (repo_a / ".gryphon" / "graph.db").touch()
 
         repo_b = tmp_path / "repo-b"
         repo_b.mkdir()
         (repo_b / ".git").mkdir()
-        (repo_b / ".code-review-graph").mkdir()
-        (repo_b / ".code-review-graph" / "graph.db").touch()
+        (repo_b / ".gryphon").mkdir()
+        (repo_b / ".gryphon" / "graph.db").touch()
 
         config = DaemonConfig(
             session_name="test-sess",
@@ -549,7 +549,7 @@ class TestWatchDaemon:
 
         with (
             patch(
-                "code_review_graph.daemon.signal.signal",
+                "gryphon.daemon.signal.signal",
                 side_effect=lambda sig, handler: handlers.__setitem__(sig, handler),
             ),
             patch.object(daemon, "stop") as stop,
@@ -561,8 +561,8 @@ class TestWatchDaemon:
         assert exc_info.value.code == 0
         stop.assert_called_once_with()
 
-    @patch("code_review_graph.daemon.subprocess.Popen")
-    @patch("code_review_graph.registry.Registry")
+    @patch("gryphon.daemon.subprocess.Popen")
+    @patch("gryphon.registry.Registry")
     def test_start_spawns_children(self, mock_registry_cls, mock_popen, daemon_env):
         """start() spawns a Popen child per repo."""
         mock_proc = MagicMock()
@@ -582,8 +582,8 @@ class TestWatchDaemon:
         finally:
             daemon.stop()
 
-    @patch("code_review_graph.daemon.subprocess.Popen")
-    @patch("code_review_graph.registry.Registry")
+    @patch("gryphon.daemon.subprocess.Popen")
+    @patch("gryphon.registry.Registry")
     def test_start_registers_repos(self, mock_registry_cls, mock_popen, daemon_env):
         """start() calls Registry.register for each repo."""
         mock_proc = MagicMock()
@@ -616,13 +616,13 @@ class TestWatchDaemon:
         daemon._children = {"alpha": mock_alpha}
 
         # Remove graph.db for beta so _initial_build is triggered
-        beta_db = Path(config.repos[1].path) / ".code-review-graph" / "graph.db"
+        beta_db = Path(config.repos[1].path) / ".gryphon" / "graph.db"
         beta_db.unlink()
 
         with (
-            patch("code_review_graph.daemon.subprocess.Popen") as mock_popen,
-            patch("code_review_graph.daemon.subprocess.run") as mock_run,
-            patch("code_review_graph.registry.Registry") as mock_registry_cls,
+            patch("gryphon.daemon.subprocess.Popen") as mock_popen,
+            patch("gryphon.daemon.subprocess.run") as mock_run,
+            patch("gryphon.registry.Registry") as mock_registry_cls,
         ):
             mock_new = MagicMock()
             mock_new.pid = 999
@@ -660,9 +660,9 @@ class TestWatchDaemon:
         # beta already has graph.db (from fixture) — build should be skipped
 
         with (
-            patch("code_review_graph.daemon.subprocess.Popen") as mock_popen,
-            patch("code_review_graph.daemon.subprocess.run") as mock_run,
-            patch("code_review_graph.registry.Registry") as mock_registry_cls,
+            patch("gryphon.daemon.subprocess.Popen") as mock_popen,
+            patch("gryphon.daemon.subprocess.run") as mock_run,
+            patch("gryphon.registry.Registry") as mock_registry_cls,
         ):
             mock_new = MagicMock()
             mock_new.pid = 999
@@ -727,7 +727,7 @@ class TestWatchDaemon:
         daemon._current_repos = {r.alias: r for r in config.repos}
         daemon._children = {"alpha": mock_alpha, "beta": mock_beta}
 
-        with patch("code_review_graph.daemon.subprocess.Popen") as mock_popen:
+        with patch("gryphon.daemon.subprocess.Popen") as mock_popen:
             daemon.reconcile(config)
             mock_popen.assert_not_called()
             mock_alpha.terminate.assert_not_called()
@@ -764,9 +764,9 @@ class TestWatchDaemon:
         )
 
         with (
-            patch("code_review_graph.daemon.subprocess.Popen") as mock_popen,
-            patch("code_review_graph.daemon.subprocess.run") as mock_run,
-            patch("code_review_graph.registry.Registry") as mock_registry_cls,
+            patch("gryphon.daemon.subprocess.Popen") as mock_popen,
+            patch("gryphon.daemon.subprocess.run") as mock_run,
+            patch("gryphon.registry.Registry") as mock_registry_cls,
         ):
             mock_new = MagicMock()
             mock_new.pid = 777
@@ -830,7 +830,7 @@ class TestWatchDaemon:
         daemon._current_repos = {r.alias: r for r in config.repos}
         daemon._children = {"alpha": mock_alpha, "beta": mock_beta}
 
-        with patch("code_review_graph.daemon.subprocess.Popen") as mock_popen:
+        with patch("gryphon.daemon.subprocess.Popen") as mock_popen:
             mock_new = MagicMock()
             mock_new.pid = 555
             mock_popen.return_value = mock_new
@@ -862,8 +862,8 @@ class TestWatchDaemon:
         assert len(daemon._children) == 0
         assert len(daemon._current_repos) == 0
 
-    @patch("code_review_graph.daemon.subprocess.Popen")
-    @patch("code_review_graph.registry.Registry")
+    @patch("gryphon.daemon.subprocess.Popen")
+    @patch("gryphon.registry.Registry")
     def test_start_persists_state(self, mock_registry_cls, mock_popen, daemon_env):
         """start() writes child PIDs to the state file on disk."""
         mock_proc_a = MagicMock()
@@ -903,7 +903,7 @@ class TestWatchDaemon:
         daemon._current_repos = {r.alias: r for r in config.repos}
         daemon._children = {"alpha": mock_alpha, "beta": mock_beta}
 
-        with patch("code_review_graph.daemon.subprocess.Popen") as mock_popen:
+        with patch("gryphon.daemon.subprocess.Popen") as mock_popen:
             mock_new = MagicMock()
             mock_new.pid = 3001
             mock_popen.return_value = mock_new
@@ -955,7 +955,7 @@ class TestWatchDaemon:
 class TestDaemonCLI:
     def test_handle_add_success(self, tmp_path):
         """_handle_add adds a repo and prints confirmation."""
-        from code_review_graph.daemon_cli import _handle_add
+        from gryphon.daemon_cli import _handle_add
 
         repo = tmp_path / "cli-repo"
         repo.mkdir()
@@ -967,10 +967,10 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.add_repo_to_config",
+                "gryphon.daemon.add_repo_to_config",
             ) as mock_add,
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=False,
             ),
             patch("builtins.print") as mock_print,
@@ -983,7 +983,7 @@ class TestDaemonCLI:
 
     def test_handle_remove_success(self):
         """_handle_remove removes a repo and prints confirmation."""
-        from code_review_graph.daemon_cli import _handle_remove
+        from gryphon.daemon_cli import _handle_remove
 
         args = MagicMock()
         args.path_or_alias = "some-alias"
@@ -994,15 +994,15 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg_before,
             ),
             patch(
-                "code_review_graph.daemon.remove_repo_from_config",
+                "gryphon.daemon.remove_repo_from_config",
                 return_value=cfg_after,
             ),
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=False,
             ),
             patch("builtins.print") as mock_print,
@@ -1013,13 +1013,13 @@ class TestDaemonCLI:
 
     def test_handle_stop_not_running(self):
         """_handle_stop exits when daemon is not running."""
-        from code_review_graph.daemon_cli import _handle_stop
+        from gryphon.daemon_cli import _handle_stop
 
         args = MagicMock()
 
         with (
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=False,
             ),
             patch("builtins.print"),
@@ -1031,7 +1031,7 @@ class TestDaemonCLI:
 
     def test_handle_stop_retains_pid_when_forced_signal_does_not_kill(self):
         """Successful signal delivery is not proof that the daemon exited."""
-        from code_review_graph.daemon_cli import _handle_stop
+        from gryphon.daemon_cli import _handle_stop
 
         args = MagicMock()
         pid = 4242
@@ -1039,16 +1039,16 @@ class TestDaemonCLI:
         windows_signal.SIGTERM = signal.SIGTERM
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=pid),
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=pid),
             patch(
-                "code_review_graph.daemon.pid_alive",
+                "gryphon.daemon.pid_alive",
                 return_value=True,
             ) as mock_alive,
-            patch("code_review_graph.daemon.clear_pid") as mock_clear_pid,
-            patch("code_review_graph.daemon_cli.signal", windows_signal),
-            patch("code_review_graph.daemon_cli.os.kill") as mock_kill,
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon.clear_pid") as mock_clear_pid,
+            patch("gryphon.daemon_cli.signal", windows_signal),
+            patch("gryphon.daemon_cli.os.kill") as mock_kill,
+            patch("gryphon.daemon_cli.time.sleep"),
             pytest.raises(SystemExit) as exc_info,
         ):
             _handle_stop(args)
@@ -1063,7 +1063,7 @@ class TestDaemonCLI:
 
     def test_handle_restart_windows_starts_after_process_exits(self):
         """A Windows restart continues to start after the old process exits."""
-        from code_review_graph.daemon_cli import _handle_restart
+        from gryphon.daemon_cli import _handle_restart
 
         args = MagicMock()
         pid = 4242
@@ -1071,14 +1071,14 @@ class TestDaemonCLI:
         windows_signal.SIGTERM = signal.SIGTERM
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=pid),
-            patch("code_review_graph.daemon.pid_alive", return_value=False) as mock_alive,
-            patch("code_review_graph.daemon.clear_pid") as mock_clear_pid,
-            patch("code_review_graph.daemon_cli.signal", windows_signal),
-            patch("code_review_graph.daemon_cli.os.kill") as mock_kill,
-            patch("code_review_graph.daemon_cli.time.sleep") as mock_sleep,
-            patch("code_review_graph.daemon_cli._handle_start") as mock_start,
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=pid),
+            patch("gryphon.daemon.pid_alive", return_value=False) as mock_alive,
+            patch("gryphon.daemon.clear_pid") as mock_clear_pid,
+            patch("gryphon.daemon_cli.signal", windows_signal),
+            patch("gryphon.daemon_cli.os.kill") as mock_kill,
+            patch("gryphon.daemon_cli.time.sleep") as mock_sleep,
+            patch("gryphon.daemon_cli._handle_start") as mock_start,
         ):
             _handle_restart(args)
 
@@ -1090,21 +1090,21 @@ class TestDaemonCLI:
 
     def test_handle_stop_keeps_pid_if_forced_stop_does_not_kill(self):
         """A still-live daemon must retain its PID file after failed escalation."""
-        from code_review_graph.daemon_cli import _handle_stop
+        from gryphon.daemon_cli import _handle_stop
 
         args = MagicMock()
         pid = 4242
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=True),
-            patch("code_review_graph.daemon.read_pid", return_value=pid),
-            patch("code_review_graph.daemon.pid_alive", return_value=True),
-            patch("code_review_graph.daemon.clear_pid") as mock_clear_pid,
+            patch("gryphon.daemon.is_daemon_running", return_value=True),
+            patch("gryphon.daemon.read_pid", return_value=pid),
+            patch("gryphon.daemon.pid_alive", return_value=True),
+            patch("gryphon.daemon.clear_pid") as mock_clear_pid,
             patch(
-                "code_review_graph.daemon_cli.os.kill",
+                "gryphon.daemon_cli.os.kill",
                 side_effect=[None, OSError("forced stop failed")],
             ),
-            patch("code_review_graph.daemon_cli.time.sleep"),
+            patch("gryphon.daemon_cli.time.sleep"),
             pytest.raises(OSError, match="forced stop failed"),
         ):
             _handle_stop(args)
@@ -1113,22 +1113,22 @@ class TestDaemonCLI:
 
     def test_handle_status_not_running(self):
         """_handle_status displays 'not running' when daemon is down."""
-        from code_review_graph.daemon_cli import _handle_status
+        from gryphon.daemon_cli import _handle_status
 
         args = MagicMock()
         cfg = DaemonConfig(repos=[])
 
         with (
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=False,
             ),
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg,
             ),
             patch(
-                "code_review_graph.daemon.read_pid",
+                "gryphon.daemon.read_pid",
                 return_value=None,
             ),
             patch("builtins.print") as mock_print,
@@ -1146,7 +1146,7 @@ class TestDaemonCLI:
         """
         import os
 
-        from code_review_graph.daemon_cli import _handle_status
+        from gryphon.daemon_cli import _handle_status
 
         repo = tmp_path / "my-repo"
         repo.mkdir()
@@ -1163,19 +1163,19 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=True,
             ),
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg,
             ),
             patch(
-                "code_review_graph.daemon.read_pid",
+                "gryphon.daemon.read_pid",
                 return_value=our_pid,
             ),
             patch(
-                "code_review_graph.daemon.load_state",
+                "gryphon.daemon.load_state",
                 return_value=state,
             ),
             patch("builtins.print") as mock_print,
@@ -1193,7 +1193,7 @@ class TestDaemonCLI:
         catching only ProcessLookupError/PermissionError, so the OSError
         (WinError 87) Windows raises for alive PIDs crashed the command.
         """
-        from code_review_graph.daemon_cli import _handle_status
+        from gryphon.daemon_cli import _handle_status
 
         repo = tmp_path / "my-repo"
         repo.mkdir()
@@ -1208,19 +1208,19 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=True,
             ),
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg,
             ),
             patch(
-                "code_review_graph.daemon.read_pid",
+                "gryphon.daemon.read_pid",
                 return_value=os.getpid(),
             ),
             patch(
-                "code_review_graph.daemon.load_state",
+                "gryphon.daemon.load_state",
                 return_value=state,
             ),
             patch(
@@ -1236,14 +1236,14 @@ class TestDaemonCLI:
 
     def test_handle_start_already_running(self):
         """_handle_start exits with error when daemon is already running."""
-        from code_review_graph.daemon_cli import _handle_start
+        from gryphon.daemon_cli import _handle_start
 
         args = MagicMock()
         args.foreground = False
 
         with (
             patch(
-                "code_review_graph.daemon.is_daemon_running",
+                "gryphon.daemon.is_daemon_running",
                 return_value=True,
             ),
             patch("builtins.print"),
@@ -1255,7 +1255,7 @@ class TestDaemonCLI:
 
     def test_handle_start_foreground_sets_lifecycle_before_children(self):
         """Foreground mode owns a PID and handlers before spawning threads."""
-        from code_review_graph.daemon_cli import _handle_start
+        from gryphon.daemon_cli import _handle_start
 
         args = MagicMock(foreground=True)
         daemon = MagicMock()
@@ -1266,11 +1266,11 @@ class TestDaemonCLI:
         daemon.stop.side_effect = lambda: events.append("stop")
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=False),
-            patch("code_review_graph.daemon.load_config", return_value=DaemonConfig()),
-            patch("code_review_graph.daemon.WatchDaemon", return_value=daemon),
+            patch("gryphon.daemon.is_daemon_running", return_value=False),
+            patch("gryphon.daemon.load_config", return_value=DaemonConfig()),
+            patch("gryphon.daemon.WatchDaemon", return_value=daemon),
             patch(
-                "code_review_graph.daemon.write_pid",
+                "gryphon.daemon.write_pid",
                 side_effect=lambda: events.append("pid"),
             ),
         ):
@@ -1281,7 +1281,7 @@ class TestDaemonCLI:
 
     def test_handle_start_daemonizes_before_spawning_children(self):
         """POSIX daemonization must happen before watcher/background threads."""
-        from code_review_graph.daemon_cli import _handle_start
+        from gryphon.daemon_cli import _handle_start
 
         args = MagicMock(foreground=False)
         daemon = MagicMock()
@@ -1292,26 +1292,26 @@ class TestDaemonCLI:
         daemon.stop.side_effect = lambda: events.append("stop")
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=False),
-            patch("code_review_graph.daemon.load_config", return_value=DaemonConfig()),
-            patch("code_review_graph.daemon.WatchDaemon", return_value=daemon),
+            patch("gryphon.daemon.is_daemon_running", return_value=False),
+            patch("gryphon.daemon.load_config", return_value=DaemonConfig()),
+            patch("gryphon.daemon.WatchDaemon", return_value=daemon),
         ):
             _handle_start(args)
 
         assert events == ["daemonize", "start", "run", "stop"]
 
     def test_handle_start_cleans_up_pid_when_startup_fails(self):
-        from code_review_graph.daemon_cli import _handle_start
+        from gryphon.daemon_cli import _handle_start
 
         args = MagicMock(foreground=True)
         daemon = MagicMock()
         daemon.start.side_effect = RuntimeError("watcher startup failed")
 
         with (
-            patch("code_review_graph.daemon.is_daemon_running", return_value=False),
-            patch("code_review_graph.daemon.load_config", return_value=DaemonConfig()),
-            patch("code_review_graph.daemon.WatchDaemon", return_value=daemon),
-            patch("code_review_graph.daemon.write_pid"),
+            patch("gryphon.daemon.is_daemon_running", return_value=False),
+            patch("gryphon.daemon.load_config", return_value=DaemonConfig()),
+            patch("gryphon.daemon.WatchDaemon", return_value=daemon),
+            patch("gryphon.daemon.write_pid"),
             pytest.raises(RuntimeError, match="watcher startup failed"),
         ):
             _handle_start(args)
@@ -1320,7 +1320,7 @@ class TestDaemonCLI:
 
     def test_handle_logs_missing_file(self, tmp_path):
         """_handle_logs exits when log file does not exist."""
-        from code_review_graph.daemon_cli import _handle_logs
+        from gryphon.daemon_cli import _handle_logs
 
         args = MagicMock()
         args.repo = None
@@ -1331,7 +1331,7 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg,
             ),
             patch("builtins.print"),
@@ -1343,7 +1343,7 @@ class TestDaemonCLI:
 
     def test_handle_logs_reads_lines(self, tmp_path):
         """_handle_logs reads last N lines from log file."""
-        from code_review_graph.daemon_cli import _handle_logs
+        from gryphon.daemon_cli import _handle_logs
 
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
@@ -1359,7 +1359,7 @@ class TestDaemonCLI:
 
         with (
             patch(
-                "code_review_graph.daemon.load_config",
+                "gryphon.daemon.load_config",
                 return_value=cfg,
             ),
             patch("builtins.print") as mock_print,
@@ -1375,7 +1375,7 @@ class TestPerUserStateLocation:
     """Daemon state must follow $CRG_HOME, not a frozen Path.home()."""
 
     def test_defaults_live_under_crg_home(self, tmp_path, monkeypatch):
-        from code_review_graph import daemon
+        from gryphon import daemon
 
         monkeypatch.setenv("CRG_HOME", str(tmp_path / "state"))
 
@@ -1391,7 +1391,7 @@ class TestPerUserStateLocation:
         constant would already hold the wrong value and no later override
         could move it.
         """
-        from code_review_graph import daemon
+        from gryphon import daemon
 
         monkeypatch.setenv("CRG_HOME", str(tmp_path / "first"))
         first = daemon.default_pid_path()
@@ -1402,7 +1402,7 @@ class TestPerUserStateLocation:
 
     def test_legacy_constant_names_still_resolve(self, tmp_path, monkeypatch):
         """CONFIG_PATH/PID_PATH/STATE_PATH kept working via the PEP 562 shim."""
-        from code_review_graph import daemon
+        from gryphon import daemon
 
         monkeypatch.setenv("CRG_HOME", str(tmp_path / "state"))
 
@@ -1411,14 +1411,14 @@ class TestPerUserStateLocation:
         assert daemon.STATE_PATH == tmp_path / "state" / "daemon-state.json"
 
     def test_unknown_attribute_still_raises(self):
-        from code_review_graph import daemon
+        from gryphon import daemon
 
         with pytest.raises(AttributeError, match="no attribute 'NOPE'"):
             _ = daemon.NOPE
 
     def test_bare_daemon_config_logs_under_crg_home(self, tmp_path, monkeypatch):
         """DaemonConfig()'s default_factory must not point at the real home."""
-        from code_review_graph.daemon import DaemonConfig
+        from gryphon.daemon import DaemonConfig
 
         monkeypatch.setenv("CRG_HOME", str(tmp_path / "state"))
 
@@ -1426,7 +1426,7 @@ class TestPerUserStateLocation:
 
     def test_legacy_names_are_visible_to_dir(self):
         """__getattr__ alone leaves the names invisible to introspection."""
-        from code_review_graph import daemon
+        from gryphon import daemon
 
         names = dir(daemon)
         assert "CONFIG_PATH" in names
@@ -1437,6 +1437,6 @@ class TestPerUserStateLocation:
 
     def test_legacy_names_work_through_from_import(self, tmp_path, monkeypatch):
         monkeypatch.setenv("CRG_HOME", str(tmp_path / "state"))
-        from code_review_graph.daemon import CONFIG_PATH
+        from gryphon.daemon import CONFIG_PATH
 
         assert CONFIG_PATH == tmp_path / "state" / "watch.toml"

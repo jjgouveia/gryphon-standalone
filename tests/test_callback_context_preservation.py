@@ -1,9 +1,9 @@
 """Preserve existing caller context while reviewing wrapped-function inference (#972)."""
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 
 def test_value_callback_calls_remain_owned_by_enclosing_function(tmp_path):
@@ -14,7 +14,7 @@ def test_value_callback_calls_remain_owned_by_enclosing_function(tmp_path):
         "export function setup(): number { "
         "const result = evaluate(() => compute()); return result; }\n"
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         assert full_build(tmp_path, store)["errors"] == []

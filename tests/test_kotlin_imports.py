@@ -11,7 +11,7 @@ long`` and failing the whole file.
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _import_targets(repo_root: Path, source_file: Path) -> set[str]:

@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 SOURCE = """
 import org.springframework.web.bind.annotation.*;
@@ -97,7 +97,7 @@ def test_duplicate_routes_remain_linked_to_distinct_handlers(tmp_path: Path) -> 
 def test_endpoint_queries_follow_addressable_handles_edges(tmp_path: Path) -> None:
     path = tmp_path / "CatalogController.java"
     nodes, edges = _parsed(path)
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         store.store_file_nodes_edges(str(path), nodes, edges, "hash")

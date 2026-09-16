@@ -15,7 +15,7 @@ import ast
 import re
 from pathlib import Path
 
-from code_review_graph.skills import _SKILLS, generate_skills
+from gryphon.skills import _SKILLS, generate_skills
 
 REPO_ROOT = Path(__file__).parents[1]
 SKILL_NAMES = ["explore-codebase", "review-changes", "debug-issue", "refactor-safely"]
@@ -26,7 +26,7 @@ _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 def _exported_tool_names() -> set[str]:
     """Collect function names registered via @mcp.tool() in main.py."""
-    src = (REPO_ROOT / "code_review_graph" / "main.py").read_text(encoding="utf-8")
+    src = (REPO_ROOT / "gryphon" / "main.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     names: set[str] = set()
     for node in ast.walk(tree):

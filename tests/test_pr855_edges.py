@@ -9,7 +9,7 @@ interplay (no over-suppression of genuinely dead functions).
 import tempfile
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _parse_source(tmp_path: Path, source: str, name: str = "mod.py"):
@@ -180,8 +180,8 @@ class TestKeywordCallbackEdges:
     def test_dead_code_not_over_suppressed(self, tmp_path):
         """A keyword-referenced handler is alive; an unreferenced sibling
         must still be reported dead."""
-        from code_review_graph.graph import GraphStore
-        from code_review_graph.refactor import find_dead_code
+        from gryphon.graph import GraphStore
+        from gryphon.refactor import find_dead_code
 
         src = (
             "def live_handler(args):\n"

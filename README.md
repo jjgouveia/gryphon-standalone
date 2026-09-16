@@ -1,11 +1,11 @@
-<h1 align="center">code-review-graph</h1>
+<h1 align="center">gryphon</h1>
 
 <p align="center">
   <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
      target="_blank"
      rel="noopener noreferrer">
     <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fcode-review-graph | Trendshift"
+         alt="tirth8205%2Fgryphon | Trendshift"
          width="250"
          height="55" />
   </a>
@@ -23,14 +23,14 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/code-review-graph/"><img src="https://img.shields.io/pypi/v/code-review-graph?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/code-review-graph"><img src="https://img.shields.io/pepy/dt/code-review-graph?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/code-review-graph?style=flat-square" alt="Stars"></a>
+  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
+  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/code-review-graph/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://code-review-graph.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
+  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
   <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
@@ -46,7 +46,7 @@
 
 <br>
 
-AI coding tools often re-read large parts of a codebase to review a change. `code-review-graph` builds a structural map of the code with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/), keeps it updated incrementally, and serves compact context over [MCP](https://modelcontextprotocol.io/), so the assistant reads only the files a change touches.
+AI coding tools often re-read large parts of a codebase to review a change. `gryphon` builds a structural map of the code with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/), keeps it updated incrementally, and serves compact context over [MCP](https://modelcontextprotocol.io/), so the assistant reads only the files a change touches.
 
 <p align="center">
   <img src="diagrams/diagram1_before_vs_after.png" alt="The Token Problem: reading flask's whole corpus costs 143,594 tokens, a graph answer costs 2,196 (71.0x fewer)" width="85%" />
@@ -57,12 +57,12 @@ AI coding tools often re-read large parts of a codebase to review a change. `cod
 ## Quick Start
 
 ```bash
-pip install code-review-graph          # or: pipx install code-review-graph
-code-review-graph install              # detect installed AI coding tools and configure each one
-code-review-graph build                # parse the codebase
+pip install gryphon          # or: pipx install gryphon
+gryphon install              # detect installed AI coding tools and configure each one
+gryphon build                # parse the codebase
 ```
 
-`install` detects which AI coding tools you have, writes an MCP server entry for each, installs hooks and skills where the platform supports them, and adds graph instructions to the platform's rules file. The MCP entry uses `poetry run` or `uv run` inside a Poetry or uv project environment, `uvx code-review-graph serve` when `uvx` is on PATH, and otherwise the current Python interpreter. Restart the editor or tool afterwards.
+`install` detects which AI coding tools you have, writes an MCP server entry for each, installs hooks and skills where the platform supports them, and adds graph instructions to the platform's rules file. The MCP entry uses `poetry run` or `uv run` inside a Poetry or uv project environment, `uvx gryphon serve` when `uvx` is on PATH, and otherwise the current Python interpreter. Restart the editor or tool afterwards.
 
 <p align="center">
   <img src="diagrams/diagram8_supported_platforms.png" alt="One install, every platform: detects Codex, Claude Code, CodeBuddy Code, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen, Qoder, Kiro, GitHub Copilot, and GitHub Copilot CLI" width="85%" />
@@ -71,8 +71,8 @@ code-review-graph build                # parse the codebase
 To configure one platform, pass `--platform` with one of `codex`, `claude-code`, `cursor`, `windsurf`, `zed`, `continue`, `opencode`, `antigravity`, `gemini-cli`, `qwen`, `kiro`, `qoder`, `copilot`, `copilot-cli`, `codebuddy`, or `hermes`:
 
 ```bash
-code-review-graph install --platform cursor
-code-review-graph install --platform codebuddy
+gryphon install --platform cursor
+gryphon install --platform codebuddy
 ```
 
 Config file locations are listed in [docs/USAGE.md](docs/USAGE.md#supported-platforms). Requires Python 3.10+.
@@ -80,12 +80,12 @@ Config file locations are listed in [docs/USAGE.md](docs/USAGE.md#supported-plat
 `uninstall` removes CRG-owned files and entries from a Git or SVN working tree and leaves other MCP servers, hooks, skills and JSONC comments alone. Run it from anywhere inside the tree. Shared config files are replaced atomically, so a failed write leaves the original intact.
 
 ```bash
-code-review-graph uninstall --dry-run    # preview only
-code-review-graph uninstall              # preview, confirm, apply
-code-review-graph uninstall --yes        # apply without prompting
-code-review-graph uninstall --all-repos  # also clean every registered repository
-code-review-graph uninstall --keep-data  # remove integrations, keep graph databases
-code-review-graph uninstall --keep-user-configs --repo .  # this project only
+gryphon uninstall --dry-run    # preview only
+gryphon uninstall              # preview, confirm, apply
+gryphon uninstall --yes        # apply without prompting
+gryphon uninstall --all-repos  # also clean every registered repository
+gryphon uninstall --keep-data  # remove integrations, keep graph databases
+gryphon uninstall --keep-user-configs --repo .  # this project only
 ```
 
 Then open the project and ask the assistant:
@@ -130,7 +130,7 @@ Hooks, the pre-commit hook and watch mode trigger incremental updates. The updat
 Instead of feeding a whole corpus to the model, the graph returns a slice shaped to the question. On this repository, 208,821 source tokens become ~3,190 tokens per question.
 
 <p align="center">
-  <img src="diagrams/diagram6_monorepo_funnel.png" alt="code-review-graph repo: 208,821 source tokens funnel down to ~3,190 token graph responses, 68x fewer tokens per question" width="80%" />
+  <img src="diagrams/diagram6_monorepo_funnel.png" alt="gryphon repo: 208,821 source tokens funnel down to ~3,190 token graph responses, 68x fewer tokens per question" width="80%" />
 </p>
 
 ### Language coverage and notebooks
@@ -145,7 +145,7 @@ PHP projects also get repository-bounded Composer PSR-4 resolution, Blade templa
 
 ### Add your own language
 
-If your repository uses a language the parser does not cover, add a `languages.toml` to `.code-review-graph/` that maps file extensions to any grammar bundled in `tree_sitter_language_pack`, plus the node types for functions, classes, imports and calls:
+If your repository uses a language the parser does not cover, add a `languages.toml` to `.gryphon/` that maps file extensions to any grammar bundled in `tree_sitter_language_pack`, plus the node types for functions, classes, imports and calls:
 
 ```toml
 [languages.erlang]
@@ -164,7 +164,7 @@ The generic tree-sitter walker does the extraction. Built-in languages cannot be
 The same analysis runs as a composite GitHub Action. The graph is built and queried on your CI runner; no source code is sent to an external service. On each pull request the action posts one sticky comment with risk-scored functions, affected execution flows and test gaps, updated in place on every push. The optional `fail-on-risk` input turns it into a merge gate.
 
 ```yaml
-# .github/workflows/code-review-graph.yml
+# .github/workflows/gryphon.yml
 on:
   pull_request:
 
@@ -177,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: tirth8205/code-review-graph@v2.3.8
+      - uses: tirth8205/gryphon@v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -200,13 +200,13 @@ All numbers come from the evaluation runner against 6 open-source repositories (
 <summary><strong>Token efficiency: ~65x median per-question reduction (range 36x to 376x; whole-corpus vs graph query)</strong></summary>
 <br>
 
-For a typical agent question (`"how does authentication work"`, `"what is the main entry point"`, and so on), the graph returns ~2,000 to 3,500 tokens of search hits plus neighbour edges instead of every source file. The table averages the 5 sample questions defined in `code_review_graph/token_benchmark.py`.
+For a typical agent question (`"how does authentication work"`, `"what is the main entry point"`, and so on), the graph returns ~2,000 to 3,500 tokens of search hits plus neighbour edges instead of every source file. The table averages the 5 sample questions defined in `gryphon/token_benchmark.py`.
 
 | Repo | Snapshot SHA | naive_corpus_tokens | avg graph_tokens | Reduction |
 |------|---|-----------------:|----------------:|----------:|
 | fastapi | `22381558` | 948,793 | 2,653 | **375.6x** |
 | flask | `a29f88ce` | 143,594 | 2,196 | **71.0x** |
-| code-review-graph | `84bde354` | 208,821 | 3,190 | **68.1x** |
+| gryphon | `84bde354` | 208,821 | 3,190 | **68.1x** |
 | gin | `5c00df8a` | 166,868 | 2,766 | **61.9x** |
 | httpx | `b55d4635` | 142,356 | 2,661 | **60.6x** |
 | express | `b4ab7d65` | 136,052 | 3,936 | **36.0x** |
@@ -230,7 +230,7 @@ Blast-radius analysis recovers every file in the ground truth on all 13 evaluati
 | Repo | Commits | Avg F1 | Avg Precision | Recall (graph-derived upper bound) |
 |------|--------:|-------:|--------------:|-------:|
 | httpx | 2 | 0.863 | 0.785 | 1.0 |
-| code-review-graph | 2 | 0.734 | 0.584 | 1.0 |
+| gryphon | 2 | 0.734 | 0.584 | 1.0 |
 | fastapi | 2 | 0.697 | 0.539 | 1.0 |
 | express | 2 | 0.667 | 0.500 | 1.0 |
 | flask | 2 | 0.633 | 0.485 | 1.0 |
@@ -252,7 +252,7 @@ From the same 2026-08-02 clean-room build. Embedding counts are lower than node 
 | fastapi | 6,287 | 32,036 | 5,159 |
 | express | 1,990 | 19,492 | 1,849 |
 | gin | 1,589 | 17,237 | 1,491 |
-| code-review-graph | 1,446 | 9,094 | 1,354 |
+| gryphon | 1,446 | 9,094 | 1,354 |
 | flask | 1,415 | 8,259 | 1,329 |
 | httpx | 1,263 | 8,236 | 1,193 |
 
@@ -286,22 +286,22 @@ From the same 2026-08-02 clean-room build. Embedding counts are lower than node 
 | **Edge confidence** | Three-tier confidence (EXTRACTED/INFERRED/AMBIGUOUS) with float scores on edges |
 | **Graph traversal** | BFS/DFS from any node with configurable depth and token budget |
 | **Export formats** | GraphML (Gephi/yEd), Neo4j Cypher, Obsidian vault, SVG, JSON |
-| **Token benchmarking** | `code_review_graph/token_benchmark.py` measures whole-corpus tokens against graph query tokens per question |
+| **Token benchmarking** | `gryphon/token_benchmark.py` measures whole-corpus tokens against graph query tokens per question |
 | **Estimated context savings** | `context_savings` metadata (`estimated`, `saved_tokens`, `saved_percent`) on review, impact, detect-changes and architecture responses |
 | **Community auto-split** | Communities above 25% of the graph are split recursively with Leiden |
 | **Execution flows** | Call chains from entry points, sorted by weighted criticality |
 | **Community detection** | Leiden clustering with resolution scaled to graph size |
 | **Architecture overview** | Community-based architecture map with coupling warnings |
 | **Risk-scored reviews** | `detect_changes` maps diffs to affected functions, flows and test gaps |
-| **Custom languages** | New languages via `.code-review-graph/languages.toml`, no fork needed |
+| **Custom languages** | New languages via `.gryphon/languages.toml`, no fork needed |
 | **GitHub Action** | Sticky risk-scored PR review comments in CI, with an optional `fail-on-risk` merge gate |
 | **Refactoring tools** | Rename preview, framework-aware dead code detection, community-driven suggestions |
 | **Wiki generation** | Markdown wiki from community structure |
 | **Multi-repo registry** | Register several repos and search across them |
-| **Multi-repo daemon** | `crg-daemon` watches several repos as child processes, with health checks and restart |
+| **Multi-repo daemon** | `gryphon-daemon` watches several repos as child processes, with health checks and restart |
 | **MCP prompts** | 5 workflow templates: review, architecture, debug, onboard, pre-merge |
 | **Full-text search** | FTS5 hybrid search combining keyword and vector similarity |
-| **Local storage** | One SQLite file in `.code-review-graph/`; no external database or cloud service |
+| **Local storage** | One SQLite file in `.gryphon/`; no external database or cloud service |
 
 ---
 
@@ -313,9 +313,9 @@ From the same 2026-08-02 clean-room build. Embedding counts are lower than node 
 
 | Command | Description |
 |---------|-------------|
-| `/code-review-graph:build-graph` | Build or rebuild the code graph |
-| `/code-review-graph:review-delta` | Review changes since last commit |
-| `/code-review-graph:review-pr` | Full PR review with blast-radius analysis |
+| `/gryphon:build-graph` | Build or rebuild the code graph |
+| `/gryphon:review-delta` | Review changes since last commit |
+| `/gryphon:review-pr` | Full PR review with blast-radius analysis |
 
 </details>
 
@@ -324,33 +324,33 @@ From the same 2026-08-02 clean-room build. Embedding counts are lower than node 
 <br>
 
 ```bash
-code-review-graph install          # Detect and configure all platforms
-code-review-graph install --platform <name>  # One platform
-code-review-graph uninstall --dry-run  # Preview removal of installed artifacts
-code-review-graph build            # Parse the whole codebase
-code-review-graph update           # Incremental update (changed files only)
-code-review-graph status           # Graph statistics
-code-review-graph watch            # Update on file changes
-code-review-graph visualize        # Interactive HTML graph
-code-review-graph visualize --format json      # Export graph data as JSON
-code-review-graph visualize --format graphml   # Export as GraphML
-code-review-graph visualize --format svg       # Export as SVG
-code-review-graph visualize --format obsidian  # Export as Obsidian vault
-code-review-graph visualize --format cypher    # Export as Neo4j Cypher
-code-review-graph wiki             # Markdown wiki from communities
-code-review-graph detect-changes --brief         # Risk panel + token savings (read-only)
-code-review-graph detect-changes --brief --base main  # Against the merge base of main and HEAD
-code-review-graph update --brief                 # Refresh graph + same panel
-code-review-graph detect-changes --brief --verify  # Cross-check against tiktoken
-code-review-graph register <path>  # Register repo in the multi-repo registry
-code-review-graph unregister <id>  # Remove repo from the registry
-code-review-graph repos            # List registered repositories
-code-review-graph daemon start     # Start the multi-repo watch daemon
-code-review-graph daemon stop      # Stop the daemon
-code-review-graph daemon status    # Daemon status and repos
-code-review-graph eval             # Run evaluation benchmarks
-code-review-graph serve            # Start the MCP server (stdio)
-code-review-graph serve --http     # MCP over Streamable HTTP on localhost:5555
+gryphon install          # Detect and configure all platforms
+gryphon install --platform <name>  # One platform
+gryphon uninstall --dry-run  # Preview removal of installed artifacts
+gryphon build            # Parse the whole codebase
+gryphon update           # Incremental update (changed files only)
+gryphon status           # Graph statistics
+gryphon watch            # Update on file changes
+gryphon visualize        # Interactive HTML graph
+gryphon visualize --format json      # Export graph data as JSON
+gryphon visualize --format graphml   # Export as GraphML
+gryphon visualize --format svg       # Export as SVG
+gryphon visualize --format obsidian  # Export as Obsidian vault
+gryphon visualize --format cypher    # Export as Neo4j Cypher
+gryphon wiki             # Markdown wiki from communities
+gryphon detect-changes --brief         # Risk panel + token savings (read-only)
+gryphon detect-changes --brief --base main  # Against the merge base of main and HEAD
+gryphon update --brief                 # Refresh graph + same panel
+gryphon detect-changes --brief --verify  # Cross-check against tiktoken
+gryphon register <path>  # Register repo in the multi-repo registry
+gryphon unregister <id>  # Remove repo from the registry
+gryphon repos            # List registered repositories
+gryphon daemon start     # Start the multi-repo watch daemon
+gryphon daemon stop      # Stop the daemon
+gryphon daemon status    # Daemon status and repos
+gryphon eval             # Run evaluation benchmarks
+gryphon serve            # Start the MCP server (stdio)
+gryphon serve --http     # MCP over Streamable HTTP on localhost:5555
 ```
 
 When `detect-changes --base` names a branch, the diff runs against the merge base of that branch and HEAD. Commit hashes and other revisions are used as given.
@@ -376,7 +376,7 @@ Both commands print the same panel showing how many tokens the graph saved compa
 
 | Command | What it does | When to use |
 |---|---|---|
-| `detect-changes --brief` | Read-only. Queries the existing graph for the current changes and prints the panel. | Most of the time; hooks or `crg-daemon` keep the graph fresh. |
+| `detect-changes --brief` | Read-only. Queries the existing graph for the current changes and prints the panel. | Most of the time; hooks or `gryphon-daemon` keep the graph fresh. |
 | `update --brief` | Re-parses the changed files into the graph first, then prints the same panel. | After a rebase, a large change set, or whenever the graph may be stale. |
 
 Add `--verify` to either command to compare the figures with OpenAI's `cl100k_base` tokenizer (needs `pip install tiktoken`). The estimate is within about 1% of real tokens in aggregate; see [`docs/REPRODUCING.md`](docs/REPRODUCING.md#calibration-result-committed).
@@ -389,25 +389,25 @@ The same `context_savings` metadata is attached to the JSON responses of the `ge
 <summary><strong>Multi-repo daemon</strong></summary>
 <br>
 
-If your editor does not support hooks (for example Cursor or OpenCode), or you want the graph kept fresh without editor integration, the daemon watches your repositories and updates their graphs. It ships with `code-review-graph`; no separate install.
+If your editor does not support hooks (for example Cursor or OpenCode), or you want the graph kept fresh without editor integration, the daemon watches your repositories and updates their graphs. It ships with `gryphon`; no separate install.
 
 ```bash
 # 1. Register the repos to watch
-crg-daemon add ~/project-a --alias proj-a
-crg-daemon add ~/project-b
+gryphon-daemon add ~/project-a --alias proj-a
+gryphon-daemon add ~/project-b
 
 # 2. Start the daemon (runs in the background)
-crg-daemon start
+gryphon-daemon start
 
 # 3. Check on it
-crg-daemon status                 # daemon and per-repo watcher status
-crg-daemon logs --repo proj-a -f  # tail logs for one repo
-crg-daemon stop                   # stop the daemon and all watchers
+gryphon-daemon status                 # daemon and per-repo watcher status
+gryphon-daemon logs --repo proj-a -f  # tail logs for one repo
+gryphon-daemon stop                   # stop the daemon and all watchers
 ```
 
-Also available as `code-review-graph daemon start|stop|status|...`.
+Also available as `gryphon daemon start|stop|status|...`.
 
-`crg-daemon add` writes to `~/.code-review-graph/watch.toml`, which you can also edit directly:
+`gryphon-daemon add` writes to `~/.gryphon/watch.toml`, which you can also edit directly:
 
 ```toml
 [[repos]]
@@ -421,7 +421,7 @@ alias = "project-b"
 
 The daemon watches this file and starts or stops watcher processes as repos are added or removed. A health check every 30 seconds restarts dead watchers.
 
-See [docs/COMMANDS.md](docs/COMMANDS.md#standalone-daemon-cli-crg-daemon) for the full config reference.
+See [docs/COMMANDS.md](docs/COMMANDS.md#standalone-daemon-cli-gryphon-daemon) for the full config reference.
 
 </details>
 
@@ -473,7 +473,7 @@ The assistant uses these once the graph is built.
 <summary><strong>Configuration</strong></summary>
 <br>
 
-To exclude paths from indexing, create a `.code-review-graphignore` file in the repository root:
+To exclude paths from indexing, create a `.gryphonignore` file in the repository root:
 
 ```
 generated/**
@@ -482,18 +482,18 @@ vendor/**
 node_modules/**
 ```
 
-In git repositories only tracked files are indexed (`git ls-files`), so gitignored files are skipped. Use `.code-review-graphignore` to exclude tracked files or when git is not available. The default ignore list is in [docs/USAGE.md](docs/USAGE.md#ignore-patterns).
+In git repositories only tracked files are indexed (`git ls-files`), so gitignored files are skipped. Use `.gryphonignore` to exclude tracked files or when git is not available. The default ignore list is in [docs/USAGE.md](docs/USAGE.md#ignore-patterns).
 
 Optional dependency groups:
 
 ```bash
-pip install "code-review-graph[embeddings]"          # Local vector embeddings (sentence-transformers)
-pip install "code-review-graph[google-embeddings]"   # Google Gemini embeddings
-pip install "code-review-graph[communities]"         # Community detection (igraph)
-pip install "code-review-graph[enrichment]"          # Python call-resolution enrichment (Jedi)
-pip install "code-review-graph[eval]"                # Evaluation benchmarks (matplotlib)
-pip install "code-review-graph[wiki]"                # ollama client (not used by the current wiki generator)
-pip install "code-review-graph[all]"                 # All optional dependencies
+pip install "gryphon[embeddings]"          # Local vector embeddings (sentence-transformers)
+pip install "gryphon[google-embeddings]"   # Google Gemini embeddings
+pip install "gryphon[communities]"         # Community detection (igraph)
+pip install "gryphon[enrichment]"          # Python call-resolution enrichment (Jedi)
+pip install "gryphon[eval]"                # Evaluation benchmarks (matplotlib)
+pip install "gryphon[wiki]"                # ollama client (not used by the current wiki generator)
+pip install "gryphon[all]"                 # All optional dependencies
 ```
 
 ### Environment Variables
@@ -552,12 +552,12 @@ Voyage embeddings need no extra install. Set `VOYAGE_API_KEY` and pass `provider
 ```bash
 export VOYAGE_API_KEY=pa-...
 export CRG_ACCEPT_CLOUD_EMBEDDINGS=1
-code-review-graph embed --provider voyage --model voyage-code-3
+gryphon embed --provider voyage --model voyage-code-3
 ```
 
 > **Model selection.** Avoid `-preview`, `-beta` or `-exp` model IDs for an index you plan to keep; preview models can change weights (a different dimension forces a full re-embed) or be withdrawn. Prefer GA releases such as `text-embedding-3-small` / `text-embedding-3-large` (OpenAI), `Qwen/Qwen3-Embedding-8B` (self-hosted vLLM or LocalAI), or `gemini-embedding-001` (native Gemini provider, which needs `GOOGLE_API_KEY`).
 >
-> The embedding text is identifiers, signatures, structural context, and a bounded first-paragraph docstring or doc-comment summary. Function bodies are not sent. Graphs created before documentation extraction was added need one full `code-review-graph build` before re-embedding. Routine builds never refresh embeddings; to refresh after a build, pass both `--embedding-provider` and `--embedding-model`. Cloud providers receive this source-derived text and may charge for it.
+> The embedding text is identifiers, signatures, structural context, and a bounded first-paragraph docstring or doc-comment summary. Function bodies are not sent. Graphs created before documentation extraction was added need one full `gryphon build` before re-embedding. Routine builds never refresh embeddings; to refresh after a build, pass both `--embedding-provider` and `--embedding-model`. Cloud providers receive this source-derived text and may charge for it.
 
 #### Tool Filtering
 
@@ -565,10 +565,10 @@ CRG exposes 30 MCP tools by default. To limit the server to a subset, use `--too
 
 ```bash
 # CLI flag
-code-review-graph serve --tools query_graph_tool,semantic_search_nodes_tool,detect_changes_tool
+gryphon serve --tools query_graph_tool,semantic_search_nodes_tool,detect_changes_tool
 
 # Environment variable
-CRG_TOOLS=query_graph_tool,semantic_search_nodes_tool code-review-graph serve
+CRG_TOOLS=query_graph_tool,semantic_search_nodes_tool gryphon serve
 ```
 
 The flag takes precedence over the variable. When neither is set, all tools are available. In an MCP client config:
@@ -576,8 +576,8 @@ The flag takes precedence over the variable. When neither is set, all tools are 
 ```json
 {
   "mcpServers": {
-    "code-review-graph": {
-      "command": "code-review-graph",
+    "gryphon": {
+      "command": "gryphon",
       "args": ["serve", "--tools", "query_graph_tool,semantic_search_nodes_tool,detect_changes_tool,get_review_context_tool"]
     }
   }
@@ -612,11 +612,11 @@ Installing from a source tree (for example `pipx install .`) needs build depende
 2. Install from a checkout with [uv](https://docs.astral.sh/uv/), which uses different download machinery:
 
    ```bash
-   cd /path/to/code-review-graph
+   cd /path/to/gryphon
    uv tool install . --force
    ```
 
-3. For development in a clone, use `uv sync` and `uv run code-review-graph ...`.
+3. For development in a clone, use `uv sync` and `uv run gryphon ...`.
 
 To diagnose: `python3 scripts/diagnose_pypi_connectivity.py`. If it prints `FAILED`, the problem is the network environment, not the package name.
 
@@ -625,8 +625,8 @@ To diagnose: `python3 scripts/diagnose_pypi_connectivity.py`. If it prints `FAIL
 Do not use a `cmd /c` wrapper in the Claude Code config. Point `~/.claude.json` at the `.exe` directly and set UTF-8 through the config:
 
 ```json
-"code-review-graph": {
-  "command": "C:\\path\\to\\your\\venv\\Scripts\\code-review-graph.exe",
+"gryphon": {
+  "command": "C:\\path\\to\\your\\venv\\Scripts\\gryphon.exe",
   "args": ["serve", "--repo", "C:\\path\\to\\your\\project"],
   "env": { "PYTHONUTF8": "1" }
 }
@@ -635,8 +635,8 @@ Do not use a `cmd /c` wrapper in the Claude Code config. Point `~/.claude.json` 
 ## Contributing
 
 ```bash
-git clone https://github.com/tirth8205/code-review-graph.git
-cd code-review-graph
+git clone https://github.com/tirth8205/gryphon.git
+cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
@@ -646,7 +646,7 @@ Pull requests target `staging` (the default branch). Changes are promoted
 `staging` → `testing` → `main`, and releases are tagged from `main`. See
 [CONTRIBUTING.md](CONTRIBUTING.md#branching-and-promotion) for the full flow.
 
-To add a built-in language, edit `code_review_graph/parser.py`: add the extension to `EXTENSION_TO_LANGUAGE` and node type mappings to `_CLASS_TYPES`, `_FUNCTION_TYPES`, `_IMPORT_TYPES` and `_CALL_TYPES`. Include a test fixture and open a PR. For a language you only need in one repository, use [`languages.toml`](docs/CUSTOM_LANGUAGES.md) instead.
+To add a built-in language, edit `gryphon/parser.py`: add the extension to `EXTENSION_TO_LANGUAGE` and node type mappings to `_CLASS_TYPES`, `_FUNCTION_TYPES`, `_IMPORT_TYPES` and `_CALL_TYPES`. Include a test fixture and open a PR. For a language you only need in one repository, use [`languages.toml`](docs/CUSTOM_LANGUAGES.md) instead.
 
 ## Licence
 
@@ -654,6 +654,6 @@ MIT. See [LICENSE](LICENSE).
 
 <p align="center">
 <br>
-<a href="https://code-review-graph.com">code-review-graph.com</a><br><br>
-<code>pip install code-review-graph && code-review-graph install</code>
+<a href="https://gryphon.com">gryphon.com</a><br><br>
+<code>pip install gryphon && gryphon install</code>
 </p>

@@ -1,6 +1,6 @@
 """Shared test fixtures.
 
-Keeps code-review-graph's own per-user state out of the developer's real
+Keeps gryphon's own per-user state out of the developer's real
 home directory. Scoped deliberately: the editor-integration installers in
 ``skills.py`` write to other user-level locations (``~/.codex``,
 ``~/.cursor``, ``~/.config/opencode``) that are outside CRG state and are
@@ -16,7 +16,7 @@ import pytest
 def isolated_crg_home(tmp_path_factory, monkeypatch):
     """Redirect the per-user state directory into a temporary directory.
 
-    ``~/.code-review-graph`` holds ``registry.json``, ``watch.toml``,
+    ``~/.gryphon`` holds ``registry.json``, ``watch.toml``,
     ``daemon.pid``, ``daemon-state.json`` and ``logs/``. Two paths reached
     the real one:
 

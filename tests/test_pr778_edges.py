@@ -4,7 +4,7 @@ These stress the line-oriented YAML editing beyond the PR's own coverage:
 odd indentation, header comments, duplicate top-level keys, flow-style
 entries, column-zero comments splitting a section, CRLF input, unicode,
 and repeated install/uninstall cycles. The contract under test: CRG may
-add or remove exactly ``mcp_servers.code-review-graph`` and must either
+add or remove exactly ``mcp_servers.gryphon`` and must either
 preserve everything else or refuse to touch the file at all.
 """
 
@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from code_review_graph import skills, uninstall
+from gryphon import skills, uninstall
 
-ENTRY = {"command": "code-review-graph", "args": ["serve"]}
+ENTRY = {"command": "gryphon", "args": ["serve"]}
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def config(hermes_home: Path) -> Path:
 
 
 def _install(config: Path) -> bool | None:
-    return skills._merge_yaml_mcp_server(config, "mcp_servers", "code-review-graph", ENTRY)
+    return skills._merge_yaml_mcp_server(config, "mcp_servers", "gryphon", ENTRY)
 
 
 def _uninstall(config: Path, hermes_home: Path) -> uninstall.UninstallReport:
@@ -55,7 +55,7 @@ class TestInstallEdges:
         text = config.read_text(encoding="utf-8")
         assert "# user comment on the header" in text
         data = yaml.safe_load(text)
-        assert set(data["mcp_servers"]) == {"other", "code-review-graph"}
+        assert set(data["mcp_servers"]) == {"other", "gryphon"}
 
     def test_comment_only_null_section(self, config: Path) -> None:
         config.write_text("mcp_servers:\n  # none yet\n", encoding="utf-8")
@@ -63,7 +63,7 @@ class TestInstallEdges:
         text = config.read_text(encoding="utf-8")
         assert "# none yet" in text
         data = yaml.safe_load(text)
-        assert data["mcp_servers"]["code-review-graph"] == ENTRY
+        assert data["mcp_servers"]["gryphon"] == ENTRY
 
     def test_four_space_child_indent(self, config: Path) -> None:
         config.write_text(
@@ -76,14 +76,14 @@ class TestInstallEdges:
         assert _install(config) is True
         data = yaml.safe_load(config.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["other"] == {"command": "npx"}
-        assert data["mcp_servers"]["code-review-graph"] == ENTRY
+        assert data["mcp_servers"]["gryphon"] == ENTRY
         assert data["after"] == 1
 
     def test_file_without_trailing_newline(self, config: Path) -> None:
         config.write_text("mcp_servers:\n  other:\n    command: npx", encoding="utf-8")
         assert _install(config) is True
         data = yaml.safe_load(config.read_text(encoding="utf-8"))
-        assert set(data["mcp_servers"]) == {"other", "code-review-graph"}
+        assert set(data["mcp_servers"]) == {"other", "gryphon"}
 
     def test_duplicate_top_level_sections_refused_unchanged(self, config: Path) -> None:
         # PyYAML resolves duplicate keys last-wins; a text edit into the
@@ -109,7 +109,7 @@ class TestInstallEdges:
         assert data["model"] == {"default": "x"}
         assert data["theme"] == "dark"
         assert data["mcp_servers"]["other"] == {"command": "npx"}
-        assert data["mcp_servers"]["code-review-graph"] == ENTRY
+        assert data["mcp_servers"]["gryphon"] == ENTRY
         assert "# top" in config.read_text(encoding="utf-8")
 
     def test_unicode_comments_and_values_survive(self, config: Path) -> None:
@@ -130,7 +130,7 @@ class TestInstallEdges:
         text = config.read_text(encoding="utf-8")
         assert text.startswith("# just a comment\n")
         data = yaml.safe_load(text)
-        assert data["mcp_servers"]["code-review-graph"] == ENTRY
+        assert data["mcp_servers"]["gryphon"] == ENTRY
 
     def test_tab_indented_file_refused(self, config: Path) -> None:
         # Tabs are illegal YAML indentation; the parse fails and the
@@ -155,7 +155,7 @@ class TestInstallEdges:
         assert "  # trailing note\n" in text
         data = yaml.safe_load(text)
         assert data["theme"] == "dark"
-        assert set(data["mcp_servers"]) == {"other", "code-review-graph"}
+        assert set(data["mcp_servers"]) == {"other", "gryphon"}
 
 
 class TestUninstallEdges:
@@ -164,10 +164,10 @@ class TestUninstallEdges:
     ) -> None:
         config.write_text(
             "mcp_servers:\n"
-            "  code-review-graph-extra:\n"
+            "  gryphon-extra:\n"
             "    command: keepme\n"
-            "  code-review-graph:\n"
-            "    command: code-review-graph\n"
+            "  gryphon:\n"
+            "    command: gryphon\n"
             "    args:\n"
             "    - serve\n",
             encoding="utf-8",
@@ -175,12 +175,12 @@ class TestUninstallEdges:
         report = _uninstall(config, hermes_home)
         assert not report.skipped_paths
         data = yaml.safe_load(config.read_text(encoding="utf-8"))
-        assert set(data["mcp_servers"]) == {"code-review-graph-extra"}
+        assert set(data["mcp_servers"]) == {"gryphon-extra"}
 
     def test_flow_style_entry_removed(self, config: Path, hermes_home: Path) -> None:
         config.write_text(
             "mcp_servers:\n"
-            "  code-review-graph: {command: code-review-graph, args: [serve]}\n"
+            "  gryphon: {command: gryphon, args: [serve]}\n"
             "  other: {command: npx}\n",
             encoding="utf-8",
         )
@@ -196,8 +196,8 @@ class TestUninstallEdges:
             "mcp_servers:\n"
             "  before:\n"
             "    command: a\n"
-            "  code-review-graph:\n"
-            "    command: code-review-graph\n"
+            "  gryphon:\n"
+            "    command: gryphon\n"
             "    # comment inside our entry, removed with it\n"
             "    args:\n"
             "    - serve\n"
@@ -225,8 +225,8 @@ class TestUninstallEdges:
             "  other:\n"
             "    command: npx\n"
             "# column-zero comment splits the section\n"
-            "  code-review-graph:\n"
-            "    command: code-review-graph\n"
+            "  gryphon:\n"
+            "    command: gryphon\n"
         )
         config.write_text(original, encoding="utf-8")
         report = _uninstall(config, hermes_home)
@@ -238,10 +238,10 @@ class TestUninstallEdges:
     ) -> None:
         original = (
             "mcp_servers:\n"
-            "  code-review-graph:\n"
+            "  gryphon:\n"
             "    command: a\n"
             "mcp_servers:\n"
-            "  code-review-graph:\n"
+            "  gryphon:\n"
             "    command: b\n"
         )
         config.write_text(original, encoding="utf-8")
@@ -255,7 +255,7 @@ class TestUninstallEdges:
         # Valid YAML the text scanner cannot anchor on: refuse, do not guess.
         original = (
             "mcp_servers:\n"
-            "  code-review-graph : {command: code-review-graph}\n"
+            "  gryphon : {command: gryphon}\n"
             "  other: {command: npx}\n"
         )
         config.write_text(original, encoding="utf-8")
@@ -268,8 +268,8 @@ class TestUninstallEdges:
         # anchor would orphan the alias. The reparse must catch it.
         original = (
             "mcp_servers:\n"
-            "  code-review-graph:\n"
-            "    command: &crg code-review-graph\n"
+            "  gryphon:\n"
+            "    command: &crg gryphon\n"
             "  other:\n"
             "    command: *crg\n"
         )

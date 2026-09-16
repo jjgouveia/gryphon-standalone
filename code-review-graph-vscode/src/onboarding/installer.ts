@@ -4,7 +4,7 @@ import { CliWrapper } from '../backend/cli';
 /**
  * Handles auto-detection and installation of the Python backend.
  *
- * Checks whether the `code-review-graph` CLI is available and, if not,
+ * Checks whether the `gryphon` CLI is available and, if not,
  * guides the user through installation via pip/pipx or manual instructions.
  */
 export class Installer {
@@ -40,10 +40,10 @@ export class Installer {
             terminal.sendText('echo "=== Code Review Graph - Manual Installation ==="');
             terminal.sendText('echo ""');
             terminal.sendText('echo "Option 1: Install with pip"');
-            terminal.sendText('echo "  pip install code-review-graph"');
+            terminal.sendText('echo "  pip install gryphon"');
             terminal.sendText('echo ""');
             terminal.sendText('echo "Option 2: Install with pipx (recommended)"');
-            terminal.sendText('echo "  pipx install code-review-graph"');
+            terminal.sendText('echo "  pipx install gryphon"');
             terminal.sendText('echo ""');
             terminal.sendText('echo "After installation, reload the VS Code window."');
             return false;
@@ -83,7 +83,7 @@ export class Installer {
         await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Installing code-review-graph via ${installer}...`,
+                title: `Installing gryphon via ${installer}...`,
                 cancellable: false,
             },
             async () => {
@@ -104,9 +104,9 @@ export class Installer {
         }
 
         vscode.window.showErrorMessage(
-            `Failed to install code-review-graph via ${installer}. ` +
+            `Failed to install gryphon via ${installer}. ` +
             'Check the terminal output for details or try installing manually: ' +
-            `\`${installer} install code-review-graph\``,
+            `\`${installer} install gryphon\``,
         );
 
         return false;

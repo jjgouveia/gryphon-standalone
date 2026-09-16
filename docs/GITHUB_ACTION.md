@@ -1,16 +1,16 @@
 # GitHub Action: Risk-Scored PR Review
 
-code-review-graph ships a composite GitHub Action (`action.yml` at the repo
+gryphon ships a composite GitHub Action (`action.yml` at the repo
 root) that posts a risk-scored review comment on each pull request. The
 analysis is local-first: the knowledge graph is built and queried on your CI
 runner, and no source code is sent to an external service.
 
 On each run the action:
 
-1. Installs `code-review-graph` from PyPI.
-2. Restores the cached `.code-review-graph/` SQLite graph and re-parses the
+1. Installs `gryphon` from PyPI.
+2. Restores the cached `.gryphon/` SQLite graph and re-parses the
    files changed by the PR, or builds the graph from scratch on a cache miss.
-3. Runs `code-review-graph detect-changes --base origin/<base-branch>` to get
+3. Runs `gryphon detect-changes --base origin/<base-branch>` to get
    risk-scored functions, affected execution flows and test gaps.
 4. Renders a markdown report with `scripts/render_pr_comment.py` and upserts
    one sticky PR comment. The same comment is updated on every push.
@@ -28,8 +28,8 @@ on the checkout step if you need merge-base scoping.
 ## Quick start (external repositories)
 
 ```yaml
-# .github/workflows/code-review-graph.yml
-name: code-review-graph
+# .github/workflows/gryphon.yml
+name: gryphon
 
 on:
   pull_request:
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: tirth8205/code-review-graph@v2.3.8
+      - uses: tirth8205/gryphon@v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -57,7 +57,7 @@ which run on Node 24. Self-hosted runners must be version `2.327.1` or newer.
 To turn the review into a merge gate:
 
 ```yaml
-      - uses: tirth8205/code-review-graph@v2.3.8
+      - uses: tirth8205/gryphon@v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-risk: high
@@ -70,7 +70,7 @@ To turn the review into a merge gate:
 | `github-token` | yes | none | Token used to post the sticky PR comment via the GitHub API. The workflow's default `GITHUB_TOKEN` works when the job has `pull-requests: write`. |
 | `comment` | no | `true` | Post (and keep updated) the sticky PR comment. Set to `false` to run analysis and gating without commenting. |
 | `fail-on-risk` | no | `none` | Fail the job when the overall risk score reaches a level: `none` (never fail), `high` (risk >= 0.70), `critical` (risk >= 0.85). |
-| `python-version` | no | `3.12` | Python version used to run code-review-graph (3.10 or newer). |
+| `python-version` | no | `3.12` | Python version used to run gryphon (3.10 or newer). |
 
 ## Outputs
 
@@ -82,7 +82,7 @@ To turn the review into a merge gate:
 
 `detect-changes` produces an overall risk score from 0.0 to 1.0: the maximum
 across changed functions. `compute_risk_score` in
-`code_review_graph/changes.py` adds up flow participation, community
+`gryphon/changes.py` adds up flow participation, community
 crossing, test coverage, security-sensitive names and caller count. The
 action maps the score to levels:
 
@@ -107,37 +107,37 @@ action maps the score to levels:
   `context_savings` estimate the CLI's Token Savings panel shows (a
   `chars / 4` approximation labelled `estimated: true`; see
   [REPRODUCING.md](REPRODUCING.md) for the calibration method).
-- A `Powered by code-review-graph` footer.
+- A `Powered by gryphon` footer.
 
 If `detect-changes` capped the analysed functions (`CRG_MAX_CHANGED_FUNCS`,
 default 500), the comment says so. Bodies over 60,000 characters are cut and
 marked `Report truncated`.
 
 The comment starts with a hidden HTML marker
-(`<!-- code-review-graph-report -->`). On each run the action looks the marker
+(`<!-- gryphon-report -->`). On each run the action looks the marker
 up with `gh api` and PATCHes the existing comment instead of creating a new
 one.
 
 ## Cache behavior
 
-The action caches the `.code-review-graph/` directory (the SQLite graph
+The action caches the `.gryphon/` directory (the SQLite graph
 database) with `actions/cache`:
 
-- **Key**: `code-review-graph-schema10-<runner.os>-<hashFiles(lockfiles)>`.
+- **Key**: `gryphon-schema10-<runner.os>-<hashFiles(lockfiles)>`.
   The lockfile hash covers `uv.lock`, `poetry.lock`, `requirements*.txt`,
   `Pipfile.lock`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`,
   `go.sum`, `Cargo.lock`, `Gemfile.lock` and `composer.lock`.
 - **Schema segment**: `schema10` tracks the database schema version
-  (`LATEST_VERSION` in `code_review_graph/migrations.py`). It is bumped when
+  (`LATEST_VERSION` in `gryphon/migrations.py`). It is bumped when
   the schema changes so a stale cache is not restored across incompatible
   versions.
 - **Restore keys**: fall back to any cache for the same OS and schema, so a
   lockfile change still reuses the previous graph.
-- **On cache hit**: the action runs `code-review-graph update --base
+- **On cache hit**: the action runs `gryphon update --base
   origin/<base-branch>`, which re-parses only the files that differ from the
   PR's base. If the restored database is unusable, it falls back to a full
   `build`.
-- **On cache miss**: a full `code-review-graph build` runs. Later runs are
+- **On cache miss**: a full `gryphon build` runs. Later runs are
   incremental.
 
 ## Security notes
@@ -189,7 +189,7 @@ Markdown rendering and the risk gate live in
 library only, tested in `tests/test_action_render.py`):
 
 ```bash
-code-review-graph detect-changes --base origin/main | \
+gryphon detect-changes --base origin/main | \
   python scripts/render_pr_comment.py            # markdown to stdout
 
 python scripts/render_pr_comment.py --input report.json \

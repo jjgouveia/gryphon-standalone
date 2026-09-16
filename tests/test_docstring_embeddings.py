@@ -3,10 +3,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from code_review_graph.embeddings import _node_to_text
-from code_review_graph.graph import GraphNode, GraphStore
-from code_review_graph.incremental import full_build, incremental_update
-from code_review_graph.parser import CodeParser
+from gryphon.embeddings import _node_to_text
+from gryphon.graph import GraphNode, GraphStore
+from gryphon.incremental import full_build, incremental_update
+from gryphon.parser import CodeParser
 
 
 def _parsed_node(path: str, source: bytes, name: str):
@@ -256,7 +256,7 @@ def test_docstring_metadata_survives_full_and_incremental_persistence(
 
     try:
         with patch(
-            "code_review_graph.incremental.collect_all_files",
+            "gryphon.incremental.collect_all_files",
             return_value=["module.py"],
         ):
             full_build(repo, store)

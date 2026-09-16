@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.eval.reporter import (
+from gryphon.eval.reporter import (
     generate_full_report,
     generate_markdown_report,
     generate_readme_tables,
@@ -17,14 +17,14 @@ from code_review_graph.eval.reporter import (
 try:
     import yaml as _yaml  # noqa: F401
 
-    from code_review_graph.eval.runner import load_all_configs, load_config, write_csv
+    from gryphon.eval.runner import load_all_configs, load_config, write_csv
     _HAS_YAML = True
 except ImportError:
     _HAS_YAML = False
     load_all_configs = None  # type: ignore[assignment]
     load_config = None  # type: ignore[assignment]
     write_csv = None  # type: ignore[assignment]
-from code_review_graph.eval.scorer import (
+from gryphon.eval.scorer import (
     compute_mrr,
     compute_precision_recall,
     compute_token_efficiency,
@@ -185,7 +185,7 @@ def test_load_config_rejects_a_pin_before_the_latest_test_commit(
         }),
         encoding="utf-8",
     )
-    monkeypatch.setattr("code_review_graph.eval.runner.CONFIGS_DIR", tmp_path)
+    monkeypatch.setattr("gryphon.eval.runner.CONFIGS_DIR", tmp_path)
 
     with pytest.raises(ValueError, match="latest test_commit newer"):
         load_config("bad")
@@ -335,8 +335,8 @@ def test_runner_with_mock_repo():
         )
 
         # Build graph
-        from code_review_graph.graph import GraphStore
-        from code_review_graph.incremental import full_build, get_db_path
+        from gryphon.graph import GraphStore
+        from gryphon.incremental import full_build, get_db_path
 
         db_path = get_db_path(repo_path)
         store = GraphStore(db_path)
@@ -355,27 +355,27 @@ def test_runner_with_mock_repo():
         }
 
         # Run token_efficiency
-        from code_review_graph.eval.benchmarks import token_efficiency
+        from gryphon.eval.benchmarks import token_efficiency
         te_results = token_efficiency.run(repo_path, store, config)
         assert len(te_results) >= 1
         assert "naive_tokens" in te_results[0]
         assert "graph_tokens" in te_results[0]
 
         # Run impact_accuracy
-        from code_review_graph.eval.benchmarks import impact_accuracy
+        from gryphon.eval.benchmarks import impact_accuracy
         ia_results = impact_accuracy.run(repo_path, store, config)
         assert len(ia_results) >= 1
         assert "precision" in ia_results[0]
         assert "f1" in ia_results[0]
 
         # Run search_quality
-        from code_review_graph.eval.benchmarks import search_quality
+        from gryphon.eval.benchmarks import search_quality
         sq_results = search_quality.run(repo_path, store, config)
         assert len(sq_results) == 1
         assert "reciprocal_rank" in sq_results[0]
 
         # Run build_performance
-        from code_review_graph.eval.benchmarks import build_performance
+        from gryphon.eval.benchmarks import build_performance
         bp_results = build_performance.run(repo_path, store, config)
         assert len(bp_results) == 1
         assert "node_count" in bp_results[0]
@@ -389,7 +389,7 @@ def test_runner_with_mock_repo():
 
 def test_estimate_tokens_basic():
     """estimate_tokens should return a reasonable approximation."""
-    from code_review_graph.eval.token_benchmark import estimate_tokens
+    from gryphon.eval.token_benchmark import estimate_tokens
 
     # Simple string: "hello" => JSON '"hello"' (7 chars) => 7 // 4 = 1
     assert estimate_tokens("hello") == 1
@@ -406,7 +406,7 @@ def test_estimate_tokens_basic():
 
 def test_estimate_tokens_nested():
     """estimate_tokens handles nested structures."""
-    from code_review_graph.eval.token_benchmark import estimate_tokens
+    from gryphon.eval.token_benchmark import estimate_tokens
 
     nested = {"nodes": [{"name": "foo"}, {"name": "bar"}], "count": 2}
     tokens = estimate_tokens(nested)
@@ -418,7 +418,7 @@ def test_estimate_tokens_non_serializable():
     """estimate_tokens uses default=str for non-serializable objects."""
     from pathlib import Path
 
-    from code_review_graph.eval.token_benchmark import estimate_tokens
+    from gryphon.eval.token_benchmark import estimate_tokens
 
     # Path objects are not JSON-serializable but default=str handles them
     tokens = estimate_tokens({"path": Path("/tmp/test")})
@@ -427,7 +427,7 @@ def test_estimate_tokens_non_serializable():
 
 def test_benchmark_review_workflow():
     """benchmark_review_workflow completes and returns expected structure."""
-    from code_review_graph.eval.token_benchmark import benchmark_review_workflow
+    from gryphon.eval.token_benchmark import benchmark_review_workflow
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = Path(tmpdir) / "bench_repo"
@@ -477,8 +477,8 @@ def test_benchmark_review_workflow():
         )
 
         # Build graph
-        from code_review_graph.graph import GraphStore
-        from code_review_graph.incremental import full_build, get_db_path
+        from gryphon.graph import GraphStore
+        from gryphon.incremental import full_build, get_db_path
 
         db_path = get_db_path(repo_path)
         store = GraphStore(db_path)
@@ -502,7 +502,7 @@ def test_benchmark_review_workflow():
 
 def test_run_all_benchmarks():
     """run_all_benchmarks returns results for all workflows."""
-    from code_review_graph.eval.token_benchmark import run_all_benchmarks
+    from gryphon.eval.token_benchmark import run_all_benchmarks
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = Path(tmpdir) / "all_bench_repo"
@@ -545,8 +545,8 @@ def test_run_all_benchmarks():
             cwd=str(repo_path), capture_output=True,
         )
 
-        from code_review_graph.graph import GraphStore
-        from code_review_graph.incremental import full_build, get_db_path
+        from gryphon.graph import GraphStore
+        from gryphon.incremental import full_build, get_db_path
 
         db_path = get_db_path(repo_path)
         store = GraphStore(db_path)
@@ -611,8 +611,8 @@ def _make_repo(tmpdir, two_file_commit=False):
 
 
 def _build_store(repo_path):
-    from code_review_graph.graph import GraphStore
-    from code_review_graph.incremental import full_build, get_db_path
+    from gryphon.graph import GraphStore
+    from gryphon.incremental import full_build, get_db_path
 
     store = GraphStore(get_db_path(repo_path))
     full_build(repo_path, store)
@@ -633,12 +633,12 @@ def _mock_config(**extra):
 
 def test_token_efficiency_failure_marked_error_not_inflated(monkeypatch):
     """A thrown get_review_context must yield status=error, not ratio=naive/1."""
-    from code_review_graph.eval.benchmarks import token_efficiency
+    from gryphon.eval.benchmarks import token_efficiency
 
     def _boom(**kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("code_review_graph.tools.get_review_context", _boom)
+    monkeypatch.setattr("gryphon.tools.get_review_context", _boom)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -664,7 +664,7 @@ def test_token_efficiency_failure_marked_error_not_inflated(monkeypatch):
 
 
 def test_token_efficiency_success_rows_status_ok():
-    from code_review_graph.eval.benchmarks import token_efficiency
+    from gryphon.eval.benchmarks import token_efficiency
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -689,12 +689,12 @@ def test_token_efficiency_success_rows_status_ok():
 
 def test_impact_accuracy_failure_marked_error_not_perfect_recall(monkeypatch):
     """A thrown analyze_changes must not silently score recall 1.0."""
-    from code_review_graph.eval.benchmarks import impact_accuracy
+    from gryphon.eval.benchmarks import impact_accuracy
 
     def _boom(*args, **kwargs):
         raise RuntimeError("analysis exploded")
 
-    monkeypatch.setattr("code_review_graph.changes.analyze_changes", _boom)
+    monkeypatch.setattr("gryphon.changes.analyze_changes", _boom)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir, two_file_commit=True)
@@ -720,7 +720,7 @@ def test_impact_accuracy_failure_marked_error_not_perfect_recall(monkeypatch):
 
 
 def test_impact_accuracy_emits_both_ground_truth_modes():
-    from code_review_graph.eval.benchmarks import impact_accuracy
+    from gryphon.eval.benchmarks import impact_accuracy
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir, two_file_commit=True)
@@ -760,7 +760,7 @@ def test_impact_accuracy_emits_both_ground_truth_modes():
 
 
 def test_impact_accuracy_co_change_skipped_for_single_file_commit():
-    from code_review_graph.eval.benchmarks import impact_accuracy
+    from gryphon.eval.benchmarks import impact_accuracy
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir, two_file_commit=False)
@@ -787,7 +787,7 @@ def test_impact_accuracy_co_change_skipped_for_single_file_commit():
 
 
 def test_derive_search_terms_extracts_identifiers_and_keywords():
-    from code_review_graph.eval.benchmarks.agent_baseline import derive_search_terms
+    from gryphon.eval.benchmarks.agent_baseline import derive_search_terms
 
     terms = derive_search_terms("How does Client.request send an HTTP request?")
     assert "client.request" in terms
@@ -797,7 +797,7 @@ def test_derive_search_terms_extracts_identifiers_and_keywords():
 
 
 def test_grep_rank_orders_by_match_count_and_takes_top_k():
-    from code_review_graph.eval.benchmarks.agent_baseline import grep_rank
+    from gryphon.eval.benchmarks.agent_baseline import grep_rank
 
     with tempfile.TemporaryDirectory() as tmpdir:
         corpus = Path(tmpdir)
@@ -820,7 +820,7 @@ def test_grep_rank_orders_by_match_count_and_takes_top_k():
 
 
 def test_grep_rank_tie_breaks_on_path():
-    from code_review_graph.eval.benchmarks.agent_baseline import grep_rank
+    from gryphon.eval.benchmarks.agent_baseline import grep_rank
 
     with tempfile.TemporaryDirectory() as tmpdir:
         corpus = Path(tmpdir)
@@ -831,7 +831,7 @@ def test_grep_rank_tie_breaks_on_path():
 
 
 def test_agent_baseline_run_with_mock_repo():
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -857,7 +857,7 @@ def test_agent_baseline_run_with_mock_repo():
 
 
 def test_agent_baseline_falls_back_to_search_queries():
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -872,12 +872,12 @@ def test_agent_baseline_falls_back_to_search_queries():
 
 
 def test_agent_baseline_search_failure_marked_error(monkeypatch):
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     def _boom(*args, **kwargs):
         raise RuntimeError("search down")
 
-    monkeypatch.setattr("code_review_graph.search.hybrid_search", _boom)
+    monkeypatch.setattr("gryphon.search.hybrid_search", _boom)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -900,7 +900,7 @@ def test_agent_baseline_search_failure_marked_error(monkeypatch):
 
 
 def test_agent_baseline_aggregate_excludes_non_ok_rows():
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     rows = [
         {"status": "ok", "baseline_to_graph_ratio": 4.0},
@@ -917,7 +917,7 @@ def test_agent_baseline_aggregate_excludes_non_ok_rows():
 
 @pytest.mark.skipif(not _HAS_YAML, reason="pyyaml not installed")
 def test_agent_baseline_registered_in_runner():
-    from code_review_graph.eval.runner import BENCHMARK_REGISTRY
+    from gryphon.eval.runner import BENCHMARK_REGISTRY
 
     assert "agent_baseline" in BENCHMARK_REGISTRY
 
@@ -970,7 +970,7 @@ def test_eval_embed_bootstraps_vectors_and_returns_real_graph_results(
     monkeypatch,
 ):
     """The public eval path must build vectors that its semantic benchmark can use."""
-    from code_review_graph.eval import runner
+    from gryphon.eval import runner
 
     repo_path = _make_repo(tmp_path)
     helper = repo_path / "helper.py"
@@ -988,7 +988,7 @@ def test_eval_embed_bootstraps_vectors_and_returns_real_graph_results(
 
     state_dir = tmp_path / "state"
     monkeypatch.setenv("CRG_HOME", str(state_dir))
-    from code_review_graph import registry as registry_module
+    from gryphon import registry as registry_module
 
     monkeypatch.setattr(
         registry_module,
@@ -1012,7 +1012,7 @@ def test_eval_embed_bootstraps_vectors_and_returns_real_graph_results(
             return [1.0, 0.0]
 
     monkeypatch.setattr(
-        "code_review_graph.embeddings.get_provider",
+        "gryphon.embeddings.get_provider",
         lambda provider=None, model=None: _StubProvider(
             f"{provider or 'local'}:{model or 'default'}",
         ),
@@ -1032,8 +1032,8 @@ def test_eval_embed_bootstraps_vectors_and_returns_real_graph_results(
     assert rows[0]["status"] == "ok"
     assert rows[0]["graph_tokens"] > 0
 
-    from code_review_graph.graph import GraphStore
-    from code_review_graph.incremental import get_db_path
+    from gryphon.graph import GraphStore
+    from gryphon.incremental import get_db_path
 
     store = GraphStore(get_db_path(repo_path))
     try:
@@ -1044,7 +1044,7 @@ def test_eval_embed_bootstraps_vectors_and_returns_real_graph_results(
 
 def test_search_quality_uses_the_index_provider_and_model(monkeypatch, tmp_path):
     """A custom eval index is useless unless benchmark queries select that identity."""
-    from code_review_graph.eval.benchmarks import search_quality
+    from gryphon.eval.benchmarks import search_quality
 
     observed = {}
 
@@ -1052,7 +1052,7 @@ def test_search_quality_uses_the_index_provider_and_model(monkeypatch, tmp_path)
         observed.update(provider=provider, model=model, limit=limit)
         return []
 
-    monkeypatch.setattr("code_review_graph.search.hybrid_search", _search)
+    monkeypatch.setattr("gryphon.search.hybrid_search", _search)
     search_quality.run(
         tmp_path,
         object(),
@@ -1072,7 +1072,7 @@ def test_search_quality_uses_the_index_provider_and_model(monkeypatch, tmp_path)
 
 
 def test_multi_hop_uses_the_index_provider_and_model(monkeypatch, tmp_path):
-    from code_review_graph.eval.benchmarks import multi_hop_retrieval
+    from gryphon.eval.benchmarks import multi_hop_retrieval
 
     observed = {}
 
@@ -1080,7 +1080,7 @@ def test_multi_hop_uses_the_index_provider_and_model(monkeypatch, tmp_path):
         observed.update(provider=provider, model=model, limit=limit)
         return []
 
-    monkeypatch.setattr("code_review_graph.search.hybrid_search", _search)
+    monkeypatch.setattr("gryphon.search.hybrid_search", _search)
     multi_hop_retrieval.run(
         tmp_path,
         object(),
@@ -1111,8 +1111,8 @@ def test_eval_closes_graph_store_when_embedding_bootstrap_fails(
     monkeypatch,
 ):
     """A provider failure must not leave the evaluation database connection open."""
-    from code_review_graph.eval import runner
-    from code_review_graph.graph import GraphStore
+    from gryphon.eval import runner
+    from gryphon.graph import GraphStore
 
     repo_path = _make_repo(tmp_path)
     config = _mock_config()
@@ -1157,7 +1157,7 @@ def test_agent_baseline_aggregate_reports_excluded_rows():
     the same whether zero questions were asked or every query came back empty.
     The excluded-row counts disambiguate it.
     """
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     results = [
         {"status": "no_graph_results", "baseline_to_graph_ratio": ""},
@@ -1173,7 +1173,7 @@ def test_agent_baseline_aggregate_reports_excluded_rows():
 
 
 def test_agent_baseline_aggregate_counts_zero_on_a_healthy_run():
-    from code_review_graph.eval.benchmarks import agent_baseline
+    from gryphon.eval.benchmarks import agent_baseline
 
     agg = agent_baseline.aggregate([
         {"status": "ok", "baseline_to_graph_ratio": "10.0"},
@@ -1190,7 +1190,7 @@ def test_warns_when_semantic_benchmark_runs_without_a_vector_index(caplog):
     """The silent-zero path must announce itself before the benchmark runs."""
     import logging
 
-    from code_review_graph.eval.runner import _warn_if_semantic_index_missing
+    from gryphon.eval.runner import _warn_if_semantic_index_missing
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -1208,7 +1208,7 @@ def test_warns_when_semantic_benchmark_runs_without_a_vector_index(caplog):
 def test_no_warning_for_benchmarks_that_do_not_use_semantic_search(caplog):
     import logging
 
-    from code_review_graph.eval.runner import _warn_if_semantic_index_missing
+    from gryphon.eval.runner import _warn_if_semantic_index_missing
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = _make_repo(tmpdir)
@@ -1225,7 +1225,7 @@ def test_no_warning_for_benchmarks_that_do_not_use_semantic_search(caplog):
 def test_no_warning_once_the_index_is_populated(caplog, monkeypatch):
     import logging
 
-    from code_review_graph.eval import runner
+    from gryphon.eval import runner
 
     monkeypatch.setattr(runner, "_embedding_count", lambda store: 42)
 
@@ -1243,7 +1243,7 @@ def test_embedding_count_reraises_non_missing_table_errors():
     """
     import sqlite3
 
-    from code_review_graph.eval.runner import _embedding_count
+    from gryphon.eval.runner import _embedding_count
 
     class _Boom:
         class _Conn:
@@ -1260,7 +1260,7 @@ def test_embedding_count_reraises_non_missing_table_errors():
 def test_embedding_count_returns_none_for_a_missing_table():
     import sqlite3
 
-    from code_review_graph.eval.runner import _embedding_count
+    from gryphon.eval.runner import _embedding_count
 
     class _NoTable:
         class _Conn:
@@ -1282,7 +1282,7 @@ def test_clone_or_update_refuses_directory_inside_another_repo(tmp_path):
     up to the *enclosing* checkout, so ``git checkout <pinned sha>`` would
     rewrite the developer's working tree instead of the test repo.
     """
-    from code_review_graph.eval.runner import clone_or_update
+    from gryphon.eval.runner import clone_or_update
 
     outer = tmp_path / "outer"
     outer.mkdir()

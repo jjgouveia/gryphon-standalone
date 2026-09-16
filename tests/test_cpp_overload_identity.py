@@ -3,10 +3,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import CPP_IDENTITY_VERSION, incremental_update
-from code_review_graph.parser import CodeParser, EdgeInfo, NodeInfo
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.incremental import CPP_IDENTITY_VERSION, incremental_update
+from gryphon.parser import CodeParser, EdgeInfo, NodeInfo
+from gryphon.tools.query import query_graph
 
 
 def _index_source(tmp_path: Path, source: str) -> tuple[Path, GraphStore]:
@@ -14,7 +14,7 @@ def _index_source(tmp_path: Path, source: str) -> tuple[Path, GraphStore]:
     source_path.write_text(source, encoding="utf-8")
 
     nodes, edges = CodeParser().parse_file(source_path)
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir(exist_ok=True)
     store = GraphStore(graph_dir / "graph.db")
     store.store_file_nodes_edges(str(source_path), nodes, edges)
@@ -552,7 +552,7 @@ def test_reindex_replaces_legacy_unsuffixed_cpp_identity(tmp_path: Path):
         "void IWorkspace::deleteDataFile(DataFile* file, bool refresh) {}\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
     legacy_qn = f"{source_path.as_posix()}::IWorkspace.deleteDataFile"
@@ -614,7 +614,7 @@ def test_incremental_upgrade_rebuilds_cpp_identities_and_removes_stale_edges(
         store.commit()
 
         with patch(
-            "code_review_graph.incremental.get_all_tracked_files",
+            "gryphon.incremental.get_all_tracked_files",
             return_value=["callee.cpp", "caller.cpp"],
         ):
             result = incremental_update(tmp_path, store, changed_files=[])
@@ -644,7 +644,7 @@ def test_cross_file_bare_call_is_not_claimed_by_each_exact_overload(
         "void caller() { process(1); }\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
 
@@ -693,11 +693,11 @@ def test_failed_cpp_identity_upgrade_remains_pending_and_retries(tmp_path: Path)
 
         with (
             patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["run.cpp"],
             ),
             patch(
-                "code_review_graph.incremental.CodeParser.parse_bytes",
+                "gryphon.incremental.CodeParser.parse_bytes",
                 side_effect=RuntimeError("simulated parse failure"),
             ),
         ):
@@ -709,7 +709,7 @@ def test_failed_cpp_identity_upgrade_remains_pending_and_retries(tmp_path: Path)
         assert store.get_node(legacy_qn) is not None
 
         with patch(
-            "code_review_graph.incremental.get_all_tracked_files",
+            "gryphon.incremental.get_all_tracked_files",
             return_value=["run.cpp"],
         ):
             retried = incremental_update(tmp_path, store, changed_files=[])
@@ -784,7 +784,7 @@ def test_cross_file_receiver_call_without_type_evidence_stays_unresolved(
         "struct B; void test_receiver(B& b) { b.process(); }\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
 
@@ -854,7 +854,7 @@ void A::run(double value) {}
         "void test_run() { A::unique(); A::run(1); }\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
     caller = f"{caller_path.as_posix()}::test_run()"
@@ -931,7 +931,7 @@ def test_ambiguous_scoped_calls_do_not_create_indirect_test_coverage(
         "void test_scenario() { A::run(1); }\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
     production = f"{production_path.as_posix()}::production()"
@@ -966,7 +966,7 @@ def test_deleted_scoped_candidate_becomes_explicitly_unresolved(tmp_path: Path):
         "void test_scenario() { A::run(1); }\n",
         encoding="utf-8",
     )
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
     parser = CodeParser()
@@ -1167,7 +1167,7 @@ def test_non_cpp_failure_does_not_repeat_cpp_identity_migration(tmp_path: Path):
 
         with (
             patch(
-                "code_review_graph.incremental.get_all_tracked_files",
+                "gryphon.incremental.get_all_tracked_files",
                 return_value=["run.cpp", "broken.py"],
             ),
             patch.object(CodeParser, "parse_bytes", new=parse_with_python_failure),
@@ -1191,7 +1191,7 @@ def test_non_cpp_scoped_unresolved_callee_query_behavior_stays_unchanged(
     tmp_path: Path,
 ):
     source_path = tmp_path / "lib.rs"
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     store = GraphStore(graph_dir / "graph.db")
     caller = f"{source_path.as_posix()}::caller"

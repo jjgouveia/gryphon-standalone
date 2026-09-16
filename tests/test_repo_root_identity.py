@@ -8,9 +8,9 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from code_review_graph import cli
-from code_review_graph.graph import GraphStore
-from code_review_graph.incremental import full_build, incremental_update
+from gryphon import cli
+from gryphon.graph import GraphStore
+from gryphon.incremental import full_build, incremental_update
 
 
 def test_incremental_update_survives_mixed_repo_root_spellings(tmp_path: Path, monkeypatch) -> None:
@@ -20,7 +20,7 @@ def test_incremental_update_survives_mixed_repo_root_spellings(tmp_path: Path, m
     (repo / "app.py").write_text("def main() -> None:\n    pass\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
-    store = GraphStore(repo / ".code-review-graph" / "graph.db")
+    store = GraphStore(repo / ".gryphon" / "graph.db")
     try:
         full_build(repo.resolve(), store)
         before = store.get_all_files()
@@ -42,7 +42,7 @@ def test_incremental_update_refuses_total_root_mismatch_without_purging(
     (repo / "app.py").write_text("def main() -> None:\n    pass\n", encoding="utf-8")
     wrong_root = tmp_path / "wrong-root"
     wrong_root.mkdir()
-    store = GraphStore(repo / ".code-review-graph" / "graph.db")
+    store = GraphStore(repo / ".gryphon" / "graph.db")
     try:
         full_build(repo, store)
         before = store.get_all_files()
@@ -99,14 +99,14 @@ def test_build_and_update_cli_pass_a_canonical_root(
         "errors": [],
     }
 
-    with patch.object(cli.sys, "argv", ["code-review-graph", command, "--repo", ".", "--quiet"]):
-        with patch("code_review_graph.graph.GraphStore", return_value=MagicMock()):
+    with patch.object(cli.sys, "argv", ["gryphon", command, "--repo", ".", "--quiet"]):
+        with patch("gryphon.graph.GraphStore", return_value=MagicMock()):
             with patch(
-                "code_review_graph.incremental.get_db_path",
+                "gryphon.incremental.get_db_path",
                 return_value=MagicMock(),
             ):
                 with patch(
-                    "code_review_graph.tools.build.build_or_update_graph",
+                    "gryphon.tools.build.build_or_update_graph",
                     return_value=result,
                 ) as build_or_update:
                     cli.main()
@@ -121,13 +121,13 @@ def test_watch_cli_passes_a_canonical_root(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(repo)
     store = MagicMock()
 
-    with patch.object(cli.sys, "argv", ["code-review-graph", "watch", "--repo", "."]):
-        with patch("code_review_graph.graph.GraphStore", return_value=store):
+    with patch.object(cli.sys, "argv", ["gryphon", "watch", "--repo", "."]):
+        with patch("gryphon.graph.GraphStore", return_value=store):
             with patch(
-                "code_review_graph.incremental.get_db_path",
+                "gryphon.incremental.get_db_path",
                 return_value=MagicMock(),
             ):
-                with patch("code_review_graph.incremental.watch") as watch:
+                with patch("gryphon.incremental.watch") as watch:
                     cli.main()
 
     watch.assert_called_once_with(repo.resolve(), store, on_files_updated=ANY)

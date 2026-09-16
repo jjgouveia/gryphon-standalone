@@ -11,8 +11,8 @@ from importlib import resources
 
 import pytest
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import EdgeInfo, NodeInfo
+from gryphon.graph import GraphStore
+from gryphon.parser import EdgeInfo, NodeInfo
 
 
 class _ScriptExtractor(HTMLParser):
@@ -155,7 +155,7 @@ def store_with_data(tmp_path):
 
 
 def test_export_graph_data(store_with_data):
-    from code_review_graph.visualization import export_graph_data
+    from gryphon.visualization import export_graph_data
 
     data = export_graph_data(store_with_data)
     assert "nodes" in data
@@ -174,7 +174,7 @@ def test_export_graph_data(store_with_data):
 
 
 def test_export_json_writes_utf8_graph_data(store_with_data, tmp_path):
-    from code_review_graph.exports import export_json
+    from gryphon.exports import export_json
 
     output_path = tmp_path / "nested" / "graph.json"
     result = export_json(store_with_data, output_path)
@@ -195,7 +195,7 @@ def test_export_json_writes_utf8_graph_data(store_with_data, tmp_path):
 def test_export_json_failure_preserves_existing_file(
     store_with_data, tmp_path, monkeypatch
 ):
-    from code_review_graph import exports
+    from gryphon import exports
 
     output_path = tmp_path / "graph.json"
     output_path.write_text("existing export\n", encoding="utf-8")
@@ -213,7 +213,7 @@ def test_export_json_failure_preserves_existing_file(
 
 
 def test_generate_html(store_with_data, tmp_path):
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -245,7 +245,7 @@ def test_generated_html_loads_d3_same_origin_with_sri(store_with_data, tmp_path,
     d3js.org CDN being reachable. The generated page loads a vendored,
     same-origin D3 file (with the SRI hash intact) and only falls back to
     the CDN — still SRI-pinned with crossorigin — if the local copy fails."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path, mode=vis_mode)
@@ -277,7 +277,7 @@ def test_generated_html_loads_d3_same_origin_with_sri(store_with_data, tmp_path,
 def test_bundled_d3_asset_is_packaged_and_pinned():
     """The pinned D3 build ships inside the Python package so generated
     visualizations work without network access (issue #475)."""
-    asset = resources.files("code_review_graph") / "assets" / _D3_FILENAME
+    asset = resources.files("gryphon") / "assets" / _D3_FILENAME
     data = asset.read_bytes()
     assert data.startswith(b"// https://d3js.org v7")
     assert _sha384_sri(data) == _D3_SRI_HASH
@@ -292,7 +292,7 @@ def test_graph_data_containing_script_sentinel_is_not_expanded(tmp_path, vis_mod
     rewritten into <script> markup inside the graphData script, truncating it
     and promoting the remaining repo-derived JSON to live HTML.
     """
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     store = GraphStore(tmp_path / "test.db")
     store.upsert_node(
@@ -363,7 +363,7 @@ def test_cpp_include_resolution(tmp_path):
     """IMPORTS_FROM edges with bare C++ include paths should resolve to File nodes
     stored under absolute paths — previously these were dropped, leaving the
     graph almost entirely disconnected for C/C++ projects."""
-    from code_review_graph.visualization import export_graph_data
+    from gryphon.visualization import export_graph_data
 
     db_path = tmp_path / "test.db"
     store = GraphStore(db_path)
@@ -407,7 +407,7 @@ def test_cpp_include_resolution(tmp_path):
 
 
 def test_generate_html_overwrites(store_with_data, tmp_path):
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     output_path.write_text("old content")
@@ -419,7 +419,7 @@ def test_generate_html_overwrites(store_with_data, tmp_path):
 
 def test_export_includes_flows(store_with_data):
     """Export data should include a 'flows' key (list, possibly empty)."""
-    from code_review_graph.visualization import export_graph_data
+    from gryphon.visualization import export_graph_data
 
     data = export_graph_data(store_with_data)
     assert "flows" in data
@@ -428,7 +428,7 @@ def test_export_includes_flows(store_with_data):
 
 def test_export_includes_communities(store_with_data):
     """Export data should include a 'communities' key (list, possibly empty)."""
-    from code_review_graph.visualization import export_graph_data
+    from gryphon.visualization import export_graph_data
 
     data = export_graph_data(store_with_data)
     assert "communities" in data
@@ -437,7 +437,7 @@ def test_export_includes_communities(store_with_data):
 
 def test_generate_html_includes_all_edge_types(store_with_data, tmp_path):
     """Generated HTML should define colors and legend entries for all 7 edge types."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -449,7 +449,7 @@ def test_generate_html_includes_all_edge_types(store_with_data, tmp_path):
 
 def test_generate_html_includes_interactive_features(store_with_data, tmp_path):
     """Generated HTML should include new interactive features."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -474,7 +474,7 @@ def test_generate_html_includes_interactive_features(store_with_data, tmp_path):
 
 def test_generate_html_includes_node_shapes(store_with_data, tmp_path):
     """Generated HTML should use d3.symbol() for distinct node shapes."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -488,7 +488,7 @@ def test_generate_html_includes_node_shapes(store_with_data, tmp_path):
 
 def test_generate_html_includes_help_overlay(store_with_data, tmp_path):
     """Generated HTML should include a help overlay for onboarding."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -500,7 +500,7 @@ def test_generate_html_includes_help_overlay(store_with_data, tmp_path):
 
 def test_generate_html_includes_aria_attributes(store_with_data, tmp_path):
     """Generated HTML should include key ARIA attributes for accessibility."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -514,7 +514,7 @@ def test_generate_html_includes_aria_attributes(store_with_data, tmp_path):
 
 def test_generate_html_includes_loading_and_empty_state(store_with_data, tmp_path):
     """Generated HTML should include loading overlay and empty state markup."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -532,7 +532,7 @@ def test_generate_html_uses_id_selector_for_svg(store_with_data, tmp_path):
     icon — causing the entire force graph to render inside it. The fix targets
     #graph-svg by id.
     """
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -548,7 +548,7 @@ def test_generate_html_uses_id_selector_for_svg(store_with_data, tmp_path):
 
 def test_community_mode_uses_id_selector_for_svg(large_store, tmp_path):
     """Regression test for #523: community/aggregated template must also use #graph-svg."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "community.html"
     generate_html(large_store, output_path, mode="community")
@@ -591,7 +591,7 @@ def _assert_responsive_graph_script(content):
 
 def test_full_mode_retries_layout_and_tracks_viewport(store_with_data, tmp_path):
     """Full mode must recover if layout is unavailable before the first paint."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path, mode="full")
@@ -600,7 +600,7 @@ def test_full_mode_retries_layout_and_tracks_viewport(store_with_data, tmp_path)
 
 def test_community_mode_retries_layout_and_tracks_viewport(large_store, tmp_path):
     """Aggregated mode must use the same bounded layout recovery path."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "community.html"
     generate_html(large_store, output_path, mode="community")
@@ -609,7 +609,7 @@ def test_community_mode_retries_layout_and_tracks_viewport(large_store, tmp_path
 
 def test_generate_html_includes_focus_visible(store_with_data, tmp_path):
     """Generated HTML should include :focus-visible styles."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "graph.html"
     generate_html(store_with_data, output_path)
@@ -731,7 +731,7 @@ def large_store(tmp_path):
 
 def test_community_mode_fewer_nodes(large_store, tmp_path):
     """Community mode should produce fewer nodes than full mode."""
-    from code_review_graph.visualization import (
+    from gryphon.visualization import (
         _aggregate_community,
         export_graph_data,
     )
@@ -759,7 +759,7 @@ def test_community_mode_fewer_nodes(large_store, tmp_path):
 
 def test_file_mode_aggregation(large_store, tmp_path):
     """File mode should produce one node per file."""
-    from code_review_graph.visualization import (
+    from gryphon.visualization import (
         _aggregate_file,
         export_graph_data,
     )
@@ -786,7 +786,7 @@ def test_file_mode_aggregation(large_store, tmp_path):
 
 def test_auto_mode_switches_at_threshold(large_store, tmp_path):
     """Auto mode should switch to community when nodes exceed threshold."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "auto_low.html"
     # Threshold higher than node count -> should use full template
@@ -811,7 +811,7 @@ def test_auto_mode_switches_on_edge_count(large_store, tmp_path):
     Regression for issue #609: node count under the limit but edge count
     over it must not fall through to the full force-layout template.
     """
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     # Under both limits -> full template
     output_full = tmp_path / "auto_under_both.html"
@@ -840,7 +840,7 @@ def test_auto_mode_decision_at_issue_609_boundary():
     Regression for issue #609 using the exact reported boundary against the
     shipped defaults, without building a 17k-edge store.
     """
-    from code_review_graph.visualization import (
+    from gryphon.visualization import (
         DEFAULT_MAX_FULL_EDGES,
         DEFAULT_MAX_FULL_NODES,
         _resolve_auto_mode,
@@ -887,7 +887,7 @@ def test_generate_html_defaults_match_constants():
     """generate_html defaults must stay wired to the documented constants."""
     import inspect
 
-    from code_review_graph.visualization import (
+    from gryphon.visualization import (
         DEFAULT_MAX_FULL_EDGES,
         DEFAULT_MAX_FULL_NODES,
         generate_html,
@@ -903,7 +903,7 @@ def test_auto_mode_falls_back_to_file_without_communities(
 ):
     """Auto-switch without community data must aggregate by file, not lump
     everything into a single 'Uncategorized' community super-node."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "auto_no_communities.html"
     generate_html(
@@ -919,7 +919,7 @@ def test_auto_mode_falls_back_to_file_without_communities(
 
 def test_community_mode_html_generation(large_store, tmp_path):
     """Community mode generates valid HTML with aggregated data."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "community.html"
     generate_html(large_store, output_path, mode="community")
@@ -933,7 +933,7 @@ def test_community_mode_html_generation(large_store, tmp_path):
 
 def test_file_mode_html_generation(large_store, tmp_path):
     """File mode generates valid HTML with file-level data."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     output_path = tmp_path / "file.html"
     generate_html(large_store, output_path, mode="file")
@@ -945,7 +945,7 @@ def test_file_mode_html_generation(large_store, tmp_path):
 
 def test_full_mode_backward_compatible(store_with_data, tmp_path):
     """Full mode should produce identical output to the original 2-arg call."""
-    from code_review_graph.visualization import generate_html
+    from gryphon.visualization import generate_html
 
     # Original 2-arg call (backward compat)
     output1 = tmp_path / "compat.html"
@@ -964,7 +964,7 @@ def test_full_mode_backward_compatible(store_with_data, tmp_path):
 
 def test_community_detail_data_complete(large_store):
     """Each community's detail data should contain its member nodes."""
-    from code_review_graph.visualization import (
+    from gryphon.visualization import (
         _aggregate_community,
         export_graph_data,
     )

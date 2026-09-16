@@ -1,13 +1,13 @@
 # User Guide
 
-Applies to code-review-graph 2.3.8.
+Applies to gryphon 2.3.8.
 
 ## Installation
 
 ```bash
-pip install code-review-graph
-code-review-graph install    # detect installed AI coding tools and configure each one
-code-review-graph build      # parse the codebase
+pip install gryphon
+gryphon install    # detect installed AI coding tools and configure each one
+gryphon build      # parse the codebase
 ```
 
 `install` detects which AI coding tools you have, writes an MCP server entry for each, installs hooks and skills where the platform supports them, and adds graph instructions to the platform's rules file (`CLAUDE.md`, `AGENTS.md`, and others). `--no-hooks`, `--no-skills` and `--no-instructions` skip those steps; `--dry-run` shows what would be written. Restart the editor or tool afterwards.
@@ -15,10 +15,10 @@ code-review-graph build      # parse the codebase
 To configure one platform only:
 
 ```bash
-code-review-graph install --platform codex
-code-review-graph install --platform cursor
-code-review-graph install --platform claude-code
-code-review-graph install --platform codebuddy
+gryphon install --platform codex
+gryphon install --platform cursor
+gryphon install --platform claude-code
+gryphon install --platform codebuddy
 ```
 
 ### Supported Platforms
@@ -62,7 +62,7 @@ implicit update does not build a second graph for another branch; set
 
 ### 1. Build the graph (first time only)
 ```
-/code-review-graph:build-graph
+/gryphon:build-graph
 ```
 Parses the whole codebase. Build time scales with repository size; a cold build of a ~3,000-file repository took about 40 seconds on the machine described in [REPRODUCING.md](REPRODUCING.md#incremental-update-latency).
 
@@ -70,34 +70,34 @@ If some files fail to parse, the build or update result has status `partial` and
 
 ### 2. Review changes (daily use)
 ```
-/code-review-graph:review-delta
+/gryphon:review-delta
 ```
 Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md).
 
 ### 3. Review a PR
 ```
-/code-review-graph:review-pr
+/gryphon:review-pr
 ```
 Structural review of a branch diff with blast-radius analysis.
 
 ### 4. Watch mode (optional)
 ```bash
-code-review-graph watch
+gryphon watch
 ```
 Updates the graph on every file save.
 
 ### 5. Visualize the graph (optional)
 ```bash
-code-review-graph visualize
-open .code-review-graph/graph.html
+gryphon visualize
+open .gryphon/graph.html
 ```
 Interactive D3.js force-directed graph. It starts collapsed (File nodes only); click a file to expand its children. Use the search bar to filter and click legend edge types to toggle them. `--format json|graphml|svg|obsidian|cypher` writes other formats.
 
 ### 6. Semantic search (optional)
 ```bash
-pip install "code-review-graph[embeddings]"
+pip install "gryphon[embeddings]"
 ```
-Then run `code-review-graph embed` or the `embed_graph_tool` MCP tool to compute vectors. `semantic_search_nodes_tool` uses vector similarity when matching embeddings exist and falls back to keyword/FTS search otherwise.
+Then run `gryphon embed` or the `embed_graph_tool` MCP tool to compute vectors. `semantic_search_nodes_tool` uses vector similarity when matching embeddings exist and falls back to keyword/FTS search otherwise.
 
 Providers: local sentence-transformers, OpenAI-compatible endpoints, Google Gemini, MiniMax, and Voyage AI. Local embeddings read `CRG_EMBEDDING_MODEL`; OpenAI-compatible providers read `CRG_OPENAI_BASE_URL`, `CRG_OPENAI_API_KEY` and `CRG_OPENAI_MODEL`; Voyage reads `VOYAGE_API_KEY` and optionally `CRG_VOYAGE_MODEL`. Cloud providers print an egress warning unless `CRG_ACCEPT_CLOUD_EMBEDDINGS=1` is set. The full variable list is in the [README](../README.md#environment-variables).
 
@@ -106,7 +106,7 @@ Embedding text includes the first paragraph of each function or class docstring.
 `build`, `update`, `postprocess` and `watch` never refresh embeddings by default. To refresh an existing index, pass both options:
 
 ```bash
-code-review-graph build \
+gryphon build \
   --embedding-provider local \
   --embedding-model all-MiniLM-L6-v2
 ```
@@ -119,8 +119,8 @@ Ask your MCP client: "Review my recent changes with risk scoring". This calls `d
 From the shell:
 
 ```bash
-code-review-graph detect-changes --brief              # against HEAD~1
-code-review-graph detect-changes --brief --base main
+gryphon detect-changes --brief              # against HEAD~1
+gryphon detect-changes --brief --base main
 ```
 
 When `--base` names a branch, the diff runs against the merge base of that branch and HEAD, which is the file set GitHub shows for a pull request. Commit hashes and other revisions are used as given. `detect-changes` is read-only; use `update --brief` when the graph may be stale.
@@ -130,13 +130,13 @@ Ask your MCP client: "Show me the architecture of this project". This calls `get
 
 ### 9. Generate a wiki
 ```bash
-code-review-graph wiki
+gryphon wiki
 ```
-Writes one markdown page per detected community, plus an index, to `.code-review-graph/wiki/`.
+Writes one markdown page per detected community, plus an index, to `.gryphon/wiki/`.
 
 ### 10. Multi-repo search
 ```bash
-code-review-graph register /path/to/other/repo --alias mylib
+gryphon register /path/to/other/repo --alias mylib
 ```
 Then use `cross_repo_search_tool` to search every registered repository, or pass `repos=["mylib"]` to search a subset.
 
@@ -147,7 +147,7 @@ Review and impact responses include compact `context_savings` metadata (`estimat
 The evaluation runner produces the benchmark numbers quoted in the README:
 
 ```bash
-code-review-graph eval --all
+gryphon eval --all
 ```
 
 ## Supported Languages
@@ -156,7 +156,7 @@ The parser covers Python, JavaScript, TypeScript/TSX, Go, Rust, Java, C/C++, C#,
 
 Extension-less scripts are detected by shebang for bash/sh/zsh/ksh/dash/ash, Python, Node, Ruby, Perl, Lua, Rscript, and PHP interpreters.
 
-Languages not covered can be added through a `.code-review-graph/languages.toml` file. See [CUSTOM_LANGUAGES.md](CUSTOM_LANGUAGES.md).
+Languages not covered can be added through a `.gryphon/languages.toml` file. See [CUSTOM_LANGUAGES.md](CUSTOM_LANGUAGES.md).
 
 ## What Gets Indexed
 
@@ -170,7 +170,7 @@ See [schema.md](schema.md) for details.
 These paths are excluded by default. A leading `/` anchors the pattern at the repository root.
 
 ```
-**/.code-review-graph/**   **/node_modules/**   **/.git/**       **/.svn/**
+**/.gryphon/**   **/node_modules/**   **/.git/**       **/.svn/**
 **/__pycache__/**          *.pyc                **/.venv/**      **/venv/**
 /dist/**    /build/**    /.next/**    /.nuxt/**    /target/**    /bin/**    /obj/**
 **/vendor/**    /storage/**    /bootstrap/cache/**    /public/build/**
@@ -182,7 +182,7 @@ These paths are excluded by default. A leading `/` anchors the pattern at the re
 
 A nested `target/`, `build/`, `.next/` or `.nuxt/` directory is also ignored when a sibling manifest (for example `pom.xml`, `build.gradle` or `next.config.js`) shows it is build output.
 
-To add patterns, create a `.code-review-graphignore` file in the repository root (same syntax as `.gitignore`):
+To add patterns, create a `.gryphonignore` file in the repository root (same syntax as `.gitignore`):
 
 ```
 generated/**
@@ -190,4 +190,4 @@ vendor/**
 *.generated.ts
 ```
 
-In git repositories, indexing is based on tracked files (`git ls-files`), so gitignored files are skipped. Use `.code-review-graphignore` to exclude tracked files or when git is not available.
+In git repositories, indexing is based on tracked files (`git ls-files`), so gitignored files are skipped. Use `.gryphonignore` to exclude tracked files or when git is not available.

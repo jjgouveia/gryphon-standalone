@@ -9,7 +9,7 @@ file is missing.
 
 from pathlib import Path
 
-from code_review_graph.parser import CodeParser
+from gryphon.parser import CodeParser
 
 
 def _parse(tmp_path: Path, source: str, suffix: str = ".js", name: str = "app"):

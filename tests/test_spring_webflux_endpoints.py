@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser
-from code_review_graph.tools.query import query_graph
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser
+from gryphon.tools.query import query_graph
 
 SOURCE = b"""
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
@@ -51,7 +51,7 @@ def test_webflux_routes_link_endpoints_to_actual_typed_handlers(tmp_path: Path) 
 def test_webflux_endpoint_queries_use_addressable_nodes(tmp_path: Path) -> None:
     path = tmp_path / "Routes.java"
     nodes, edges = _parsed(path)
-    graph_dir = tmp_path / ".code-review-graph"
+    graph_dir = tmp_path / ".gryphon"
     graph_dir.mkdir()
     with GraphStore(graph_dir / "graph.db") as store:
         store.store_file_nodes_edges(str(path), nodes, edges, "hash")

@@ -6,7 +6,7 @@ the same licence.
 **Privacy**
 
 - No telemetry.
-- Graph data is stored locally, by default in `.code-review-graph/graph.db`.
+- Graph data is stored locally, by default in `.gryphon/graph.db`.
 - Graph build, review, search and the CLI/MCP workflows run on your machine.
 - The optional local embedding provider downloads a sentence-transformers model from
   Hugging Face on first use.

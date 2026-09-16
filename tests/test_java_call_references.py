@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from code_review_graph.flows import detect_entry_points
-from code_review_graph.graph import GraphStore
-from code_review_graph.parser import CodeParser, EdgeInfo, NodeInfo
+from gryphon.flows import detect_entry_points
+from gryphon.graph import GraphStore
+from gryphon.parser import CodeParser, EdgeInfo, NodeInfo
 
 
 def test_java_method_references_chained_calls_and_constructors_are_calls() -> None:

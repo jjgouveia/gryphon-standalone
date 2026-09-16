@@ -69,7 +69,7 @@
   back to `.ts` and `.tsx` (#874).
 - `forget` and `dead-code` resolve the database the way the other
   read-only commands do, without creating graph state when none exists,
-  and still migrate a legacy top-level `.code-review-graph.db` instead of
+  and still migrate a legacy top-level `.gryphon.db` instead of
   reporting "No graph found" (#874).
 - C, C++ and Bash grammar probes put the parent interpreter's
   `tree_sitter_language_pack` location on the child's path, so grammars
@@ -103,7 +103,7 @@
   and flow snippets and in the eval runner (#928).
 - Watch mode drops events on paths the OS cannot stat instead of ending
   the watch loop (#959, #897).
-- Watch mode reloads ignore rules when `.code-review-graphignore` or a
+- Watch mode reloads ignore rules when `.gryphonignore` or a
   build manifest changes, removes newly ignored files from the graph,
   indexes newly included ones, and keeps a source file created at a path
   previously inferred as build output (#909).
@@ -116,7 +116,7 @@
   and the health file reports `degraded` (#927).
 - A watcher thread that dies before the first liveness tick is detected
   (#891).
-- `crg-daemon stop` keeps the PID file until the process has exited and
+- `gryphon-daemon stop` keeps the PID file until the process has exited and
   exits non-zero if it is still running (#958).
 - The Qoder skills are bundled in the wheel, so `install --platform qoder`
   works from a pip install and never copies the target project's own
@@ -143,14 +143,14 @@
   `CRG_VOYAGE_MIN_INTERVAL_SEC`). Embeddings are now persisted after each
   batch for every provider, so an interrupted cloud run keeps completed
   batches and re-runs skip up-to-date nodes (#783).
-- Added `code-review-graph forget PATH [PATH ...]` to drop already-parsed files
+- Added `gryphon forget PATH [PATH ...]` to drop already-parsed files
   from the graph without a full rebuild. Paths may be absolute, relative to the
   repository root, a directory (every file underneath is dropped), or a glob
   pattern, and `--dry-run` previews the selection. The result is equivalent to
   rebuilding the graph without those files: surviving referrers are re-parsed so
   no edge is left pointing at a deleted node, and flows, communities, the FTS
   index, and embeddings are all repaired (#678).
-- Added `--platform NAME` to `code-review-graph uninstall` to unbind a single
+- Added `--platform NAME` to `gryphon uninstall` to unbind a single
   platform's MCP registration while preserving the graph data and every other
   configured integration. Without `--platform` the command still performs the
   full uninstall (#678).
@@ -175,7 +175,7 @@
   cleanup from #861 is unchanged (#889).
 - A repository reached through a symlinked path is watched and indexed instead
   of silently dropping every filesystem event, both through
-  `code-review-graph watch --repo` and through `serve --auto-watch` (#892).
+  `gryphon watch --repo` and through `serve --auto-watch` (#892).
 - Watch mode no longer registers OS watches inside ignored trees, and no longer
   keeps running after its filesystem observer dies. Watches are now planned per
   directory (ignored trees are skipped, the repo root is watched
@@ -184,9 +184,9 @@
   delivers for a child of a non-recursive watch), nested build output such as
   `moduleA/target/` is ignored when a sibling `pom.xml` proves it is build
   output — reported at info level and overridable per path with `!path` in
-  `.code-review-graphignore` — and a dead watchdog thread makes the watcher log
+  `.gryphonignore` — and a dead watchdog thread makes the watcher log
   an error and exit non-zero so the daemon restarts it, while a deleted watch
-  root is merely released. `crg-daemon status` gained a `Watcher` column
+  root is merely released. `gryphon-daemon status` gained a `Watcher` column
   (ok/partial/stalled/unknown/dead) and last-event age, and the daemon now backs
   off exponentially between restarts of a watcher that keeps dying (#811).
 - Deleting and recreating a watched directory (`rm -rf src && mkdir src`, or two
@@ -196,7 +196,7 @@
   a dead watcher, and a directory adopted after startup is planned the same way
   startup plans the repository — its own `node_modules` and `target` stay
   unwatched (#811).
-- `code-review-graph watch --repo .` no longer empties the graph on startup. The
+- `gryphon watch --repo .` no longer empties the graph on startup. The
   watcher resolves its repository root before reconciling, so stored absolute
   paths are no longer all treated as stale, and a graph built under a genuinely
   different root is now refused with a clear error instead of being reconciled
@@ -337,7 +337,7 @@ breaking changes.
   provider/model/endpoint migration, remains fail-soft, and purges vectors for
   deleted or renamed nodes; manual `embed` also purges orphans (replacing PR
   #599, with Stefan Hudici attribution).
-- Added `code-review-graph uninstall` as a safe, symmetric counterpart to
+- Added `gryphon uninstall` as a safe, symmetric counterpart to
   `install` (#482, replacing PR #491). It derives MCP cleanup from the live
   platform specifications, preserves unrelated shared configuration and JSONC
   comments, commits shared-file edits with atomic replacement, removes only
@@ -435,7 +435,7 @@ reviews its own pull requests with its own graph. No breaking changes.
 ### Added
 
 - **Custom languages without forking** (#320): drop a
-  `.code-review-graph/languages.toml` into your repo to index any grammar
+  `.gryphon/languages.toml` into your repo to index any grammar
   shipped by tree-sitter-language-pack (extension map + node-type lists,
   validated and capped, built-ins always win). See docs/CUSTOM_LANGUAGES.md.
 - **GitHub Action** for risk-scored PR review comments: composite `action.yml`
@@ -501,15 +501,15 @@ reviews its own pull requests with its own graph. No breaking changes.
 **Real-time token savings, visible to humans.** The estimated context-savings
 metric introduced in 2.3.4 was JSON-only. In 2.3.5 it surfaces as a clean
 boxed panel on the CLI and is verifiable against a real tokenizer in one
-flag — so when you reach for `code-review-graph` to review a change, you
+flag — so when you reach for `gryphon` to review a change, you
 can immediately *see* how much of your context window the graph just kept
 out. No breaking changes.
 
 ### Added — Token Savings (headline feature)
 
 - **Boxed `Token Savings` panel on every `--brief` CLI call.** Both
-  `code-review-graph detect-changes --brief` and the new
-  `code-review-graph update --brief` print a four-line panel: the full-context
+  `gryphon detect-changes --brief` and the new
+  `gryphon update --brief` print a four-line panel: the full-context
   baseline, the graph response size, total saved tokens with percent, and a
   per-category breakdown (Functions / Tests / Risk / Other) that **sums
   exactly** to the graph response size — no padding, no rounding magic.
@@ -533,11 +533,11 @@ out. No breaking changes.
   and the **ratio** stays stable because both sides of the divide are
   equally biased.
 
-- **`code-review-graph update --brief`** — incremental update plus the same
+- **`gryphon update --brief`** — incremental update plus the same
   risk + Token Savings panel in one command. Distinct from
   `detect-changes --brief` (which is read-only against the existing graph).
   Use `update --brief` when the graph might be stale (post-rebase, large
-  change set); use `detect-changes --brief` when hooks/`crg-daemon` have
+  change set); use `detect-changes --brief` when hooks/`gryphon-daemon` have
   already kept the graph fresh.
 
 ### Added — Reproducible benchmarks
@@ -550,18 +550,18 @@ out. No breaking changes.
 - **`multi_hop_retrieval` benchmark** — 11 hand-curated 2-step tool-chain
   tasks (semantic_search → query_graph) across the 6 test repos. Average
   score **0.909**. Per-task CSV in `evaluate/results/`.
-- **`code-review-graph embed` CLI subcommand** — explicit shell-level access
+- **`gryphon embed` CLI subcommand** — explicit shell-level access
   to embedding generation. Previously only reachable via MCP, which made
   the benchmark recipe awkward.
 
 ### Changed — Deterministic eval pipeline
 
-- **Every config under `code_review_graph/eval/configs/*.yaml` now pins an
+- **Every config under `gryphon/eval/configs/*.yaml` now pins an
   upstream SHA.** Previously every config used `commit: HEAD`, which made
   benchmarks drift whenever upstream pushed. Pinned SHAs: express
   `b4ab7d65`, fastapi `0227991a`, flask `a29f88ce`, gin `5c00df8a`, httpx
-  `b55d4635`, code-review-graph `84bde354`.
-- **`nextjs.yaml` renamed to `code-review-graph.yaml`.** The historical
+  `b55d4635`, gryphon `84bde354`.
+- **`nextjs.yaml` renamed to `gryphon.yaml`.** The historical
   "nextjs" entry pointed at this repo, not a Next.js codebase. Renamed to
   match reality.
 - **`eval/runner.py` uses full clones with explicit `returncode` checks.**
@@ -638,7 +638,7 @@ Focused reliability and token-efficiency release for MCP/CLI review workflows. N
 ### Added
 
 - **Estimated context savings metadata** for graph-filtered review/impact/architecture responses. The new `context_savings` field is intentionally compact (`estimated`, `saved_tokens`, `saved_percent`) and uses the existing conservative character-count approximation rather than claiming exact tokenization.
-- **CLI estimated savings line** for `code-review-graph detect-changes --brief`; full JSON output includes the same compact `context_savings` metadata.
+- **CLI estimated savings line** for `gryphon detect-changes --brief`; full JSON output includes the same compact `context_savings` metadata.
 
 ### Changed
 
@@ -688,7 +688,7 @@ Large additive release accumulated since v2.3.2 — 141 non-merge commits, 8 new
 
 #### Platforms and install targets
 
-- **GitHub Copilot platform support** (PR #445): `code-review-graph install --platform copilot` writes Copilot-CLI-compatible MCP config without generating Claude-specific skill artifacts.
+- **GitHub Copilot platform support** (PR #445): `gryphon install --platform copilot` writes Copilot-CLI-compatible MCP config without generating Claude-specific skill artifacts.
 - **Gemini CLI platform support** (PR #391): `--platform gemini-cli` skips Claude skills and writes Gemini-native MCP config.
 - **Qoder platform support** (PR #245): `--platform qoder` adds MCP server registration for Qoder.
 - **OpenCode plugin support** (PR #198 via #366): `--platform opencode` registers the MCP server with the OpenCode plugin manifest.
@@ -697,7 +697,7 @@ Large additive release accumulated since v2.3.2 — 141 non-merge commits, 8 new
 
 #### MCP server and CLI features
 
-- **`crg-daemon`**: new multi-repo watch daemon that supervises per-repo file watchers via `subprocess.Popen` child processes. Documented in README, COMMANDS.md, and ROADMAP.md. 35 dedicated tests.
+- **`gryphon-daemon`**: new multi-repo watch daemon that supervises per-repo file watchers via `subprocess.Popen` child processes. Documented in README, COMMANDS.md, and ROADMAP.md. 35 dedicated tests.
 - **Streamable HTTP transport** (PR #277): MCP server can now run over streamable HTTP in addition to stdio.
 - **`serve --tools` flag and `CRG_TOOLS` env var**: MCP tool filtering at startup so callers can expose only the subset they need.
 - **`--repo` precedence and validation in `get_docs_section`** (PR #378): honors `serve --repo` and validates path containment before returning section content.
@@ -739,7 +739,7 @@ Large additive release accumulated since v2.3.2 — 141 non-merge commits, 8 new
 
 #### `__version__` reporting
 
-- **`code_review_graph.__version__` now matches `pyproject.toml`** (was `2.1.0` since the v2.1.0 release). The User-Agent header that `embeddings.py` sends on cloud HTTP requests is built from this string, so cloud-embedding traffic was being mis-attributed across all releases between v2.1.0 and v2.3.2.
+- **`gryphon.__version__` now matches `pyproject.toml`** (was `2.1.0` since the v2.1.0 release). The User-Agent header that `embeddings.py` sends on cloud HTTP requests is built from this string, so cloud-embedding traffic was being mis-attributed across all releases between v2.1.0 and v2.3.2.
 
 #### C++ / Java / PHP parsing
 
@@ -761,7 +761,7 @@ Large additive release accumulated since v2.3.2 — 141 non-merge commits, 8 new
 
 - **Hooks JSON schema** (PR #288): `hooks.json` validation no longer fails on the wrapper layout — `matcher` is required and the wrapper is removed.
 - **Hooks merge instead of overwrite** (PR #114, PR #145, PR #203): `install_hooks` now merges into existing hook arrays and creates a `settings.json.bak` backup before modifying user config.
-- **Pre-commit hook adds `update` command** (PR #315): generated pre-commit hook runs `code-review-graph update` rather than the obsolete subcommand.
+- **Pre-commit hook adds `update` command** (PR #315): generated pre-commit hook runs `gryphon update` rather than the obsolete subcommand.
 - **Skip hooks gracefully outside git** (PR #293): `install` no longer fails when invoked from a non-git directory.
 - **Poetry / uv environment detection** (PR #287): `install` now generates the correct MCP serve command for projects using Poetry or uv.
 - **Hook quoting and `docs` repo_root** (PR #192): hook commands now quote repo paths with spaces, and the docs repo path is restored on install.
@@ -808,9 +808,9 @@ Large additive release accumulated since v2.3.2 — 141 non-merge commits, 8 new
 
 ### Upgrade notes
 
-- `uvx --reinstall code-review-graph` or `pip install -U code-review-graph`.
-- Re-run `code-review-graph install` once after upgrading to pick up the JSONC-tolerant config writer and the corrected `cwd` / skills path in `.mcp.json`.
-- The `__version__` fix changes the User-Agent string emitted by cloud embedding providers from `code-review-graph/2.1.0` to `code-review-graph/2.3.3`. Anyone allow-listing the old User-Agent on a proxy needs to update their rule.
+- `uvx --reinstall gryphon` or `pip install -U gryphon`.
+- Re-run `gryphon install` once after upgrading to pick up the JSONC-tolerant config writer and the corrected `cwd` / skills path in `.mcp.json`.
+- The `__version__` fix changes the User-Agent string emitted by cloud embedding providers from `gryphon/2.1.0` to `gryphon/2.3.3`. Anyone allow-listing the old User-Agent on a proxy needs to update their rule.
 - VS Code extension still ships separately — repackage and republish the `.vsix` if you want the v2.3.3 a11y improvements in the Marketplace build.
 
 ## [2.3.2] - 2026-04-14
@@ -858,7 +858,7 @@ Major feature release — 15 new capabilities, 6 community PRs merged, 6 new MCP
 Hotfix for the Windows long-running-MCP-tool hang that v2.2.4 only partially fixed.
 
 ### Fixed
-- **Windows MCP hang on long-running tools** (PR #231, fixes #46, #136): follow-up to v2.2.4. [@dev-limucc reported on #136](https://github.com/tirth8205/code-review-graph/issues/136) that the `WindowsSelectorEventLoopPolicy` fix from v2.2.4 was necessary but not sufficient — read-only tools worked, but `build_or_update_graph_tool(full_rebuild=True)` and `embed_graph_tool` still hung indefinitely on Windows 11 / Python 3.14. Root cause: FastMCP 2.x dispatches sync handlers inline on the only event-loop thread, so handlers that run for more than a few seconds (especially those that spawn subprocesses or do CPU-bound inference) stop the loop from pumping stdin/stdout. **Fix**: converted the five heavy tools (`build_or_update_graph_tool`, `run_postprocess_tool`, `embed_graph_tool`, `detect_changes_tool`, `generate_wiki_tool`) to `async def` and offloaded the blocking work via `asyncio.to_thread`. The other 19 tools are fast SQLite-read paths and stay sync. Zero config, works on every platform. New regression tests assert the five tools are registered as coroutines AND that each one's source literally contains `asyncio.to_thread` as a defense-in-depth lock-in.
+- **Windows MCP hang on long-running tools** (PR #231, fixes #46, #136): follow-up to v2.2.4. [@dev-limucc reported on #136](https://github.com/tirth8205/gryphon/issues/136) that the `WindowsSelectorEventLoopPolicy` fix from v2.2.4 was necessary but not sufficient — read-only tools worked, but `build_or_update_graph_tool(full_rebuild=True)` and `embed_graph_tool` still hung indefinitely on Windows 11 / Python 3.14. Root cause: FastMCP 2.x dispatches sync handlers inline on the only event-loop thread, so handlers that run for more than a few seconds (especially those that spawn subprocesses or do CPU-bound inference) stop the loop from pumping stdin/stdout. **Fix**: converted the five heavy tools (`build_or_update_graph_tool`, `run_postprocess_tool`, `embed_graph_tool`, `detect_changes_tool`, `generate_wiki_tool`) to `async def` and offloaded the blocking work via `asyncio.to_thread`. The other 19 tools are fast SQLite-read paths and stay sync. Zero config, works on every platform. New regression tests assert the five tools are registered as coroutines AND that each one's source literally contains `asyncio.to_thread` as a defense-in-depth lock-in.
 
 ## [2.3.0] - 2026-04-11
 
@@ -869,11 +869,11 @@ Additive feature release — new language parsers, new platform install target, 
 - **Elixir parser** (PR #228, closes #112): `.ex` and `.exs` files now produce modules as Class nodes, `def`/`defp`/`defmacro`/`defmacrop` as Function/Test nodes attached to their enclosing module, `alias`/`import`/`require`/`use` as `IMPORTS_FROM` edges, and everything else as `CALLS` edges. Internal call resolution walks into `do_block` bodies so `MathHelpers.double` correctly resolves its call to `Calculator.compute`.
 - **Objective-C parser** (PR #227, closes #88): `.m` files parse classes (`@interface`, `@implementation`, `@protocol`), instance and class methods, `[receiver message:args]` message expressions, C-style `main()`, and `#import`/`#include`. Multi-part selectors like `add:to:` keep `add` as the canonical method name.
 - **Bash/Shell parser** (PR #227, closes #197): `.sh`, `.bash`, and `.zsh` files parse functions, `command` invocations as `CALLS`, and `source path` / `. path` as `IMPORTS_FROM` edges with path resolution when the target file exists.
-- **Qwen Code as a supported MCP install platform** (PR #227, closes #83): `code-review-graph install --platform qwen` writes a merged `~/.qwen/settings.json` using the same `mcpServers` schema as Cursor/Windsurf — it does not clobber existing Qwen config.
+- **Qwen Code as a supported MCP install platform** (PR #227, closes #83): `gryphon install --platform qwen` writes a merged `~/.qwen/settings.json` using the same `mcpServers` schema as Cursor/Windsurf — it does not clobber existing Qwen config.
 - **`apply_refactor_tool` dry-run mode** (PR #228, closes #176): new `dry_run: bool = False` parameter on the MCP tool and underlying `apply_refactor()` function. When true, returns a unified diff per file without touching disk and leaves the `refactor_id` valid for a follow-up real apply. Multi-edit files now apply sequentially against updated content in both modes (fixes a subtle bug where separate edits on the same file could stomp each other).
-- **`CRG_DATA_DIR` environment variable** (PR #228, closes #155): when set, replaces the default `<repo>/.code-review-graph` directory verbatim. Useful for ephemeral workspaces, Docker volumes, shared CI caches, and multi-repo orchestrators. Supported by the CLI, MCP tools, and the registry.
+- **`CRG_DATA_DIR` environment variable** (PR #228, closes #155): when set, replaces the default `<repo>/.gryphon` directory verbatim. Useful for ephemeral workspaces, Docker volumes, shared CI caches, and multi-repo orchestrators. Supported by the CLI, MCP tools, and the registry.
 - **`CRG_REPO_ROOT` environment variable** (PR #228, closes #155): `find_project_root()` now checks `CRG_REPO_ROOT` before the usual git-root walk — useful for anyone scripting the CLI from a cwd outside the target repo.
-- **`install --no-instructions` and `-y`/`--yes` flags** (PR #228, closes #173): new flags on `code-review-graph install` to opt out of the `CLAUDE.md`/`AGENTS.md`/`.cursorrules`/`.windsurfrules` injection entirely (`--no-instructions`) or auto-confirm it without an interactive prompt (`-y`/`--yes`). The CLI also now prints the list of files it will touch before writing, so even without `--dry-run` users see what's coming.
+- **`install --no-instructions` and `-y`/`--yes` flags** (PR #228, closes #173): new flags on `gryphon install` to opt out of the `CLAUDE.md`/`AGENTS.md`/`.cursorrules`/`.windsurfrules` injection entirely (`--no-instructions`) or auto-confirm it without an interactive prompt (`-y`/`--yes`). The CLI also now prints the list of files it will touch before writing, so even without `--dry-run` users see what's coming.
 - **Cloud embeddings stderr warning** (PR #228, closes #174): `get_provider()` now prints an explicit warning to stderr before returning a Google Gemini or MiniMax provider, explaining that source code will be sent to an external API. `CRG_ACCEPT_CLOUD_EMBEDDINGS=1` suppresses the warning for scripted workflows. The warning is on stderr only — it never writes to stdout or reads from stdin, so the MCP stdio transport remains uncorrupted.
 - **TROUBLESHOOTING quick-reference** (PR #228): new top section in `docs/TROUBLESHOOTING.md` covering the four most common support questions — hook schema errors, `command not found` after pip install, project-vs-user scoping, and "built the graph but Claude Code doesn't see it".
 
@@ -896,8 +896,8 @@ Nothing.
 
 ### Upgrade notes
 
-- Nothing to do beyond `uvx --reinstall code-review-graph` or `pip install -U code-review-graph`. If you're coming from v2.2.2 or earlier, re-run `code-review-graph install` once to pick up the v2.2.3 hook schema rewrite.
-- `CRG_DATA_DIR` is optional — if you don't set it, graphs continue to live at `<repo>/.code-review-graph` as before.
+- Nothing to do beyond `uvx --reinstall gryphon` or `pip install -U gryphon`. If you're coming from v2.2.2 or earlier, re-run `gryphon install` once to pick up the v2.2.3 hook schema rewrite.
+- `CRG_DATA_DIR` is optional — if you don't set it, graphs continue to live at `<repo>/.gryphon` as before.
 - VS Code extension v0.2.2 (from v2.2.4) still needs to be **repackaged and republished** separately; the PyPI `publish.yml` workflow does not cover it.
 
 ### Superseded PRs
@@ -925,7 +925,7 @@ Ships the 11 bugs from PR #222 plus the `v2.2.3.1` smoke-test hotfixes, for user
 - **Nested `node_modules` and framework ignore defaults** (PR #222, fixes #91): `_should_ignore()` now treats single-segment `<dir>/**` patterns as "this directory at any depth", so `node_modules/**` also matches `packages/app/node_modules/react/index.js` inside monorepos. Extended `DEFAULT_IGNORE_PATTERNS` with Laravel/Composer (`vendor/**`, `bootstrap/cache/**`, `public/build/**`), Ruby (`.bundle/**`), Gradle (`.gradle/**`, `*.jar`), Flutter/Dart (`.dart_tool/**`, `.pub-cache/**`), and generic `coverage/**`, `.cache/**`. Deliberately did **not** add `packages/**` or `bin/**`/`obj/**` — those are false positives in yarn/pnpm workspace monorepos and .NET source trees respectively.
 - **Bare `except Exception` cleanup** (PR #222, fixes #194): Replaced with specific exception classes + `logger.debug(...)` in 11 files (`cli.py`, `graph.py`, `migrations.py`, `parser.py`, `registry.py`, `tools/context.py`, `tsconfig_resolver.py`, `visualization.py`, `wiki.py`, `eval/benchmarks/search_quality.py`). No behavioral change; debuggability improvement.
 - **Visualization auto-collapse hiding all edges** (PR #222, fixes #132): `visualization.py` no longer unconditionally auto-collapses every File node on page load. Auto-collapse now only kicks in above 2000 nodes — previously any graph above ~300 nodes would silently hide every CALLS/IMPORTS/INHERITS edge because they connect Functions/Classes nested inside the collapsed Files.
-- **`eval` command crashes on `yaml.safe_load`** (PR #222, fixes #212): `eval.runner.load_all_configs()` now calls `_require_yaml()` before reading YAML, so users without `code-review-graph[eval]` installed get `ImportError: pyyaml is required: pip install code-review-graph[eval]` instead of `AttributeError: 'NoneType' object has no attribute 'safe_load'`.
+- **`eval` command crashes on `yaml.safe_load`** (PR #222, fixes #212): `eval.runner.load_all_configs()` now calls `_require_yaml()` before reading YAML, so users without `gryphon[eval]` installed get `ImportError: pyyaml is required: pip install gryphon[eval]` instead of `AttributeError: 'NoneType' object has no attribute 'safe_load'`.
 
 ### VS Code extension (0.2.2)
 - **`better-sqlite3` bumped 11.x → 12.x** (PR #222, fixes #218): VS Code 1.115 ships Electron 39 / V8 14.2 which removed `v8::Context::GetIsolate()`, the C++ API used by `better-sqlite3@11`. The extension couldn't activate at all — every command was undefined. `better-sqlite3@12.4.1+` (installs 12.8.0) uses the new V8 API and ships Electron 39 prebuilds. `@types/better-sqlite3: ^7.6.8 → ^7.6.13`, plus type-import adjustments in `src/backend/sqlite.ts` for the `Node16` module resolution and the new CJS `export =` types. Extension version bumped to 0.2.2. **Remember to repackage and republish the `.vsix`** — the existing `publish.yml` workflow only covers PyPI.
@@ -935,7 +935,7 @@ Ships the 11 bugs from PR #222 plus the `v2.2.3.1` smoke-test hotfixes, for user
 - Wiki slug collisions no longer silently overwrite pages (~70% data loss on real repos). See #223.
 
 ### Upgrade notes
-- `uvx --reinstall code-review-graph` or `pip install -U code-review-graph`, then re-run `code-review-graph install` (the 2.2.3 hook-schema rewrite is still a requirement if you're coming from 2.2.2 or earlier).
+- `uvx --reinstall gryphon` or `pip install -U gryphon`, then re-run `gryphon install` (the 2.2.3 hook-schema rewrite is still a requirement if you're coming from 2.2.2 or earlier).
 - VS Code extension needs to be repackaged + republished separately; the Python release does not include it.
 
 ## [2.2.3.1] - 2026-04-11
@@ -949,23 +949,23 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 ## [2.2.3] - 2026-04-11
 
 ### Fixed
-- **Claude Code hook schema** (PR #208, fixes #97, #138, #163, #168, #172, #182, #188, #191, #201): `generate_hooks_config()` now emits the valid v1.x+ Claude Code schema — every hook entry has `matcher` + a nested `hooks: [{type, command, timeout}]` array, and timeouts are in seconds. The invalid `PreCommit` event has been removed; pre-commit checks are now installed as a real git hook via `install_git_hook()`. Users upgrading from 2.2.2 must re-run `code-review-graph install` to rewrite `.claude/settings.json`.
+- **Claude Code hook schema** (PR #208, fixes #97, #138, #163, #168, #172, #182, #188, #191, #201): `generate_hooks_config()` now emits the valid v1.x+ Claude Code schema — every hook entry has `matcher` + a nested `hooks: [{type, command, timeout}]` array, and timeouts are in seconds. The invalid `PreCommit` event has been removed; pre-commit checks are now installed as a real git hook via `install_git_hook()`. Users upgrading from 2.2.2 must re-run `gryphon install` to rewrite `.claude/settings.json`.
 - **SQLite transaction nesting** (PR #205, fixes #110, #135, #181): `GraphStore.__init__` now connects with `isolation_level=None`, disabling Python's implicit transactions that were the root cause of `sqlite3.OperationalError: cannot start a transaction within a transaction` on `update`. `store_file_nodes_edges` adds a defensive `in_transaction` flush before `BEGIN IMMEDIATE`.
 - **Go method receivers** (PR #166): `_extract_name_from_node` now resolves Go method names from `field_identifier` inside `method_declaration`, fixing method names that were previously picked up as the result type (e.g. `int64`) instead of the method name.
 - **UTF-8 decode errors in `detect_changes`** (PR #170, fixes #169): Diff parsing now uses `errors="replace"` so diffs containing binary files no longer crash the tool.
-- **`--platform` target scope** (PR #142, fixes #133): `code-review-graph install --platform <target>` now correctly filters skills, hooks, and instruction files so you only get configuration for the requested platform.
+- **`--platform` target scope** (PR #142, fixes #133): `gryphon install --platform <target>` now correctly filters skills, hooks, and instruction files so you only get configuration for the requested platform.
 - **Large-repo community detection hangs** (PR #213, PR #183): Removed recursive sub-community splitting, capped Leiden at `n_iterations=2`, and batched `store_communities` writes. 100k+ node graphs no longer hang in `_compute_summaries`.
 - **CI**: ruff lint + `tomllib` on Python 3.10 (PR #220) — `tests/test_skills.py` now uses a conditional `tomli` backport on 3.10, `N806`/`E501`/`W291` fixes in `skills.py`/`communities.py`/`parser.py`, and the embedded `noqa` reference in `visualization.py` was rephrased so ruff stops parsing it as a directive.
 - **Missing dev dependencies** (PR #159): `pytest-cov` added to dev extras, 50 ruff errors swept, one failing test fixed.
 - **JSX component CALLS edges** (PR #154): JSX component usage now produces CALLS edges so component-to-component relationships appear in the graph.
 
 ### Added
-- **Codex platform install support** (PR #177): `code-review-graph install --platform codex` appends a `mcp_servers.code-review-graph` section to `~/.codex/config.toml` without overwriting existing Codex settings.
+- **Codex platform install support** (PR #177): `gryphon install --platform codex` appends a `mcp_servers.gryphon` section to `~/.codex/config.toml` without overwriting existing Codex settings.
 - **Luau language support** (PR #165, closes #153): Roblox Luau (`.luau`) parsing — functions, classes, local functions, requires, tests.
 - **REFERENCES edge type** (PR #217): New edge kind for symbol references that aren't direct calls (map/dispatch lookups, string-keyed handlers), including Python and TypeScript patterns.
 - **`recurse_submodules` build option** (PR #215): Build/update can now optionally recurse into git submodules.
-- **`.gitignore` default for `.code-review-graph/`** (PR #185): Fresh installs automatically add the SQLite DB directory to `.gitignore` so the database isn't accidentally committed.
-- **Clearer gitignore docs** (PR #171, closes #157): Documentation now spells out that `code-review-graph` already respects `.gitignore` via `git ls-files`.
+- **`.gitignore` default for `.gryphon/`** (PR #185): Fresh installs automatically add the SQLite DB directory to `.gitignore` so the database isn't accidentally committed.
+- **Clearer gitignore docs** (PR #171, closes #157): Documentation now spells out that `gryphon` already respects `.gitignore` via `git ls-files`.
 
 ### Changed
 - Community detection is now bounded — large repos complete in reasonable time instead of hanging indefinitely.
@@ -1109,7 +1109,7 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 
 ### Security
 - **Prompt injection mitigation**: Node names are now sanitized (control characters stripped, length capped at 256) before appearing in MCP tool responses, preventing graph-laundered prompt injection attacks
-- **Path traversal protection**: `repo_root` parameter now validates that the target directory contains a `.git` or `.code-review-graph` directory, preventing arbitrary file exfiltration via MCP tools
+- **Path traversal protection**: `repo_root` parameter now validates that the target directory contains a `.git` or `.gryphon` directory, preventing arbitrary file exfiltration via MCP tools
 - **VSCode RCE fix**: `cliPath` setting is now scoped to `machine` level only, preventing malicious workspace settings from pointing to attacker-controlled binaries
 - **XSS fix in visualization**: `escH()` now escapes quotes and backticks in addition to angle brackets, closing stored XSS via crafted node names in generated HTML
 - **SRI for CDN assets**: D3.js script tag now includes `integrity` and `crossorigin` attributes to prevent CDN compromise
@@ -1121,7 +1121,7 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 - **Thread-safe NetworkX cache**: Added `threading.Lock` around graph cache reads/writes to prevent race conditions between watch mode and MCP request handling
 - **BFS resource limits**: Impact radius traversal now caps at 500 nodes to prevent memory exhaustion on dense graphs
 - **SQL parameter batching**: `get_edges_among` now batches queries to stay under SQLite's variable limit on large node sets
-- **Database path leakage**: Improved `.gitignore` inside `.code-review-graph/` with explicit warnings about absolute paths in the database
+- **Database path leakage**: Improved `.gitignore` inside `.gryphon/` with explicit warnings about absolute paths in the database
 
 ### Changed
 - **Pinned dependency bounds**: All dependencies now have upper-bound version constraints to mitigate supply-chain risks
@@ -1137,7 +1137,7 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 ## [1.7.0] - 2026-03-09
 
 ### Added
-- **`install` command** — primary entry point for new users (`code-review-graph install`). `init` remains as an alias for backwards compatibility.
+- **`install` command** — primary entry point for new users (`gryphon install`). `init` remains as an alias for backwards compatibility.
 - **`--dry-run` flag** on `install`/`init` — shows what would be written without modifying files
 - **PyPI publish workflow** — GitHub releases now automatically publish to PyPI via API token
 - **Professional README** — complete rewrite with real benchmark data:
@@ -1200,18 +1200,18 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 ## [1.5.0] - 2026-02-26
 
 ### Added
-- **File organization**: All generated files now live in `.code-review-graph/` directory instead of repo root
+- **File organization**: All generated files now live in `.gryphon/` directory instead of repo root
   - Auto-created `.gitignore` inside the directory prevents accidental commits
-  - Automatic migration from legacy `.code-review-graph.db` at repo root
+  - Automatic migration from legacy `.gryphon.db` at repo root
 - **Visualization: start collapsed**: Only File nodes visible on load; click to expand children
 - **Visualization: search bar**: Filter nodes by name or qualified name in real-time
 - **Visualization: edge type toggles**: Click legend items to show/hide edge types (Calls, Imports, Inherits, Contains)
 - **Visualization: scale-aware layout**: Force simulation adapts charge, distance, and decay for large graphs (300+ nodes)
 
 ### Changed
-- Database path: `.code-review-graph.db` → `.code-review-graph/graph.db`
-- HTML visualization path: `.code-review-graph.html` → `.code-review-graph/graph.html`
-- `.code-review-graph/**` added to default ignore patterns (prevents self-indexing)
+- Database path: `.gryphon.db` → `.gryphon/graph.db`
+- HTML visualization path: `.gryphon.html` → `.gryphon/graph.html`
+- `.gryphon/**` added to default ignore patterns (prevents self-indexing)
 
 ### Removed
 - `references/` directory (duplicate of `docs/`, caused stale path references)
@@ -1231,8 +1231,8 @@ Hotfix on top of 2.2.3 for two bugs surfaced by a full first-time-user smoke tes
 ## [1.3.0] - 2026-02-26
 
 ### Added
-- Universal installation: now works with `pip install code-review-graph[embeddings]` on Python 3.10+
-- CLI entry point (`code-review-graph` command works after normal pip install)
+- Universal installation: now works with `pip install gryphon[embeddings]` on Python 3.10+
+- CLI entry point (`gryphon` command works after normal pip install)
 - Clear Python version check with helpful Docker fallback for older Python users
 - Improved README installation section with one-command + Docker option
 
