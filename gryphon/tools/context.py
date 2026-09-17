@@ -103,7 +103,11 @@ def get_minimal_context(
     Args:
         task: Natural language description of what the agent is doing
               (e.g. "review PR #42", "debug login timeout").
-        changed_files: Explicit changed files. Auto-detected from git if None.
+        changed_files: Explicit changed files. When given, they define the
+                       change set: the local diff only refines line ranges
+                       within them and never adds a file of its own, so a
+                       remote PR can be reviewed from a checkout sitting on
+                       an unrelated branch. Auto-detected from git if None.
         repo_root: Repository root path. Auto-detected if None.
         base: Git ref for diff comparison.
 
@@ -167,6 +171,8 @@ def get_minimal_context(
         top_affected: list[str] = []
         test_gap_count = 0
         analyzed_files: list[str] = []
+        analyzed_abs: list[str] = []
+        affected_flow_names: list[str] = []
         n_changed_functions = 0
         if changed_files or _has_git_changes(root, base):
             try:
@@ -179,6 +185,7 @@ def get_minimal_context(
                 if files:
                     analyzed_files = files
                     abs_files = [normalize_file_path(root / f) for f in files]
+                    analyzed_abs = abs_files
                     analysis = analyze_changes(
                         store, abs_files, repo_root=str(root), base=base,
                     )
@@ -195,31 +202,56 @@ def get_minimal_context(
                         for f in changed_functions[:5]
                     ]
                     test_gap_count = len(analysis.get("test_gaps", []))
+                    affected_flow_names = [
+                        f.get("name", "")
+                        for f in analysis.get("affected_flows", [])[:3]
+                    ]
             except (
                 ImportError, OSError, ValueError,
                 sqlite3.Error, subprocess.SubprocessError,
             ):
                 logger.debug("Risk analysis failed in get_minimal_context", exc_info=True)
 
-        # 3. Top 3 communities
+        # 3. Communities. With a change set these are the communities the
+        #    changed files sit in; the repo-wide top 3 would say the same
+        #    thing for every change and read as if it described this one
+        #    (#1017). Without one, the repo-wide view is the answer.
         communities: list[str] = []
         try:
-            rows = store._conn.execute(
-                "SELECT name FROM communities ORDER BY size DESC LIMIT 3"
-            ).fetchall()
+            if analyzed_abs:
+                # SQLite caps host parameters (999 by default), so bound the
+                # IN list; the busiest files dominate the grouping anyway.
+                sample = analyzed_abs[:300]
+                placeholders = ",".join("?" for _ in sample)
+                rows = store._conn.execute(
+                    "SELECT c.name, COUNT(*) AS hits FROM nodes n "
+                    "JOIN communities c ON c.id = n.community_id "
+                    f"WHERE n.file_path IN ({placeholders}) "
+                    "GROUP BY c.id ORDER BY hits DESC LIMIT 3",
+                    sample,
+                ).fetchall()
+            else:
+                rows = store._conn.execute(
+                    "SELECT name FROM communities ORDER BY size DESC LIMIT 3"
+                ).fetchall()
             communities = [r[0] for r in rows]
         except sqlite3.OperationalError:  # nosec B110 — table may not exist yet
             logger.debug("communities table not yet populated")
 
-        # 4. Top 3 critical flows
+        # 4. Flows. Reported as ``flows_affected``, so with a change set they
+        #    have to be the flows that change actually touches. The repo-wide
+        #    top 3 by criticality is only the answer when nothing changed.
         flows: list[str] = []
-        try:
-            rows = store._conn.execute(
-                "SELECT name FROM flows ORDER BY criticality DESC LIMIT 3"
-            ).fetchall()
-            flows = [r[0] for r in rows]
-        except sqlite3.OperationalError:  # nosec B110 — table may not exist yet
-            logger.debug("flows table not yet populated")
+        if analyzed_files:
+            flows = [name for name in affected_flow_names if name]
+        else:
+            try:
+                rows = store._conn.execute(
+                    "SELECT name FROM flows ORDER BY criticality DESC LIMIT 3"
+                ).fetchall()
+                flows = [r[0] for r in rows]
+            except sqlite3.OperationalError:  # nosec B110 — may not exist yet
+                logger.debug("flows table not yet populated")
 
         # 5. Suggest next tools based on task keywords
         task_lower = task.lower()

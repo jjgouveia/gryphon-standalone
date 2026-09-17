@@ -207,7 +207,10 @@ def get_minimal_context_tool(
 
     Args:
         task: What you are doing (e.g. "review PR #42", "debug login timeout").
-        changed_files: Explicit list of changed files. Auto-detected if omitted.
+        changed_files: Explicit list of changed files. When given, they
+                       define the change set and the local working-tree diff
+                       cannot widen it — pass them when reviewing a PR whose
+                       branch is not checked out. Auto-detected if omitted.
         repo_root: Repository root path. Auto-detected if omitted.
         base: Git ref for diff comparison. Default: HEAD~1.
     """

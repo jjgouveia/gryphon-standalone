@@ -43,6 +43,38 @@
 
 ### Fixed
 
+- An explicit `changed_files` list now defines the change set. It used to be
+  discarded whenever a working-tree diff was computable, so reviewing a PR
+  whose branch is not checked out analysed whatever the local checkout was
+  diffing and reported entities from an unrelated part of the codebase. The
+  local diff now only refines line ranges within the named files; files it
+  says nothing about contribute their whole node set.
+- `detect_changes_tool` takes the same route. It parsed the working-tree
+  diff itself and passed it as `changed_ranges`, which counts as a
+  caller-supplied scope and is therefore exempt from the scoping above, so
+  the MCP tool - the one the review workflows call - kept reporting the
+  local checkout's functions under the reviewed PR's file names, with a risk
+  score and test gaps to match.
+- `detect_changes_tool` reports `files_in_graph` and `files_not_in_graph`,
+  and attaches a `confidence` note naming the branch the graph was built on
+  when part of the change set is missing from it. A change set the graph
+  holds no nodes for scored 0.00 with no test gaps, which is the same
+  response a genuinely safe change produces; reviewers read the zero as
+  "safe" when it meant "blind". With no file of the change set in the graph
+  the response is `not_ready` and names the rebuild, rather than an `ok`
+  that has to be read carefully to be understood as empty.
+- `gryphon measure` discounts `saved_tokens` and `counterfactual_saved` by
+  the share of the diff the graph holds, and reports `graph_coverage`,
+  `files_in_graph`, `files_not_in_graph` and `complete`. Savings were
+  credited for files the graph never saw, so a partially indexed change set
+  reported the full figure. `verified` keeps its meaning - whether tiktoken
+  did the counting - and the dashboard shows the coverage caveat beside it.
+- `get_minimal_context_tool` reports the communities and flows of the change
+  set instead of the repository's largest and most critical ones. Both were
+  global queries whose results were returned as `communities` and
+  `flows_affected`, so every change, in any part of the codebase, came back
+  with the same three names. With no change set the repo-wide view is still
+  what both fields return.
 - Freshness metadata follows what was stored. A no-op `update` that
   confirms `HEAD` advances the Git anchor, so queries after a commit no
   longer carry a stale-graph caveat, and a file that fails to parse no

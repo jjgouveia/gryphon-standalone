@@ -140,6 +140,17 @@ def measure_savings(
             }
 
         abs_files = _resolve_graph_file_paths(store, root, changed_files)
+
+        # How much of the diff the graph actually holds. Savings are earned
+        # only on files the graph can answer for: a change set it half knows
+        # produces a blast radius over that half and a saving reported as if
+        # it covered the whole diff. Resolved per file because the combined
+        # call returns graph paths, which no longer map back to their inputs.
+        covered = sum(
+            1 for f in changed_files
+            if _resolve_graph_file_paths(store, root, [f])
+        )
+        coverage = covered / len(changed_files) if changed_files else 0.0
         impact = store.get_impact_radius(
             abs_files, max_depth=max_depth, max_nodes=max_results
         )
@@ -187,7 +198,10 @@ def measure_savings(
 
         baseline = changed_tokens + impacted_tokens
         returned = changed_tokens + graph_tokens
-        saved = max(0, baseline - returned)
+        # Discount by coverage before reporting. The raw difference credits
+        # the graph for the files it never saw, which is how a review that
+        # the graph could not inform still logged a six-figure saving.
+        saved = int(max(0, baseline - returned) * coverage)
         percent = round(saved * 100 / baseline) if baseline > 0 else 0
 
         counterfactual = estimate_counterfactual_cost(
@@ -198,7 +212,7 @@ def measure_savings(
             file_tokens=baseline,
         )
         cf_total = counterfactual["total_counterfactual"]
-        cf_saved = max(0, cf_total - returned)
+        cf_saved = int(max(0, cf_total - returned) * coverage)
         cf_pct = round(cf_saved * 100 / cf_total) if cf_total > 0 else 0
 
         result: dict[str, Any] = {
@@ -214,6 +228,14 @@ def measure_savings(
             "saved_tokens": saved,
             "saved_percent": percent,
             "verified": enc is not None,
+            # ``verified`` stays the tokenizer signal the dashboard renders.
+            # Coverage is a second, independent caveat: a tiktoken-exact
+            # count over a change set the graph half knows is precise and
+            # incomplete at the same time.
+            "graph_coverage": round(coverage, 2),
+            "files_in_graph": covered,
+            "files_not_in_graph": len(changed_files) - covered,
+            "complete": covered == len(changed_files),
             "impacted_files_read": len(impacted_read),
             "counterfactual": counterfactual,
             "counterfactual_saved": cf_saved,
@@ -234,6 +256,8 @@ def measure_savings(
                     extra={
                         "changed_files": len(changed_files),
                         "impacted_files": len(impacted_files),
+                        "graph_coverage": round(coverage, 2),
+                        "files_in_graph": covered,
                         "counterfactual": counterfactual,
                         "total_saved_tokens": cf_saved,
                         "total_saved_percent": cf_pct,

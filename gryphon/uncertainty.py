@@ -245,6 +245,30 @@ def not_indexed_note(target: str) -> str:
     )
 
 
+def unindexed_changes_note(
+    missing: int, total: int, branch: str | None = None,
+) -> str:
+    """Say how much of the reviewed change set the graph never saw.
+
+    ``detect_changes`` scores the nodes it found. When the graph holds no
+    nodes for the changed files - a remote PR head that is not checked out, a
+    graph built on another branch, a language the parser skips - that score is
+    computed over nothing and reads exactly like a clean result. Reviewers
+    acted on a 0.00 that meant "blind", not "safe".
+
+    The branch is interpolated under a budget so that a long branch name
+    clips itself rather than the remedy at the end of the sentence.
+    """
+    if missing >= total:
+        head = f"none of {total} changed file(s) are in the graph"
+    else:
+        head = f"{missing} of {total} changed file(s) missing from the graph"
+    tail = "risk covers indexed files only; rebuild against the reviewed revision"
+    if branch:
+        return _interpolated(f"{head} (built on '", branch, f"'); {tail}")
+    return _bounded(f"{head}; {tail}")
+
+
 def unresolved_stale_note(target: str) -> str:
     """Say the target is missing from a graph that predates HEAD.
 

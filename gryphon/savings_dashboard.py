@@ -204,6 +204,11 @@ document.getElementById("mform").addEventListener("submit", async ev => {
       `${res.impacted_files.length} impacted (${fmt(res.impacted_tokens)})\\n` +
       `graph response: ${fmt(res.graph_tokens)} · ` +
       (res.verified ? "tiktoken verified" : "chars/4 estimate") +
+      (res.complete === false
+        ? ` · ${res.files_not_in_graph} of ${res.changed_files.length}` +
+          " changed file(s) not in the graph; saved figures are discounted" +
+          " to the indexed share"
+        : "") +
       cfLine;
     load();
   } catch (e) {

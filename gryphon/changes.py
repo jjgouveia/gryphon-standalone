@@ -416,6 +416,11 @@ def analyze_changes(
         Dict with ``summary``, ``risk_score``, ``changed_functions``,
         ``affected_flows``, ``test_gaps``, and ``review_priorities``.
     """
+    # Ranges the caller supplied define their own scope and are deliberately
+    # left unmapped (see below), so only ranges derived here get scoped to
+    # changed_files further down.
+    ranges_are_derived = changed_ranges is None
+
     # Compute changed ranges if not provided.
     if changed_ranges is None and repo_root is not None:
         # Diff keys are forward-slash paths relative to the repo root, but
@@ -444,14 +449,41 @@ def analyze_changes(
             normalize_file_path(_root / fp) for fp in changed_files
         ]
 
-    # Map changes to nodes.
-    if changed_ranges:
-        changed_nodes = map_changes_to_nodes(store, changed_ranges)
+    # Scope the diff ranges to the files the caller named. Without this, a
+    # caller that passes an explicit ``changed_files`` list still gets the
+    # working tree's diff analysed instead: ``changed_ranges`` is computed
+    # from ``parse_diff_ranges`` above whenever ``repo_root`` is given, and
+    # the branch below then ignores ``changed_files`` entirely. Reviewing a
+    # remote PR that is not checked out reported the entities of whatever
+    # the local checkout happened to be diffing (#1017).
+    if changed_files and ranges_are_derived:
+        wanted = set(changed_files)
+        scoped = {
+            path: ranges
+            for path, ranges in (changed_ranges or {}).items()
+            if path in wanted
+        }
+        # Files the caller named that the local diff says nothing about —
+        # a remote PR, or a branch that is not checked out — contribute
+        # their whole node set, which is what the no-diff fallback does.
+        unranged = [fp for fp in changed_files if fp not in scoped]
     else:
-        # Fallback: all nodes in changed files.
-        changed_nodes = []
-        for fp in changed_files:
-            changed_nodes.extend(store.get_nodes_by_file(fp))
+        # An explicitly empty changed_ranges means "no ranges available",
+        # which is the whole-file fallback, not "analyse nothing" (#852).
+        scoped = changed_ranges or {}
+        unranged = [] if scoped else list(changed_files)
+
+    # Map changes to nodes.
+    changed_nodes = map_changes_to_nodes(store, scoped) if scoped else []
+    if unranged:
+        # map_changes_to_nodes dedups on qualified_name; match it so a node
+        # reached through both paths is not counted twice.
+        seen = {n.qualified_name for n in changed_nodes}
+        for fp in unranged:
+            for node in store.get_nodes_by_file(fp):
+                if node.qualified_name not in seen:
+                    seen.add(node.qualified_name)
+                    changed_nodes.append(node)
 
     # RTL declarations are stored as Function nodes for compatibility but
     # are not callable/testable functions.
