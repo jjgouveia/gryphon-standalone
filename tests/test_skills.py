@@ -120,14 +120,18 @@ class TestGenerateSkills:
         assert result.is_dir()
         assert result == tmp_path / ".claude" / "skills"
 
-    def test_creates_four_skill_subdirs(self, tmp_path):
+    def test_creates_every_shipped_skill_subdir(self, tmp_path):
+        """review-pr, review-delta and build-graph are slash commands too."""
         skills_dir = generate_skills(tmp_path)
         subdirs = sorted(f.name for f in skills_dir.iterdir() if f.is_dir())
         assert subdirs == [
+            "build-graph",
             "debug-issue",
             "explore-codebase",
             "refactor-safely",
             "review-changes",
+            "review-delta",
+            "review-pr",
         ]
         for d in skills_dir.iterdir():
             assert (d / "SKILL.md").is_file()
@@ -152,10 +156,13 @@ class TestGenerateSkills:
         bundled = Path(__file__).parents[1] / "skills"
 
         for skill_name in (
+            "build-graph",
             "debug-issue",
             "explore-codebase",
             "refactor-safely",
             "review-changes",
+            "review-delta",
+            "review-pr",
         ):
             for skill_file in (
                 generated / skill_name / "SKILL.md",
@@ -169,12 +176,18 @@ class TestGenerateSkills:
         result = generate_skills(tmp_path, skills_dir=custom)
         assert result == custom
         assert result.is_dir()
-        assert len(list(result.iterdir())) == 4
+        assert len(list(result.iterdir())) == 7
 
     def test_skill_content_includes_get_minimal_context(self, tmp_path):
-        """Every skill template must reference get_minimal_context_tool."""
+        """Every workflow skill must reference get_minimal_context_tool.
+
+        build-graph is exempt: it runs before a graph exists, so there is no
+        context to ask for yet.
+        """
         skills_dir = generate_skills(tmp_path)
         for subdir in skills_dir.iterdir():
+            if subdir.name == "build-graph":
+                continue
             content = (subdir / "SKILL.md").read_text()
             assert "get_minimal_context_tool" in content, (
                 f"{subdir.name} missing get_minimal_context_tool reference"
@@ -218,9 +231,14 @@ class TestGenerateSkills:
                     assert f"`{legacy_tool}`" not in content, skill_file
 
     def test_skill_content_includes_detail_level(self, tmp_path):
-        """Every skill template must reference detail_level."""
+        """Every query skill must reference detail_level.
+
+        build-graph is exempt: build_or_update_graph_tool has no such knob.
+        """
         skills_dir = generate_skills(tmp_path)
         for subdir in skills_dir.iterdir():
+            if subdir.name == "build-graph":
+                continue
             content = (subdir / "SKILL.md").read_text()
             assert "detail_level" in content, (
                 f"{subdir.name} missing detail_level reference"
@@ -231,7 +249,7 @@ class TestGenerateSkills:
         generate_skills(tmp_path)
         generate_skills(tmp_path)
         skills_dir = tmp_path / ".claude" / "skills"
-        assert len(list(skills_dir.iterdir())) == 4
+        assert len(list(skills_dir.iterdir())) == 7
 
 
 class TestGenerateHooksConfig:
@@ -1006,11 +1024,21 @@ class TestInstructionGuardrails:
         assert skills_module._CLAUDE_MD_SECTION.count("\n") <= 46
         assert skills_module._COPILOT_SECTION.count("\n") <= 53
 
-    def test_skill_templates_do_not_demand_graph_only_work(self):
-        for filename, skill in skills_module._SKILLS.items():
-            body = skill["body"]
-            assert "ALWAYS start with" not in body, filename
-            assert "Read the implementation and its tests before changing code." in body, filename
+    def test_skill_templates_do_not_demand_graph_only_work(self, tmp_path):
+        """No shipped skill may tell the agent to trust graph output alone.
+
+        The positive half only applies to the skills that carry the shared
+        "Token Efficiency Rules" block; build-graph, review-delta and
+        review-pr spell the same rule out in their own words.
+        """
+        skills_dir = skills_module.generate_skills(tmp_path)
+        for subdir in sorted(d for d in skills_dir.iterdir() if d.is_dir()):
+            body = (subdir / "SKILL.md").read_text(encoding="utf-8")
+            assert "ALWAYS start with" not in body, subdir.name
+            if "Token Efficiency Rules" in body:
+                assert (
+                    "Read the implementation and its tests before changing code." in body
+                ), subdir.name
 
 
 class TestCodeBuddyPlatform:
@@ -1104,17 +1132,21 @@ class TestCodeBuddyPlatform:
 
         assert skills_root == tmp_path / ".codebuddy" / "skills"
         assert {path.name for path in skills_root.iterdir()} == {
+            "build-graph",
             "debug-issue",
             "explore-codebase",
             "refactor-safely",
             "review-changes",
+            "review-delta",
+            "review-pr",
         }
         for skill_dir in skills_root.iterdir():
             content = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
             assert content.startswith("---\n")
             assert f"name: {skill_dir.name}\n" in content
             assert "description:" in content
-            assert "get_minimal_context" in content
+            if skill_dir.name != "build-graph":
+                assert "get_minimal_context" in content
 
     def test_project_hooks_preserve_user_settings_and_resolve_repo_at_runtime(
         self, tmp_path

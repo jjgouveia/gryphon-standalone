@@ -4,25 +4,44 @@
 
 These commands are installed for clients that support project skills or slash commands.
 
-### `/gryphon:build-graph`
+### `/build-graph`
 Build or update the knowledge graph.
 - First run: full build
 - Later runs: incremental update (changed files only)
 
-### `/gryphon:review-delta`
+### `/review-delta`
 Review changes since the last commit.
 - Changed files come from `git diff`
 - Blast radius is changed nodes plus 2-hop neighbours
 - Output is a structured review with guidance
 
-### `/gryphon:review-pr`
+### `/review-pr`
 Review a PR or branch diff.
 - Uses `main` (or `master`) as the base
 - Covers every commit in the PR
 - Output is a structured review with a risk assessment
 
-`install` also writes four workflow skills to `.claude/skills/`: `explore-codebase`,
+`install` also writes four workflow skills alongside them: `explore-codebase`,
 `review-changes`, `debug-issue` and `refactor-safely`.
+
+All seven land in the same place on every platform that discovers skills from
+files — `.claude/skills/` (Claude Code), `.gemini/skills/`, `.codebuddy/skills/`,
+`.qoder/skills/` and Hermes' skills directory — copied byte-for-byte from the
+files shipped with the package.
+
+`install` also writes them to the vendor-neutral store at
+`~/.agents/skills/<name>/SKILL.md`, which tool-specific directories symlink
+into, whenever that directory already exists. `AGENTS_HOME` overrides its
+location. There is no `--platform agents`: the store holds no MCP config, so
+there is nothing to register. Machines without one are left untouched, and
+`uninstall` removes only the seven slugs this package ships, never the skills
+that sit beside them.
+
+The skills carry no `gryphon:` prefix. A namespace like `/gryphon:review-pr`
+belongs to skills shipped inside a plugin, which are namespaced by the `name`
+in its `.claude-plugin/plugin.json` so that two plugins can ship a skill of
+the same name. These install as standalone files under a skills directory,
+which is the unprefixed form.
 
 ## MCP Tools
 

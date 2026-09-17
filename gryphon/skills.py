@@ -139,6 +139,20 @@ def _hermes_home() -> Path:
     return Path.home() / ".hermes"
 
 
+def _agents_home() -> Path:
+    """Return the vendor-neutral agent home directory.
+
+    ``.agents/skills/<name>/SKILL.md`` is the tool-independent skill store
+    that per-tool directories (``~/.claude/skills`` and friends) symlink
+    into. ``AGENTS_HOME`` overrides the location; otherwise it is
+    ``~/.agents`` on every platform, which is what the convention uses.
+    """
+    override = os.environ.get("AGENTS_HOME", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".agents"
+
+
 def _hermes_config_path() -> Path:
     """Return the Hermes Agent config file (``config.yaml``)."""
     return _hermes_home() / "config.yaml"
@@ -874,123 +888,84 @@ def install_platform_configs(
     return configured
 
 
-# --- Skill file contents ---
+# --- Bundled skill workflows ---
 
-_SKILLS: dict[str, dict[str, str]] = {
-    "explore-codebase.md": {
-        "name": "explore-codebase",
-        "description": "Navigate and understand codebase structure using the knowledge graph",
-        "body": (
-            "## Explore Codebase\n\n"
-            "Use the gryphon MCP tools to find your way around the codebase.\n\n"
-            "### Steps\n\n"
-            "1. Call `get_architecture_overview_tool` for the community structure. Call "
-            "`list_communities_tool`, then `get_community_tool`, only for the modules you need.\n"
-            "2. Call `semantic_search_nodes_tool` to find a function or class by name or keyword.\n"
-            "3. Call `query_graph_tool` with `callers_of`, `callees_of` or `imports_of` to trace "
-            "relationships. `children_of` on a file lists its functions and classes.\n"
-            "4. Call `list_flows_tool`, then `get_flow_tool` for one flow, to follow an execution "
-            "path.\n"
-            "5. Call `find_large_functions_tool` to find oversized functions.\n"
-            "6. Call `list_graph_stats_tool` only when you need node, edge and language counts.\n\n"
-            "## Token Efficiency Rules\n"
-            '- Call `get_minimal_context_tool(task="<your task>")` before any other graph tool.\n'
-            '- Pass `detail_level="minimal"` wherever a tool accepts it. Use "standard" only when '
-            "minimal is not enough.\n"
-            "- Prefer a targeted `query_graph_tool` call over a broad listing call.\n"
-            "- Budget: about five tool calls and 800 tokens of graph output per task.\n"
-            "- Read the implementation and its tests before changing code. The graph narrows "
-            "scope; it does not replace the source."
-        ),
-    },
-    "review-changes.md": {
-        "name": "review-changes",
-        "description": "Perform a structured code review using change detection and impact",
-        "body": (
-            "## Review Changes\n\n"
-            "Review a change set with risk scores and blast radius from the knowledge graph.\n\n"
-            "### Steps\n\n"
-            "1. Call `detect_changes_tool` for risk-scored changed functions, test gaps and "
-            "affected flows.\n"
-            "2. Call `get_affected_flows_tool` only when you need the steps of an affected flow.\n"
-            '3. For each high-risk function, call `query_graph_tool` with `pattern="tests_for"` '
-            "to check test coverage.\n"
-            "4. Call `get_impact_radius_tool` when the blast radius is not clear from step 1.\n"
-            "5. Suggest specific test cases for untested changes.\n\n"
-            "### Output Format\n\n"
-            "Group findings by risk level (high, medium, low). For each finding give what changed "
-            "and why it matters, its test coverage, and the suggested fix. End with a merge "
-            "recommendation.\n\n"
-            "## Token Efficiency Rules\n"
-            '- Call `get_minimal_context_tool(task="<your task>")` before any other graph tool.\n'
-            '- Pass `detail_level="minimal"` wherever a tool accepts it. Use "standard" only when '
-            "minimal is not enough.\n"
-            "- Prefer a targeted `query_graph_tool` call over a broad listing call.\n"
-            "- Budget: about five tool calls and 800 tokens of graph output per task.\n"
-            "- Read the implementation and its tests before changing code. The graph narrows "
-            "scope; it does not replace the source."
-        ),
-    },
-    "debug-issue.md": {
-        "name": "debug-issue",
-        "description": "Systematically debug issues using graph-powered code navigation",
-        "body": (
-            "## Debug Issue\n\n"
-            "Trace a bug through the knowledge graph before reading source.\n\n"
-            "### Steps\n\n"
-            "1. Call `semantic_search_nodes_tool` to find code related to the issue.\n"
-            "2. Call `query_graph_tool` with `callers_of` and `callees_of` to trace the call "
-            "chain in both directions.\n"
-            "3. Call `get_flow_tool` for the execution path that reaches the suspect code. Its "
-            "entry point is where the bug is triggered.\n"
-            "4. Call `detect_changes_tool` to check whether a recent change caused the issue.\n"
-            "5. Call `get_impact_radius_tool` on the suspect files to see what a fix would "
-            "affect.\n\n"
-            "## Token Efficiency Rules\n"
-            '- Call `get_minimal_context_tool(task="<your task>")` before any other graph tool.\n'
-            '- Pass `detail_level="minimal"` wherever a tool accepts it. Use "standard" only when '
-            "minimal is not enough.\n"
-            "- Prefer a targeted `query_graph_tool` call over a broad listing call.\n"
-            "- Budget: about five tool calls and 800 tokens of graph output per task.\n"
-            "- Read the implementation and its tests before changing code. The graph narrows "
-            "scope; it does not replace the source."
-        ),
-    },
-    "refactor-safely.md": {
-        "name": "refactor-safely",
-        "description": "Plan and execute safe refactoring using dependency analysis",
-        "body": (
-            "## Refactor Safely\n\n"
-            "Plan a refactor from the dependency graph and apply renames from a preview.\n\n"
-            "### Steps\n\n"
-            '1. Call `refactor_tool` with `mode="suggest"` for refactoring candidates, or '
-            '`mode="dead_code"` for unreferenced code.\n'
-            '2. For a rename, call `refactor_tool` with `mode="rename"`, `old_name` and '
-            "`new_name`. Check the returned edit list before applying.\n"
-            "3. Call `apply_refactor_tool` with the returned `refactor_id` to apply the rename.\n"
-            "4. Before a large refactor, call `get_impact_radius_tool` and "
-            "`get_affected_flows_tool` to see the dependents and critical paths involved.\n"
-            "5. Call `find_large_functions_tool` to find functions worth splitting.\n"
-            "6. After the change, call `detect_changes_tool` to confirm the impact matches the "
-            "plan.\n\n"
-            "## Token Efficiency Rules\n"
-            '- Call `get_minimal_context_tool(task="<your task>")` before any other graph tool.\n'
-            '- Pass `detail_level="minimal"` wherever a tool accepts it. Use "standard" only when '
-            "minimal is not enough.\n"
-            "- Prefer a targeted `query_graph_tool` call over a broad listing call.\n"
-            "- Budget: about five tool calls and 800 tokens of graph output per task.\n"
-            "- Read the implementation and its tests before changing code. The graph narrows "
-            "scope; it does not replace the source."
-        ),
-    },
-}
+# Slugs of every workflow shipped with the package, including ones earlier
+# releases wrote. Uninstall needs the list even when the bundled files are
+# unreadable, so it stays static next to the directory that holds them.
+_SKILL_SLUGS: tuple[str, ...] = (
+    "build-graph",
+    "debug-issue",
+    "explore-codebase",
+    "refactor-safely",
+    "review-changes",
+    "review-delta",
+    "review-pr",
+)
+
+
+def _bundled_skills_dir() -> Any:
+    """Return the directory holding the shipped ``SKILL.md`` workflows.
+
+    Typed ``Any`` because the two branches return different types that share
+    only the Traversable protocol, and ``importlib.resources.abc`` does not
+    exist on Python 3.10.
+
+    Wheels carry them as package data under ``gryphon/_bundled_skills``.
+    Editable installs and source checkouts keep the same files in the
+    top-level ``skills/`` directory beside the package. Never fall back to
+    the target repository's own ``skills/`` directory, which belongs to the
+    user's project.
+    """
+    packaged = resources.files("gryphon").joinpath("_bundled_skills")
+    if packaged.is_dir():
+        return packaged
+    return Path(__file__).resolve().parent.parent / "skills"
+
+
+def _copy_bundled_skills(destination: Path, label: str) -> int:
+    """Copy every shipped workflow into ``destination/<slug>/SKILL.md``.
+
+    Args:
+        destination: Directory that receives one subdirectory per skill.
+        label: Platform name used in the log lines.
+
+    Returns:
+        Number of skills written.
+    """
+    source = _bundled_skills_dir()
+    if not source.is_dir():
+        logger.warning("Bundled gryphon skills are unavailable.")
+        return 0
+
+    destination.mkdir(parents=True, exist_ok=True)
+    installed = 0
+    for skill_dir in source.iterdir():
+        if not skill_dir.is_dir():
+            continue
+        skill_file = skill_dir.joinpath("SKILL.md")
+        if not skill_file.is_file():
+            continue
+        target_dir = destination / skill_dir.name
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / "SKILL.md"
+        # write_bytes keeps the installed copy byte-identical to the shipped
+        # one; write_text would rewrite the newlines as CRLF on Windows.
+        target_file.write_bytes(skill_file.read_bytes())
+        logger.info("Wrote %s skill: %s", label, target_file)
+        installed += 1
+
+    return installed
 
 
 def generate_skills(repo_root: Path, skills_dir: Path | None = None) -> Path:
-    """Generate Claude Code skill files.
+    """Install the shipped workflow skills for Claude Code.
 
-    Creates `.claude/skills/` directory with 4 skill markdown files,
-    each containing frontmatter and instructions.
+    Writes `.claude/skills/<name>/SKILL.md` for every workflow bundled with
+    the package, copied verbatim so the installed copy never drifts from the
+    shipped one. `review-pr`, `review-delta` and `build-graph` are part of
+    that set: they used to reach Qoder only, while docs/COMMANDS.md already
+    advertised them as slash commands on every platform.
 
     Args:
         repo_root: Repository root directory.
@@ -998,26 +973,21 @@ def generate_skills(repo_root: Path, skills_dir: Path | None = None) -> Path:
 
     Returns:
         Path to the skills directory.
+
+    Raises:
+        FileNotFoundError: The bundled workflows are missing from the
+            installation. Writing zero skills and reporting success would
+            leave the user without the slash commands the docs promise.
     """
     if skills_dir is None:
         skills_dir = repo_root / ".claude" / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
 
-    for filename, skill in _SKILLS.items():
-        # Claude Code expects skills at .claude/skills/<name>/SKILL.md
-        skill_name = filename.removesuffix(".md")
-        skill_subdir = skills_dir / skill_name
-        skill_subdir.mkdir(parents=True, exist_ok=True)
-        path = skill_subdir / "SKILL.md"
-        content = (
-            "---\n"
-            f"name: {skill['name']}\n"
-            f"description: {skill['description']}\n"
-            "---\n\n"
-            f"{skill['body']}\n"
+    if not _copy_bundled_skills(skills_dir, "Claude Code"):
+        raise FileNotFoundError(
+            "Bundled gryphon skills are missing from this installation "
+            f"(looked in {_bundled_skills_dir()}). Reinstall the package to "
+            "restore them."
         )
-        path.write_text(content, encoding="utf-8")
-        logger.info("Wrote skill: %s", path)
 
     return skills_dir
 
@@ -1757,22 +1727,7 @@ def install_gemini_cli_skills(repo_root: Path) -> Path:
     """Install Gemini CLI Agent Skills in .gemini/skills/<skill>/SKILL.md."""
     skills_root = repo_root / ".gemini" / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
-
-    for filename, skill in _SKILLS.items():
-        slug = filename.rsplit(".", 1)[0]
-        skill_dir = skills_root / slug
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        skill_path = skill_dir / "SKILL.md"
-        content = (
-            "---\n"
-            f"name: {slug}\n"
-            f"description: {skill['description']}\n"
-            "---\n\n"
-            f"{skill['body']}\n"
-        )
-        skill_path.write_text(content, encoding="utf-8")
-        logger.info("Wrote Gemini CLI skill: %s", skill_path)
-
+    _copy_bundled_skills(skills_root, "Gemini CLI")
     return skills_root
 
 
@@ -1780,22 +1735,7 @@ def install_codebuddy_skills(repo_root: Path) -> Path:
     """Install project skills in .codebuddy/skills/<name>/SKILL.md."""
     skills_root = repo_root / ".codebuddy" / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
-
-    for filename, skill in _SKILLS.items():
-        slug = filename.rsplit(".", 1)[0]
-        skill_dir = skills_root / slug
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        skill_path = skill_dir / "SKILL.md"
-        content = (
-            "---\n"
-            f"name: {slug}\n"
-            f"description: {skill['description']}\n"
-            "---\n\n"
-            f"{skill['body']}\n"
-        )
-        skill_path.write_text(content, encoding="utf-8")
-        logger.info("Wrote CodeBuddy skill: %s", skill_path)
-
+    _copy_bundled_skills(skills_root, "CodeBuddy")
     return skills_root
 
 
@@ -2045,9 +1985,10 @@ def install_cursor_hooks() -> Path:
 def install_qoder_skills(repo_root: Path) -> Path | None:
     """Install skills to Qoder's project-level skills directory.
 
-    Qoder expects skills in .qoder/skills/{skillName}/SKILL.md format within the project.
-    Loads the shipped skills from package resources. Source checkouts use their
-    own top-level skills/ directory when wheel resources are not present.
+    Qoder expects skills in .qoder/skills/{skillName}/SKILL.md format within
+    the project. The files come from the package's own bundled workflows, so
+    an unrelated ``skills/`` directory in the target project is never treated
+    as a gryphon workflow.
 
     Args:
         repo_root: Target repository root directory.
@@ -2055,35 +1996,27 @@ def install_qoder_skills(repo_root: Path) -> Path | None:
     Returns:
         Path to the Qoder skills directory, or None if installation failed.
     """
-    # Qoder skills directory (project-level)
     qoder_skills_dir = repo_root / ".qoder" / "skills"
-    qoder_skills_dir.mkdir(parents=True, exist_ok=True)
-
-    source_skills_dir = resources.files("gryphon").joinpath("_bundled_skills")
-    if not source_skills_dir.is_dir():
-        # Editable installs keep the same files beside the source package. Never
-        # treat the target project's unrelated skills as CRG's bundled workflows.
-        source_skills_dir = Path(__file__).resolve().parent.parent / "skills"
-    if not source_skills_dir.is_dir():
-        logger.warning("Bundled gryphon skills are unavailable.")
-        return None
-
-    installed_count = 0
-    for skill_dir in source_skills_dir.iterdir():
-        if skill_dir.is_dir():
-            skill_file = skill_dir / "SKILL.md"
-            if skill_file.is_file():
-                target_dir = qoder_skills_dir / skill_dir.name
-                target_dir.mkdir(parents=True, exist_ok=True)
-                target_file = target_dir / "SKILL.md"
-                target_file.write_text(skill_file.read_text(encoding="utf-8"), encoding="utf-8")
-                logger.info("Installed Qoder skill: %s", skill_dir.name)
-                installed_count += 1
-
+    installed_count = _copy_bundled_skills(qoder_skills_dir, "Qoder")
     if installed_count > 0:
         logger.info("Installed %d skill(s) to %s", installed_count, qoder_skills_dir)
         return qoder_skills_dir
     return None
+
+
+def install_agents_skills() -> Path:
+    """Install the shipped workflows into the vendor-neutral skill store.
+
+    Writes ``<AGENTS_HOME>/skills/<name>/SKILL.md``. Unlike the per-tool
+    directories this one is user-level and shared across projects, so the
+    skills are written flat rather than under a ``gryphon`` category: that
+    is the layout the tools reading ``.agents`` expect, and the one the
+    symlinks in ``~/.claude/skills`` point at.
+    """
+    skills_root = _agents_home() / "skills"
+    skills_root.mkdir(parents=True, exist_ok=True)
+    _copy_bundled_skills(skills_root, "agent-neutral")
+    return skills_root
 
 
 def install_hermes_skills(repo_root: Path) -> Path:

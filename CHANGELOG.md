@@ -4,6 +4,12 @@
 
 ### Added
 
+- `install` populates the vendor-neutral skill store at
+  `~/.agents/skills/<name>/SKILL.md` when that directory already exists, so
+  the workflows reach every tool that reads `.agents` instead of only the
+  ones with a directory of their own. `AGENTS_HOME` overrides the location.
+  `uninstall` removes the shipped slugs from it and leaves the unrelated
+  skills, and the lock file, that share the store alone.
 - `cross_repo_search_tool` accepts `repos`, a list of registry aliases or
   folder names, to search only part of the registry. Names that match no
   entry come back in `unknown` and names that match several entries in
@@ -75,6 +81,22 @@
   `flows_affected`, so every change, in any part of the codebase, came back
   with the same three names. With no change set the repo-wide view is still
   what both fields return.
+- `detect_changes_tool`, `get_review_context_tool` and the impact and query
+  tools reconcile a graph whose build commit no longer matches HEAD before
+  answering. `get_minimal_context_tool` was the only one that checked, so
+  the others scored a diff against whatever the graph happened to hold after
+  the checkout moved on. A build commit that is still diffable is topped up
+  in place; one that is gone from the clone returns `not_ready`. This is the
+  case a presence-only coverage check cannot catch, because the graph still
+  holds a node at that file path - it just describes another revision.
+- `install` writes every shipped workflow to the file-based skill
+  directories, so `review-pr`, `review-delta` and `build-graph` are
+  available as slash commands on Claude Code, Gemini CLI, CodeBuddy and
+  Hermes, not on Qoder alone. docs/COMMANDS.md and docs/USAGE.md have
+  advertised them since 1.0. The skills are copied from the files shipped
+  with the package instead of being rebuilt from a second copy held in
+  `skills.py`, so the installed and bundled copies can no longer drift, and
+  copying them byte-for-byte keeps Windows from rewriting their newlines.
 - Freshness metadata follows what was stored. A no-op `update` that
   confirms `HEAD` advances the Git anchor, so queries after a commit no
   longer carry a stale-graph caveat, and a file that fails to parse no

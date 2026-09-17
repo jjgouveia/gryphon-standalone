@@ -381,7 +381,7 @@ def test_shared_skill_directories_keep_user_files_and_unrelated_skills(
         fake_repo / ".gemini" / "skills",
         fake_repo / ".codebuddy" / "skills",
     ]
-    generated_slug = next(iter(skills._SKILLS)).removesuffix(".md")
+    generated_slug = skills._SKILL_SLUGS[0]
     for root in generated_roots:
         _write(root / generated_slug / "SKILL.md", "generated\n")
         _write(root / generated_slug / "notes.txt", "keep\n")

@@ -62,7 +62,7 @@ implicit update does not build a second graph for another branch; set
 
 ### 1. Build the graph (first time only)
 ```
-/gryphon:build-graph
+/build-graph
 ```
 Parses the whole codebase. Build time scales with repository size; a cold build of a ~3,000-file repository took about 40 seconds on the machine described in [REPRODUCING.md](REPRODUCING.md#incremental-update-latency).
 
@@ -70,13 +70,13 @@ If some files fail to parse, the build or update result has status `partial` and
 
 ### 2. Review changes (daily use)
 ```
-/gryphon:review-delta
+/review-delta
 ```
 Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md).
 
 ### 3. Review a PR
 ```
-/gryphon:review-pr
+/review-pr
 ```
 Structural review of a branch diff with blast-radius analysis.
 

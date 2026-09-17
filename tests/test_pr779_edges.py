@@ -15,10 +15,10 @@ import ast
 import re
 from pathlib import Path
 
-from gryphon.skills import _SKILLS, generate_skills
+from gryphon.skills import _SKILL_SLUGS, generate_skills
 
 REPO_ROOT = Path(__file__).parents[1]
-SKILL_NAMES = ["explore-codebase", "review-changes", "debug-issue", "refactor-safely"]
+SKILL_NAMES = list(_SKILL_SLUGS)
 
 _BACKTICK = re.compile(r"`([^`]+)`")
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -73,10 +73,11 @@ def test_exported_schema_is_nonempty_and_contains_renamed_tools():
 
 
 def test_generated_and_bundled_skills_byte_identical(tmp_path):
-    """The sdist ships skills/; the installer generates from _SKILLS.
+    """The installer copies the skills the sdist ships in skills/.
 
     Any divergence between the two copies is the exact bug class this
     PR fixed, so guard it with strict equality rather than token lists.
+    Byte equality also catches newline rewriting on Windows.
     """
     generated = generate_skills(tmp_path)
     for name in SKILL_NAMES:
@@ -113,7 +114,9 @@ def test_generate_skills_unicode_and_space_path(tmp_path):
     assert out == target / ".claude" / "skills"
     for name in SKILL_NAMES:
         content = (out / name / "SKILL.md").read_text(encoding="utf-8")
-        assert "get_minimal_context_tool" in content
+        # build-graph runs before a graph exists, so it has no context call.
+        if name != "build-graph":
+            assert "get_minimal_context_tool" in content
         assert content.startswith("---\n")
 
 
@@ -128,5 +131,7 @@ def test_generate_skills_overwrites_stale_content(tmp_path):
     assert "get_flow_tool" in refreshed
 
 
-def test_skills_dict_covers_exactly_four_known_skills():
-    assert sorted(f.removesuffix(".md") for f in _SKILLS) == sorted(SKILL_NAMES)
+def test_slug_list_matches_the_bundled_directory():
+    """uninstall removes directories by slug, so the static list must not drift."""
+    bundled = sorted(d.name for d in (REPO_ROOT / "skills").iterdir() if d.is_dir())
+    assert sorted(_SKILL_SLUGS) == bundled

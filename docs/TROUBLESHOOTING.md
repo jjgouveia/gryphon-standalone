@@ -263,7 +263,7 @@ on first use. Nothing else is needed.
 - With hooks installed, `update --skip-flows` runs after each Edit/Write and
   the pre-commit hook runs `update` before each commit (not in linked
   worktrees; see above).
-- Run `gryphon update`, or `/gryphon:build-graph` in Claude
+- Run `gryphon update`, or `/build-graph` in Claude
   Code, to catch up.
 - Check `.claude/settings.json` still has the hooks; `gryphon install`
   rewrites them.
