@@ -17,6 +17,7 @@ import stat
 import subprocess
 import sys
 from importlib import resources
+from importlib.metadata import packages_distributions
 from pathlib import Path
 from typing import Any
 
@@ -290,45 +291,53 @@ PLATFORMS: dict[str, dict[str, Any]] = {
 }
 
 
-def _in_poetry_project() -> bool:
-    """Return True when the running interpreter is a Poetry-managed virtualenv.
+def _uv_cache_dir() -> Path:
+    """Return uv's cache directory, where ephemeral ``uvx`` environments live."""
+    env = os.environ.get("UV_CACHE_DIR")
+    if env:
+        return Path(env)
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
+        return Path(base) / "uv" / "cache"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "uv"
+    base = os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+    return Path(base) / "uv"
 
-    Two signals are checked so that **both** ``poetry shell`` and ``poetry run``
-    are detected:
 
-    * ``POETRY_ACTIVE=1`` — set by ``poetry shell`` when the user activates the
-      virtual environment interactively.
-    * ``VIRTUAL_ENV`` containing ``"pypoetry"`` — set by **both** ``poetry shell``
-      and ``poetry run`` because Poetry stores its virtualenvs under a path that
-      includes the string ``pypoetry`` (e.g.
-      ``~/.cache/pypoetry/virtualenvs/<name>`` on Linux/macOS or
-      ``%LOCALAPPDATA%\\pypoetry\\Cache\\virtualenvs\\<name>`` on Windows).
+def _in_uv_ephemeral_env() -> bool:
+    """Return True when running inside a cache-resident ``uvx`` environment.
 
-    Checking only ``POETRY_ACTIVE`` would miss the ``poetry run`` case, which is
-    the primary scenario described in issue #256.
+    ``uv tool run`` (``uvx``) without an installed tool executes from a
+    disposable environment under ``<uv-cache>/environments-v*``. A baked-in
+    interpreter path would silently break on the next ``uv cache clean``, so
+    that case must re-resolve the distribution instead of embedding
+    ``sys.executable``.
     """
-    if os.environ.get("POETRY_ACTIVE") == "1":
-        return True
-    virtual_env = os.environ.get("VIRTUAL_ENV", "")
-    return bool(virtual_env) and "pypoetry" in virtual_env.lower()
+    try:
+        exe = Path(sys.executable).resolve()
+        return exe.is_relative_to(_uv_cache_dir().resolve()) and any(
+            part.startswith("environments") for part in exe.parts
+        )
+    except OSError:
+        return False
 
 
-def _in_uv_project() -> bool:
-    """Return True if ``sys.executable`` lives inside a uv-managed project.
+def _installed_dist_name() -> str:
+    """Return the distribution name that provides the ``gryphon`` package."""
+    try:
+        names = packages_distributions().get("gryphon") or []
+    except Exception:
+        names = []
+    return names[0] if names else "gryphon"
 
-    A project is considered uv-managed when a ``uv.lock`` file exists in any
-    ancestor directory of the running Python interpreter (stopping at the home
-    directory to avoid false positives on system-wide installations).
-    """
-    exe = Path(sys.executable).resolve()
-    home = Path.home()
-    for parent in exe.parents:
-        if (parent / "uv.lock").exists():
-            return True
-        # Stop searching once we reach the home directory or filesystem root
-        if parent == home or parent == parent.parent:
-            break
-    return False
+
+def _source_checkout_root() -> Path | None:
+    """Return the repository root when gryphon runs from a source checkout."""
+    root = Path(__file__).resolve().parent.parent
+    if (root / "pyproject.toml").is_file() and (root / "gryphon").is_dir():
+        return root
+    return None
 
 
 def _detect_serve_command() -> tuple[str, list[str]]:
@@ -336,38 +345,32 @@ def _detect_serve_command() -> tuple[str, list[str]]:
 
     Detection priority
     ------------------
-    1. **Poetry** – ``POETRY_ACTIVE=1`` OR ``VIRTUAL_ENV`` contains ``"pypoetry"``
-       (covers both ``poetry shell`` and ``poetry run``) and ``poetry`` is on PATH
-       → ``poetry run gryphon serve``
-    2. **uv project** – ``UV_PROJECT_ENVIRONMENT`` is set, or a ``uv.lock``
-       ancestor is found alongside ``sys.executable``, and ``uv`` is on PATH
-       → ``uv run gryphon serve``
-    3. **uvx** – ``uvx`` is available on PATH (existing behaviour, unchanged)
-       → ``uvx gryphon serve``
-    4. **Fallback** – use the absolute path of the running Python interpreter
-       → ``sys.executable -m gryphon serve``
+    1. **Ephemeral uvx env** – ``sys.executable`` lives inside uv's cache,
+       meaning this run came from ``uvx`` without an installed tool. An
+       embedded interpreter path would silently break on ``uv cache clean``,
+       so the config re-resolves the package instead:
+       ``uvx --from <dist-or-source> gryphon serve``. When gryphon runs from
+       a source checkout the checkout path is used rather than the
+       distribution name, so a local ``uvx --from ./gryphon`` run does not
+       resolve an unrelated PyPI package.
+    2. **Everything else** – ``sys.executable -m gryphon serve``.
 
-    The fallback is always safe: ``sys.executable`` is the exact interpreter
-    that is currently running, so it resolves correctly inside any virtual
-    environment, conda env, or system installation.
+    ``sys.executable`` is the exact interpreter running ``install``, so it is
+    guaranteed to have gryphon importable and is immune to PATH. Generated
+    entries set ``cwd`` to the *target* repository, so env-manager shims such
+    as ``poetry run``, ``uv run`` or a bare ``uvx gryphon`` would resolve the
+    wrong project — or the wrong package, since the ``gryphon`` name on PyPI
+    does not necessarily point at this project.
     """
-    # 1. Poetry (poetry shell or poetry run)
-    if _in_poetry_project():
-        poetry = shutil.which("poetry")
-        if poetry:
-            return ("poetry", ["run", "gryphon", "serve"])
+    # 1. Ephemeral uvx environment: re-resolve the distribution on each launch
+    if _in_uv_ephemeral_env():
+        uvx = shutil.which("uvx")
+        if uvx:
+            source = _source_checkout_root()
+            from_ref = str(source) if source is not None else _installed_dist_name()
+            return ("uvx", ["--from", from_ref, "gryphon", "serve"])
 
-    # 2. uv managed project environment
-    if os.environ.get("UV_PROJECT_ENVIRONMENT") or _in_uv_project():
-        uv = shutil.which("uv")
-        if uv:
-            return ("uv", ["run", "gryphon", "serve"])
-
-    # 3. uvx global tool runner (existing behaviour, unchanged)
-    if shutil.which("uvx"):
-        return ("uvx", ["gryphon", "serve"])
-
-    # 4. Absolute-path fallback using the running interpreter
+    # 2. Absolute-path fallback using the running interpreter
     return (sys.executable, ["-m", "gryphon", "serve"])
 
 

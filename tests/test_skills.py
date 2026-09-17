@@ -22,10 +22,12 @@ from gryphon.skills import (
     _copilot_vscode_detected,
     _cursor_hook_scripts,
     _detect_serve_command,
-    _in_poetry_project,
-    _in_uv_project,
+    _in_uv_ephemeral_env,
+    _installed_dist_name,
     _opencode_plugin_content,
+    _source_checkout_root,
     _strip_jsonc,
+    _uv_cache_dir,
     generate_codex_hooks_config,
     generate_cursor_hooks_config,
     generate_hooks_config,
@@ -2192,153 +2194,220 @@ class TestDetectServeCommand:
     """Tests for _detect_serve_command() and its helpers."""
 
     # ------------------------------------------------------------------
-    # _in_poetry_project() unit tests
+    # _in_uv_ephemeral_env() / _uv_cache_dir() unit tests
     # ------------------------------------------------------------------
 
-    def test_in_poetry_project_via_poetry_active(self, monkeypatch):
-        """POETRY_ACTIVE=1 signals a poetry shell session."""
-        monkeypatch.setenv("POETRY_ACTIVE", "1")
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        assert _in_poetry_project() is True
+    def test_uv_cache_dir_respects_env_var(self, monkeypatch, tmp_path):
+        """UV_CACHE_DIR overrides every platform default."""
+        monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "custom-cache"))
+        assert _uv_cache_dir() == tmp_path / "custom-cache"
 
-    def test_in_poetry_project_via_virtual_env(self, monkeypatch):
-        """VIRTUAL_ENV containing 'pypoetry' signals a poetry run session."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.setenv("VIRTUAL_ENV", "/home/user/.cache/pypoetry/virtualenvs/proj-xxx")
-        assert _in_poetry_project() is True
+    def test_in_uv_ephemeral_env_true(self, monkeypatch, tmp_path):
+        """Interpreter under <cache>/environments-v2 → ephemeral uvx env."""
+        cache = tmp_path / "uv" / "cache"
+        env_bin = cache / "environments-v2" / "abc123" / "bin"
+        env_bin.mkdir(parents=True)
+        fake_python = env_bin / "python"
+        fake_python.write_text("")
+        monkeypatch.setenv("UV_CACHE_DIR", str(cache))
+        monkeypatch.setattr("gryphon.skills.sys.executable", str(fake_python))
+        assert _in_uv_ephemeral_env() is True
 
-    def test_in_poetry_project_false_for_plain_venv(self, monkeypatch):
-        """A plain venv (no pypoetry in path) is not treated as poetry."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.setenv("VIRTUAL_ENV", "/home/user/myproject/.venv")
-        assert _in_poetry_project() is False
+    def test_in_uv_ephemeral_env_false_for_project_venv(self, monkeypatch, tmp_path):
+        """A project .venv outside the uv cache is not ephemeral."""
+        cache = tmp_path / "uv" / "cache"
+        venv_bin = tmp_path / "proj" / ".venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        fake_python = venv_bin / "python"
+        fake_python.write_text("")
+        monkeypatch.setenv("UV_CACHE_DIR", str(cache))
+        monkeypatch.setattr("gryphon.skills.sys.executable", str(fake_python))
+        assert _in_uv_ephemeral_env() is False
 
-    def test_in_poetry_project_false_when_nothing_set(self, monkeypatch):
-        """No env vars → not in a poetry project."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        assert _in_poetry_project() is False
+    def test_in_uv_ephemeral_env_false_for_uv_tool(self, monkeypatch, tmp_path):
+        """Installed uv tools live outside the cache → not ephemeral."""
+        cache = tmp_path / "uv" / "cache"
+        tool_bin = tmp_path / "uv" / "tools" / "gryphon" / "bin"
+        tool_bin.mkdir(parents=True)
+        fake_python = tool_bin / "python"
+        fake_python.write_text("")
+        monkeypatch.setenv("UV_CACHE_DIR", str(cache))
+        monkeypatch.setattr("gryphon.skills.sys.executable", str(fake_python))
+        assert _in_uv_ephemeral_env() is False
+
+    # ------------------------------------------------------------------
+    # _installed_dist_name() / _source_checkout_root() unit tests
+    # ------------------------------------------------------------------
+
+    def test_installed_dist_name_returns_a_name(self):
+        """The running env always provides some distribution for 'gryphon'."""
+        name = _installed_dist_name()
+        assert isinstance(name, str)
+        assert name
+
+    def test_source_checkout_root_detects_checkout(self, monkeypatch, tmp_path):
+        """A gryphon/ package beside pyproject.toml is a source checkout."""
+        pkg = tmp_path / "gryphon"
+        pkg.mkdir()
+        (tmp_path / "pyproject.toml").write_text("")
+        fake_module = pkg / "skills.py"
+        fake_module.write_text("")
+        monkeypatch.setattr("gryphon.skills.__file__", str(fake_module))
+        assert _source_checkout_root() == tmp_path
+
+    def test_source_checkout_root_none_for_site_packages(self, monkeypatch, tmp_path):
+        """site-packages installs (no sibling pyproject.toml) → None."""
+        pkg = tmp_path / "site-packages" / "gryphon"
+        pkg.mkdir(parents=True)
+        fake_module = pkg / "skills.py"
+        fake_module.write_text("")
+        monkeypatch.setattr("gryphon.skills.__file__", str(fake_module))
+        assert _source_checkout_root() is None
 
     # ------------------------------------------------------------------
     # _detect_serve_command() integration tests
     # ------------------------------------------------------------------
 
-    def test_poetry_active_returns_poetry_run(self, monkeypatch):
-        """POETRY_ACTIVE=1 (poetry shell) → 'poetry run' invocation."""
-        monkeypatch.setenv("POETRY_ACTIVE", "1")
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.setattr(
-            "gryphon.skills.shutil.which",
-            lambda x: "/usr/bin/poetry" if x == "poetry" else None,
-        )
+    def test_plain_env_returns_sys_executable(self, monkeypatch):
+        """Non-ephemeral envs → absolute interpreter + '-m gryphon serve'."""
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: False)
         cmd, args = _detect_serve_command()
-        assert cmd == "poetry"
-        assert args == ["run", "gryphon", "serve"]
+        assert cmd == sys.executable
+        assert args == ["-m", "gryphon", "serve"]
 
-    def test_virtual_env_pypoetry_returns_poetry_run(self, monkeypatch):
-        """VIRTUAL_ENV with 'pypoetry' (poetry run) → 'poetry run' invocation."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.setenv("VIRTUAL_ENV", "/home/user/.cache/pypoetry/virtualenvs/proj-abc123")
-        monkeypatch.setattr(
-            "gryphon.skills.shutil.which",
-            lambda x: "/usr/bin/poetry" if x == "poetry" else None,
-        )
-        cmd, args = _detect_serve_command()
-        assert cmd == "poetry"
-        assert args == ["run", "gryphon", "serve"]
+    def test_uvx_on_path_does_not_emit_uvx(self, monkeypatch):
+        """uvx on PATH must not produce 'uvx gryphon serve'.
 
-    def test_poetry_env_without_poetry_on_path_falls_through(self, monkeypatch):
-        """If poetry venv is detected but poetry binary is missing, fall through."""
-        monkeypatch.setenv("POETRY_ACTIVE", "1")
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
-        monkeypatch.setattr("gryphon.skills._in_uv_project", lambda: False)
-        # poetry not on PATH → should fall through to uvx
+        The ``gryphon`` name on PyPI is not guaranteed to be this package,
+        so only ephemeral uvx environments may go through uvx; persistent
+        installs always resolve through the running interpreter.
+        """
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: False)
         monkeypatch.setattr(
             "gryphon.skills.shutil.which",
             lambda x: "/usr/bin/uvx" if x == "uvx" else None,
         )
-        cmd, _ = _detect_serve_command()
-        assert cmd == "uvx"
-
-    def test_uv_project_env_returns_uv_run(self, monkeypatch):
-        """UV_PROJECT_ENVIRONMENT set + uv on PATH → 'uv run' invocation."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/some/.venv")
-        monkeypatch.setattr(
-            "gryphon.skills.shutil.which",
-            lambda x: "/usr/bin/uv" if x == "uv" else None,
-        )
         cmd, args = _detect_serve_command()
-        assert cmd == "uv"
-        assert args == ["run", "gryphon", "serve"]
+        assert cmd == sys.executable
+        assert args == ["-m", "gryphon", "serve"]
 
-    def test_uv_lock_detection_returns_uv_run(self, monkeypatch, tmp_path):
-        """uv.lock alongside sys.executable → detected as a uv project."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
-        venv = tmp_path / ".venv" / "bin"
-        venv.mkdir(parents=True)
-        (tmp_path / "uv.lock").write_text("")
-        fake_python = venv / "python"
-        fake_python.write_text("")
-        monkeypatch.setattr("gryphon.skills.sys.executable", str(fake_python))
-        monkeypatch.setattr(
-            "gryphon.skills.shutil.which",
-            lambda x: "/usr/bin/uv" if x == "uv" else None,
-        )
-        assert _in_uv_project() is True
+    def test_poetry_env_also_uses_sys_executable(self, monkeypatch):
+        """Poetry envs resolve through the interpreter, not 'poetry run'.
+
+        The generated entry runs with cwd=<target repo>, where 'poetry run'
+        would resolve the wrong project.
+        """
+        monkeypatch.setenv("POETRY_ACTIVE", "1")
+        monkeypatch.setenv("VIRTUAL_ENV", "/home/user/.cache/pypoetry/virtualenvs/proj-x")
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: False)
         cmd, args = _detect_serve_command()
-        assert cmd == "uv"
-        assert args == ["run", "gryphon", "serve"]
+        assert cmd == sys.executable
+        assert args == ["-m", "gryphon", "serve"]
 
-    def test_uvx_fallback(self, monkeypatch):
-        """Not in Poetry/uv but uvx available → use uvx (original behaviour)."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
-        monkeypatch.setattr("gryphon.skills._in_uv_project", lambda: False)
+    def test_ephemeral_uvx_env_emits_uvx_from_dist(self, monkeypatch):
+        """Cache-resident uvx env → 'uvx --from <dist> gryphon serve'."""
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: True)
+        monkeypatch.setattr("gryphon.skills._source_checkout_root", lambda: None)
+        monkeypatch.setattr(
+            "gryphon.skills._installed_dist_name", lambda: "gryphon-dist"
+        )
         monkeypatch.setattr(
             "gryphon.skills.shutil.which",
             lambda x: "/usr/bin/uvx" if x == "uvx" else None,
         )
         cmd, args = _detect_serve_command()
         assert cmd == "uvx"
-        assert args == ["gryphon", "serve"]
+        assert args == ["--from", "gryphon-dist", "gryphon", "serve"]
 
-    def test_sys_executable_fallback(self, monkeypatch):
-        """Nothing else available → fall back to sys.executable -m."""
-        monkeypatch.delenv("POETRY_ACTIVE", raising=False)
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.delenv("UV_PROJECT_ENVIRONMENT", raising=False)
-        monkeypatch.setattr("gryphon.skills._in_uv_project", lambda: False)
+    def test_ephemeral_uvx_env_prefers_source_checkout(self, monkeypatch, tmp_path):
+        """Ephemeral env from a source checkout → 'uvx --from <checkout>'."""
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: True)
+        monkeypatch.setattr("gryphon.skills._source_checkout_root", lambda: tmp_path)
+        monkeypatch.setattr(
+            "gryphon.skills.shutil.which",
+            lambda x: "/usr/bin/uvx" if x == "uvx" else None,
+        )
+        cmd, args = _detect_serve_command()
+        assert cmd == "uvx"
+        assert args == ["--from", str(tmp_path), "gryphon", "serve"]
+
+    def test_ephemeral_env_without_uvx_falls_back(self, monkeypatch):
+        """Ephemeral env but no uvx binary → still sys.executable -m."""
+        monkeypatch.setattr("gryphon.skills._in_uv_ephemeral_env", lambda: True)
         monkeypatch.setattr("gryphon.skills.shutil.which", lambda _: None)
         cmd, args = _detect_serve_command()
         assert cmd == sys.executable
         assert args == ["-m", "gryphon", "serve"]
 
-    def test_poetry_takes_priority_over_uv(self, monkeypatch):
-        """Poetry detection wins even when UV_PROJECT_ENVIRONMENT is also set."""
-        monkeypatch.setenv("POETRY_ACTIVE", "1")
-        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-        monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/some/.venv")
-        monkeypatch.setattr(
-            "gryphon.skills.shutil.which",
-            lambda x: "/usr/bin/poetry" if x == "poetry" else None,
-        )
-        cmd, _ = _detect_serve_command()
-        assert cmd == "poetry"
+    # ------------------------------------------------------------------
+    # _uv_cache_dir() platform defaults
+    # ------------------------------------------------------------------
 
-    def test_in_uv_project_false_without_lockfile(self, monkeypatch, tmp_path):
-        """_in_uv_project returns False when no uv.lock in ancestor dirs."""
-        fake_python = tmp_path / "bin" / "python"
-        fake_python.parent.mkdir(parents=True)
-        fake_python.write_text("")
-        monkeypatch.setattr("gryphon.skills.sys.executable", str(fake_python))
-        monkeypatch.setattr("gryphon.skills.Path.home", staticmethod(lambda: tmp_path))
-        assert _in_uv_project() is False
+    def test_uv_cache_dir_windows_default(self, monkeypatch, tmp_path):
+        """Windows: %LOCALAPPDATA%\\uv\\cache."""
+        monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+        monkeypatch.setattr("gryphon.skills.sys.platform", "win32")
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+        monkeypatch.setattr("gryphon.skills.Path.home", lambda: tmp_path / "home")
+        result = _uv_cache_dir()
+        assert result == tmp_path / "AppData" / "Local" / "uv" / "cache"
+
+    def test_uv_cache_dir_macos_default(self, monkeypatch, tmp_path):
+        """macOS: ~/Library/Caches/uv."""
+        monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+        monkeypatch.setattr("gryphon.skills.sys.platform", "darwin")
+        monkeypatch.setattr("gryphon.skills.Path.home", lambda: tmp_path / "home")
+        result = _uv_cache_dir()
+        assert result == tmp_path / "home" / "Library" / "Caches" / "uv"
+
+    def test_uv_cache_dir_linux_xdg_default(self, monkeypatch, tmp_path):
+        """Linux: $XDG_CACHE_HOME/uv, falling back to ~/.cache/uv."""
+        monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+        monkeypatch.setattr("gryphon.skills.sys.platform", "linux")
+        monkeypatch.setattr("gryphon.skills.Path.home", lambda: tmp_path / "home")
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+        result = _uv_cache_dir()
+        assert result == tmp_path / "xdg" / "uv"
+
+    def test_uv_cache_dir_linux_no_xdg_uses_home_cache(self, monkeypatch, tmp_path):
+        """Linux without XDG_CACHE_HOME falls back to ~/.cache/uv."""
+        monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+        monkeypatch.setattr("gryphon.skills.sys.platform", "linux")
+        monkeypatch.setattr("gryphon.skills.Path.home", lambda: tmp_path / "home")
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+        result = _uv_cache_dir()
+        assert result == tmp_path / "home" / ".cache" / "uv"
+
+    # ------------------------------------------------------------------
+    # _installed_dist_name() error path
+    # ------------------------------------------------------------------
+
+    def test_installed_dist_name_handles_exception(self, monkeypatch):
+        """If packages_distributions() raises, fall back to 'gryphon'."""
+        import gryphon.skills as skills_mod
+
+        def boom(_name):
+            raise RuntimeError("metadata unavailable")
+
+        monkeypatch.setattr(
+            skills_mod, "packages_distributions", lambda: (_ for _ in ()).throw(boom)
+        )
+        assert _installed_dist_name() == "gryphon"
+
+    # ------------------------------------------------------------------
+    # _in_uv_ephemeral_env() OSError path
+    # ------------------------------------------------------------------
+
+    def test_in_uv_ephemeral_env_handles_oserror(self, monkeypatch, tmp_path):
+        """OSError during path resolution → not ephemeral (safe fallback)."""
+        cache = tmp_path / "uv" / "cache"
+        monkeypatch.setenv("UV_CACHE_DIR", str(cache))
+
+        def fake_resolve(self):
+            raise OSError("broken symlink")
+
+        monkeypatch.setattr(Path, "resolve", fake_resolve)
+        assert _in_uv_ephemeral_env() is False
 
 
 class TestOpenCodePluginContent:

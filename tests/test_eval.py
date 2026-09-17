@@ -1315,3 +1315,25 @@ def test_clone_or_update_refuses_directory_inside_another_repo(tmp_path):
     ).stdout.strip()
     assert head_after == head_before, "enclosing repository was checked out"
     assert (outer / "tracked.txt").read_text() == "second"
+
+
+# --- _require_yaml() guard tests ---
+
+
+def test_require_yaml_raises_when_pyyaml_missing(monkeypatch):
+    """``_require_yaml`` must raise ImportError with install instructions when
+    pyyaml is not importable."""
+    import gryphon.eval.runner as runner
+
+    monkeypatch.setattr(runner, "yaml", None)
+    with pytest.raises(ImportError, match="pyyaml is required"):
+        runner._require_yaml()
+
+
+def test_require_yaml_passes_when_pyyaml_installed(monkeypatch):
+    """When pyyaml is available, ``_require_yaml`` is a no-op."""
+    import gryphon.eval.runner as runner
+
+    monkeypatch.setattr(runner, "yaml", object())
+    # Should not raise
+    runner._require_yaml()
