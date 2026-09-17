@@ -5,7 +5,7 @@ Applies to gryphon 2.3.8.
 ## Installation
 
 ```bash
-pip install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install    # detect installed AI coding tools and configure each one
 gryphon build      # parse the codebase
 ```
@@ -95,7 +95,7 @@ Interactive D3.js force-directed graph. It starts collapsed (File nodes only); c
 
 ### 6. Semantic search (optional)
 ```bash
-pip install "gryphon[embeddings]"
+pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"
 ```
 Then run `gryphon embed` or the `embed_graph_tool` MCP tool to compute vectors. `semantic_search_nodes_tool` uses vector similarity when matching embeddings exist and falls back to keyword/FTS search otherwise.
 

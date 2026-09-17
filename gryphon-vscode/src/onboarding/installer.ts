@@ -40,10 +40,10 @@ export class Installer {
             terminal.sendText('echo "=== Code Review Graph - Manual Installation ==="');
             terminal.sendText('echo ""');
             terminal.sendText('echo "Option 1: Install with pip"');
-            terminal.sendText('echo "  pip install gryphon"');
+            terminal.sendText('echo "  pip install git+https://github.com/jjgouveia/gryphon-standalone.git"');
             terminal.sendText('echo ""');
             terminal.sendText('echo "Option 2: Install with pipx (recommended)"');
-            terminal.sendText('echo "  pipx install gryphon"');
+            terminal.sendText('echo "  pipx install git+https://github.com/jjgouveia/gryphon-standalone.git"');
             terminal.sendText('echo ""');
             terminal.sendText('echo "After installation, reload the VS Code window."');
             return false;

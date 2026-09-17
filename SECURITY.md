@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-Do not open a public GitHub issue. Use [GitHub private vulnerability reporting](https://github.com/tirth8205/gryphon/security/advisories/new) (the "Report a vulnerability" button under the repository's Security tab). Include a description, steps to reproduce, the likely impact and a suggested fix if you have one.
+Do not open a public GitHub issue. Use [GitHub private vulnerability reporting](https://github.com/jjgouveia/gryphon-standalone/security/advisories/new) (the "Report a vulnerability" button under the repository's Security tab). Include a description, steps to reproduce, the likely impact and a suggested fix if you have one.
 
 We aim to acknowledge reports within 48 hours and to release a fix for critical issues within 7 days.
 

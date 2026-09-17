@@ -73,7 +73,7 @@ The sample list and raw counts behind this table are not stored in the repositor
 ## Step 1: install with the eval and embeddings extras
 
 ```bash
-git clone https://github.com/tirth8205/gryphon
+git clone https://github.com/jjgouveia/gryphon-standalone
 cd gryphon
 uv sync --extra eval --extra embeddings     # or: pip install -e ".[eval,embeddings]"
 ```

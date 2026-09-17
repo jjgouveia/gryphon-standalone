@@ -1,15 +1,9 @@
 <h1 align="center">gryphon</h1>
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
-     target="_blank"
-     rel="noopener noreferrer">
-    <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fgryphon | Trendshift"
-         width="250"
-         height="55" />
-  </a>
-</p>
+> [!NOTE]
+> **यह परियोजना [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph) का एक फ़ोर्क है** (लेखक Tirth Kanani, MIT लाइसेंस)।
+> पार्सर, ग्राफ़ स्टोर और MCP सर्वर अपस्ट्रीम परियोजना से आते हैं; यह फ़ोर्क पैकेज का नाम बदलता है और उसके ऊपर अपने बदलाव जोड़ता है।
+> नीचे दिए गए बेंचमार्क आँकड़े अपस्ट्रीम परियोजना द्वारा मापे गए हैं, इस फ़ोर्क के लिए दोबारा नहीं मापे गए।
 
 > **नोट:** यह अनुवाद एक पुराने रिलीज़ पर आधारित है; बेंचमार्क आंकड़े और प्लेटफ़ॉर्म सूचियाँ [अंग्रेज़ी README](README.md) से पीछे हो सकती हैं।
 
@@ -26,15 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
-  <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
@@ -50,7 +38,7 @@ AI कोडिंग टूल्स रिव्यू टास्क मे�
 ## त्वरित शुरुआत
 
 ```bash
-pip install gryphon                     # या: pipx install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git                     # या: pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install          # सभी समर्थित प्लेटफ़ॉर्म को स्वचालित रूप से पहचानता और कॉन्फ़िगर करता है
 gryphon build            # अपना कोडबेस पार्स करें
 ```
@@ -276,13 +264,13 @@ node_modules/**
 वैकल्पिक डिपेंडेंसी ग्रुप:
 
 ```bash
-pip install "gryphon[embeddings]"          # लोकल वेक्टर एम्बेडिंग (sentence-transformers)
-pip install "gryphon[google-embeddings]"   # Google Gemini एम्बेडिंग
-pip install "gryphon[communities]"         # कम्युनिटी डिटेक्शन (igraph)
-pip install "gryphon[enrichment]"          # Python call-resolution enrichment (Jedi)
-pip install "gryphon[eval]"                # मूल्यांकन बेंचमार्क (matplotlib)
-pip install "gryphon[wiki]"                # LLM सारांश के साथ विकी जनरेशन (ollama)
-pip install "gryphon[all]"                 # सभी वैकल्पिक डिपेंडेंसीज़
+pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # लोकल वेक्टर एम्बेडिंग (sentence-transformers)
+pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"   # Google Gemini एम्बेडिंग
+pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"         # कम्युनिटी डिटेक्शन (igraph)
+pip install "gryphon[enrichment] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # Python call-resolution enrichment (Jedi)
+pip install "gryphon[eval] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # मूल्यांकन बेंचमार्क (matplotlib)
+pip install "gryphon[wiki] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # LLM सारांश के साथ विकी जनरेशन (ollama)
+pip install "gryphon[all] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                 # सभी वैकल्पिक डिपेंडेंसीज़
 ```
 
 OpenAI-compatible एम्बेडिंग्स (असली OpenAI, Azure, या सेल्फ-होस्टेड गेटवे जैसे new-api / LiteLLM / vLLM / LocalAI / Ollama openai मोड) के लिए कोई अतिरिक्त इंस्टॉल की ज़रूरत नहीं — बस एनवायरनमेंट वेरिएबल्स सेट करें और `embed_graph` को `provider="openai"` पास करें:
@@ -310,7 +298,7 @@ export CRG_OPENAI_BATCH_SIZE=100                        # टाइट बैच
 ## योगदान
 
 ```bash
-git clone https://github.com/tirth8205/gryphon.git
+git clone https://github.com/jjgouveia/gryphon-standalone.git
 cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -331,7 +319,6 @@ MIT। [LICENSE](LICENSE) देखें।
 
 <p align="center">
 <br>
-<a href="https://gryphon.com">gryphon.com</a><br><br>
-<code>pip install gryphon && gryphon install</code><br>
+<code>pip install git+https://github.com/jjgouveia/gryphon-standalone.git && gryphon install</code><br>
 <sub>Codex, Claude Code, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen, Kiro, Qoder, और GitHub Copilot सहित समर्थित AI कोडिंग टूल्स को स्वचालित रूप से पहचानता और कॉन्फ़िगर करता है</sub>
 </p>

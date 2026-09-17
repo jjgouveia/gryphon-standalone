@@ -130,7 +130,7 @@ repo_root: str | None
 model: str | None    # Embedding model name
 provider: str | None # local, openai, google, minimax, voyage
 ```
-Local embeddings need `pip install "gryphon[embeddings]"`. Cloud
+Local embeddings need `pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`. Cloud
 providers use the standard library HTTP client and read their keys from
 environment variables (see the README).
 

@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report a bug. Before filing, please check the
-        [troubleshooting guide](https://github.com/tirth8205/gryphon/blob/main/docs/TROUBLESHOOTING.md)
+        [troubleshooting guide](https://github.com/jjgouveia/gryphon-standalone/blob/main/docs/TROUBLESHOOTING.md)
         and search existing issues for duplicates.
   - type: input
     id: crg-version

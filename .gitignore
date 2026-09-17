@@ -36,7 +36,7 @@ Thumbs.db
 node_modules/
 
 # VS Code extension build artifacts
-code-review-graph-vscode/dist/
+gryphon-vscode/dist/
 *.vsix
 
 # Claude Code
@@ -89,7 +89,7 @@ design-critique.md
 design-handoff.md
 design-system-audit.md
 research-synthesis.md
-code-review-graph-analysis.md
+gryphon-analysis.md
 SCALING_AND_TOKEN_EFFICIENCY_PLAN.md
 
 # Beads / Dolt files (added by bd init)
@@ -98,3 +98,5 @@ SCALING_AND_TOKEN_EFFICIENCY_PLAN.md
 
 # Local tool configuration
 .codex/
+# Added by gryphon
+.gryphon/

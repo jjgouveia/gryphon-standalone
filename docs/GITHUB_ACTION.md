@@ -7,7 +7,7 @@ runner, and no source code is sent to an external service.
 
 On each run the action:
 
-1. Installs `gryphon` from PyPI.
+1. Installs `gryphon` from Git (this fork is not published on PyPI).
 2. Restores the cached `.gryphon/` SQLite graph and re-parses the
    files changed by the PR, or builds the graph from scratch on a cache miss.
 3. Runs `gryphon detect-changes --base origin/<base-branch>` to get
@@ -16,6 +16,10 @@ On each run the action:
    one sticky PR comment. The same comment is updated on every push.
 5. Optionally fails the job when the overall risk score reaches a threshold
    (`fail-on-risk`).
+
+> [!NOTE]
+> The examples pin `@main` because this fork has not cut a release yet. Pin a tag
+> (`@v<x.y.z>`) once one exists — an unpinned action ref is a supply-chain risk.
 
 `detect-changes` resolves local and remote branch refs to their merge base
 with `HEAD`, which matches GitHub's **Files changed** scope on divergent
@@ -43,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: tirth8205/gryphon@v2.3.8
+      - uses: jjgouveia/gryphon-standalone@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -57,7 +61,7 @@ which run on Node 24. Self-hosted runners must be version `2.327.1` or newer.
 To turn the review into a merge gate:
 
 ```yaml
-      - uses: tirth8205/gryphon@v2.3.8
+      - uses: jjgouveia/gryphon-standalone@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-risk: high

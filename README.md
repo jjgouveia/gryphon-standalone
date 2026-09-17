@@ -2,17 +2,24 @@
 
 > A local code knowledge graph that gives AI coding tools precise review context over MCP.
 
+> [!NOTE]
+> **This is a fork of [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph)** by Tirth Kanani, released under MIT.
+> The upstream project is the origin of the parser, graph store and MCP server; this fork renames the
+> package and adds its own changes on top. See [Relationship to upstream](#relationship-to-upstream).
+
 AI coding tools often re-read large parts of a codebase to review a change. `gryphon` builds a structural map of the code with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/), keeps it updated incrementally, and serves compact context over [MCP](https://modelcontextprotocol.io/), so the assistant reads only the files a change touches.
 
 ## Quick Start
 
+This fork is **not published on PyPI** — `pip install gryphon` installs an unrelated package. Install from Git:
+
 ```bash
-pip install gryphon          # or: pipx install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install              # detect installed AI coding tools and configure each one
 gryphon build                # parse the codebase
 ```
 
-`install` detects which AI coding tools you have, writes an MCP server entry for each, installs hooks and skills where the platform supports them, and adds graph instructions to the platform's rules file. The MCP entry uses `poetry run` or `uv run` inside a Poetry or uv project environment, `uvx gryphon serve` when `uvx` is on PATH, and otherwise the current Python interpreter. Restart the editor or tool afterwards.
+`install` detects which AI coding tools you have, writes an MCP server entry for each, installs hooks and skills where the platform supports them, and adds graph instructions to the platform's rules file. The MCP entry launches `gryphon serve` with the same Python interpreter that ran `install` (`python -m gryphon serve`); when `install` itself runs inside an ephemeral `uvx` environment, it writes `uvx --from <dist> gryphon serve` instead. Restart the editor or tool afterwards.
 
 To configure one platform, pass `--platform` with one of `codex`, `claude-code`, `cursor`, `windsurf`, `zed`, `continue`, `opencode`, `antigravity`, `gemini-cli`, `qwen`, `kiro`, `qoder`, `copilot`, `copilot-cli`, `codebuddy`, or `hermes`:
 
@@ -25,7 +32,7 @@ Requires Python 3.10+.
 
 ## Auto-Bootstrap on a Mid-to-Large Project
 
-Check whether `gryphon` is installed (`Get-Command gryphon` / `which gryphon`) and whether `.gryphon/` exists in the workspace. If it's installed but not built, run `gryphon build` before reading multi-file contexts. If it's not installed and the project is large, offer to `pip install gryphon` and build it — worth ~8x token savings here.
+Check whether `gryphon` is installed (`Get-Command gryphon` / `which gryphon`) and whether `.gryphon/` exists in the workspace. If it's installed but not built, run `gryphon build` before reading multi-file contexts. If it's not installed and the project is large, offer to install it (`pip install git+https://github.com/jjgouveia/gryphon-standalone.git`) and build it — worth ~8x token savings here.
 
 **If not installed and the user declines:** fall back to manual review with plain git/pytest — scope the diff with `gh pr diff`, read the base with `git show origin/<base>:<path>`, grep for call sites, run the affected test scope.
 
@@ -287,10 +294,34 @@ Or commit it to share the pre-built graph with the team (saves the initial build
 | Graph stale / missing recent changes | `gryphon update`; if still off, `gryphon build` (full rebuild) |
 | MCP server not connecting | `gryphon install` to re-register; restart the client |
 | `uv` not found | `curl -LsSf https://astral.sh/uv/install.sh \| sh` or `pip install uv` |
-| Semantic search not working | `pip install "gryphon[embeddings]"` then `gryphon embed` once |
+| Semantic search not working | `pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"` then `gryphon embed` once |
 | Language not parsed | Check extension in `EXTENSION_TO_LANGUAGE`; `gryphon status` shows detected languages |
 | Slow first build | Expected — Tree-sitter parses every file; subsequent `update` is <2s (SHA-256 diff) |
 
+## Relationship to upstream
+
+This project is a fork of **[tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph)**
+by **Tirth Kanani**, licensed under MIT. The upstream project contributed the Tree-sitter parser,
+the SQLite graph store, the MCP server and the bulk of the language support; this fork is not a
+rewrite and does not claim that work as original.
+
+What this fork changes:
+
+- Renames the distribution, CLI and storage directory (`code-review-graph` → `gryphon`,
+  `.code-review-graph/` → `.gryphon/`). Environment variables keep the `CRG_` prefix for
+  backwards compatibility with existing setups.
+- Adds context-savings measurement and a local dashboard (`gryphon savings`, `gryphon measure`).
+- Performance work on the graph store, resolver passes and the post-processing pipeline.
+
+Benchmark figures quoted in this README (FastAPI 3.7x, Next.js 49.1x and the 8.2x average) were
+measured by the upstream project; they have not been re-measured for this fork.
+
+Upstream is the place to go for the project's history and its issue tracker. Issues specific to
+this fork belong here.
+
 ## License
 
-MIT. Forked from [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph).
+MIT — see [LICENSE](LICENSE), which retains the original copyright
+(`Copyright (c) 2026 Tirth Kanani`) as the MIT terms require.
+
+Forked from [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph).

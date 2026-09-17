@@ -70,7 +70,7 @@ your `PATH`.
 
    ```bash
    pip uninstall gryphon
-   pipx install gryphon
+   pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
    ```
 
    If the command is still not found, run `pipx ensurepath` and open a new
@@ -118,10 +118,11 @@ Install the package once, then run
 **Symptom.** The MCP server does not start, or hooks never update the graph,
 after you moved the package into a venv.
 
-**Cause.** `install` records a launcher at install time: `uvx`, `uv run` or
-`poetry run` when it detects them, otherwise the absolute path of the running
-interpreter with `-m gryphon serve`. An entry written outside the
-venv points at the wrong interpreter. The Claude Code hooks store no path; they
+**Cause.** `install` records the absolute path of the running interpreter
+with `-m gryphon serve`, so an entry written outside the venv points at the
+wrong interpreter. (Ephemeral `uvx` runs are the exception: they record
+`uvx --from <dist> gryphon serve`, because an interpreter inside uv's cache
+would not survive `uv cache clean`.) The Claude Code hooks store no path; they
 run `gryphon` from `PATH` and exit silently when it is not found, so
 they do nothing in a session where the venv is not activated.
 
@@ -338,7 +339,7 @@ off for the whole repository.
 
 ## Embeddings not working
 
-- Install the local provider: `pip install "gryphon[embeddings]"`.
+- Install the local provider: `pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`.
 - Run `gryphon embed`, or the `embed_graph_tool` MCP tool.
 - The first local run downloads the `all-MiniLM-L6-v2` model.
 - Cloud providers (`--provider openai|google|minimax|voyage`) read their key
@@ -349,12 +350,12 @@ off for the whole repository.
 ## MCP server won't start
 
 - Run the command from your MCP config by hand, for example
-  `uvx gryphon serve`, and read the error.
-- `install` writes one of `uvx gryphon serve`,
-  `uv run gryphon serve`, `poetry run gryphon serve` or
-  `<python> -m gryphon serve`, depending on what it detects. If the
-  launcher it chose is missing, install it (`pip install uv` or `brew install uv`)
-  or re-run `gryphon install` from the environment you want to use.
+  `<python> -m gryphon serve`, and read the error.
+- `install` writes `<python> -m gryphon serve` using the absolute path of
+  the interpreter that ran it, or `uvx --from <dist> gryphon serve` when
+  `install` itself ran inside an ephemeral `uvx` environment. If the
+  interpreter it recorded no longer exists, re-run `gryphon install` from
+  the environment you want to use.
 
 ## Windows / WSL
 
@@ -370,7 +371,7 @@ off for the whole repository.
 
 ## Community detection requires igraph
 
-- Install with `pip install "gryphon[communities]"`.
+- Install with `pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`.
 - Without igraph, community detection falls back to file-based grouping, which
   is coarser.
 
@@ -378,17 +379,17 @@ off for the whole repository.
 
 If a tool returns an ImportError, install the relevant group:
 
-- `pip install "gryphon[embeddings]"`: local semantic search
+- `pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: local semantic search
   (sentence-transformers).
-- `pip install "gryphon[google-embeddings]"`: Google Gemini embeddings.
+- `pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: Google Gemini embeddings.
   OpenAI-compatible, MiniMax and Voyage AI embeddings use the standard library
   HTTP client and need only their environment variables.
-- `pip install "gryphon[communities]"`: igraph-based community
+- `pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: igraph-based community
   detection.
-- `pip install "gryphon[enrichment]"`: Python call-resolution
+- `pip install "gryphon[enrichment] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: Python call-resolution
   enrichment through Jedi.
-- `pip install "gryphon[eval]"`: evaluation benchmarks (matplotlib,
+- `pip install "gryphon[eval] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: evaluation benchmarks (matplotlib,
   PyYAML).
-- `pip install "gryphon[wiki]"`: installs the `ollama` client. The
+- `pip install "gryphon[wiki] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: installs the `ollama` client. The
   current wiki generator is structural only and does not call it.
-- `pip install "gryphon[all]"`: everything above.
+- `pip install "gryphon[all] @ git+https://github.com/jjgouveia/gryphon-standalone.git"`: everything above.

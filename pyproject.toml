@@ -5,12 +5,17 @@ build-backend = "hatchling.build"
 [project]
 name = "gryphon"
 version = "0.0.1"
-description = "Local-first knowledge graph for token-efficient code review through MCP and CLI"
+description = "Local-first knowledge graph for token-efficient code review through MCP and CLI (fork of code-review-graph)"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "MIT"
 requires-python = ">=3.10"
+# Original author of the upstream project this fork derives from
+# (tirth8205/code-review-graph, MIT).
 authors = [
-    { name = "Tirth" },
+    { name = "Tirth Kanani" },
+]
+maintainers = [
+    { name = "Jarbas Gouveia", email = "gouvik.dev@gmail.com" },
 ]
 keywords = ["code-review", "knowledge-graph", "tree-sitter", "mcp", "ai-coding-tools"]
 classifiers = [
@@ -39,11 +44,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jjgouveia/gryphon"
-Repository = "https://github.com/jjgouveia/gryphon"
-Documentation = "https://github.com/jjgouveia/gryphon/blob/main/docs/INDEX.md"
-Changelog = "https://github.com/jjgouveia/gryphon/blob/main/CHANGELOG.md"
-Issues = "https://github.com/jjgouveia/gryphon/issues"
+Homepage = "https://github.com/jjgouveia/gryphon-standalone"
+Repository = "https://github.com/jjgouveia/gryphon-standalone"
+Documentation = "https://github.com/jjgouveia/gryphon-standalone/blob/main/docs/INDEX.md"
+Changelog = "https://github.com/jjgouveia/gryphon-standalone/blob/main/CHANGELOG.md"
+Issues = "https://github.com/jjgouveia/gryphon-standalone/issues"
+"Upstream project" = "https://github.com/tirth8205/code-review-graph"
 
 [project.scripts]
 gryphon = "gryphon.cli:main"

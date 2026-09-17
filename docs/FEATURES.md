@@ -89,7 +89,7 @@ Release highlights by version. The full changelog is in [CHANGELOG.md](../CHANGE
 - **PyPI auto-publish**: GitHub releases publish to PyPI.
 
 ## v1.6.4
-- **Portable MCP config**: `init` generates a `uvx`-based `.mcp.json` with no absolute paths.
+- **Pinned MCP config**: `init` generates a `.mcp.json` that launches `gryphon serve` with the exact interpreter that ran `install`, so the server always uses the environment where the package is installed.
 - **Removed symlink workaround**: the `_safe_path` helper for spaces in paths is no longer needed.
 
 ## v1.6.3
@@ -115,7 +115,7 @@ Release highlights by version. The full changelog is in [CHANGELOG.md](../CHANGE
 
 ## v1.3.0
 - **Python version check with Docker fallback**: detects Python 3.10+ and suggests Docker if unavailable.
-- **`pip install gryphon`**: no git clone needed; `gryphon` command available after install.
+- **`pip install git+https://github.com/jjgouveia/gryphon-standalone.git`**: no git clone needed; `gryphon` command available after install.
 
 ## v1.2.0
 - **Structured logging** throughout the codebase.

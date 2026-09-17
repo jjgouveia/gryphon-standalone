@@ -29,7 +29,7 @@ from typing import Any
 logger = logging.getLogger("render_pr_comment")
 
 MARKER = "<!-- gryphon-report -->"
-REPO_URL = "https://github.com/tirth8205/gryphon"
+REPO_URL = "https://github.com/jjgouveia/gryphon-standalone"
 FOOTER = (
     f"*Powered by [gryphon]({REPO_URL}) — "
     "local-first analysis; no code leaves the CI runner.*"

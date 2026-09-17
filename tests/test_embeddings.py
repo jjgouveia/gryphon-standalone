@@ -610,7 +610,7 @@ class TestMiniMaxEmbeddingProvider:
         req = mock_urlopen.call_args[0][0]
         ua = req.headers.get("User-agent", "")
         assert ua.startswith("gryphon/")
-        assert "github.com/tirth8205/gryphon" in ua
+        assert "github.com/jjgouveia/gryphon-standalone" in ua
 
 
 class TestGetProviderMiniMax:
@@ -979,7 +979,7 @@ class TestOpenAIEmbeddingProvider:
         # embeddings.py.
         ua = req.headers.get("User-agent", "")
         assert ua.startswith("gryphon/")
-        assert "github.com/tirth8205/gryphon" in ua
+        assert "github.com/jjgouveia/gryphon-standalone" in ua
         assert req.full_url == "http://127.0.0.1:3000/v1/embeddings"
 
     def test_explicit_dimension_forwarded_in_payload(self):

@@ -2057,7 +2057,7 @@ ExtensionID PlaybackExtension::ID() const { return {}; }
 class TestCppScopedFunctionName:
     """Regression tests for C++ scoped function name extraction.
 
-    See: https://github.com/tirth8205/gryphon/issues/395
+    See: https://github.com/tirth8205/code-review-graph/issues/395
     """
 
     def test_scoped_function_with_type_identifier_return(self, tmp_path):

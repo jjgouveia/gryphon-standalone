@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # us through and gives upstream a way to identify CRG-driven traffic.
 _USER_AGENT = (
     f"gryphon/{_crg_version} "
-    "(+https://github.com/tirth8205/gryphon)"
+    "(+https://github.com/jjgouveia/gryphon-standalone)"
 )
 
 # ---------------------------------------------------------------------------
@@ -149,8 +149,8 @@ class LocalEmbeddingProvider(EmbeddingProvider):
                 )
             except ImportError:
                 raise ImportError(
-                    "sentence-transformers not installed. "
-                    "Run: pip install gryphon[embeddings]"
+                    "sentence-transformers not installed. Run: pip install "
+                    "'gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git'"
                 )
 
             # Publish only a fully constructed model. Failed attempts leave

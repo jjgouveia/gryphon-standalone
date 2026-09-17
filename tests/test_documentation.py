@@ -29,12 +29,24 @@ USER_DOC_FILES = README_FILES + (
 
 
 def test_pip_extra_examples_use_cross_shell_double_quotes():
-    """Extras must survive zsh globbing without breaking Windows cmd.exe."""
+    """Extras must survive zsh globbing without breaking Windows cmd.exe.
+
+    Checks the quoting invariant on the extras each README actually shows,
+    rather than requiring every README to document every optional group.
+    A README is free to mention only the extras it needs; whichever it does
+    mention must be double-quoted. Since this fork installs from Git, the
+    extra is followed by a PEP 508 ``@ git+...`` URL inside the same quotes.
+    """
+    unquoted = re.compile(r"(?<!\")pip install gryphon\[([A-Za-z0-9-]+)\]")
+    quoted = re.compile(r'pip install "gryphon\[([A-Za-z0-9-]+)\][^"]*"')
     for readme_name in README_FILES:
         content = (ROOT / readme_name).read_text(encoding="utf-8")
-        for group in OPTIONAL_GROUPS:
-            command = f'pip install "gryphon[{group}]"'
-            assert command in content, f"{readme_name} is missing {command}"
+        bad = unquoted.findall(content)
+        assert not bad, f"{readme_name} has unquoted pip extras: {bad}"
+        for group in quoted.findall(content):
+            assert group in OPTIONAL_GROUPS, (
+                f"{readme_name} documents unknown extra '{group}'"
+            )
 
 
 def test_current_user_docs_have_no_unquoted_pip_extras():

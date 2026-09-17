@@ -1,15 +1,9 @@
 <h1 align="center">gryphon</h1>
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
-     target="_blank"
-     rel="noopener noreferrer">
-    <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fgryphon | Trendshift"
-         width="250"
-         height="55" />
-  </a>
-</p>
+> [!NOTE]
+> **이 프로젝트는 [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph)의 포크입니다** (작성자 Tirth Kanani, MIT 라이선스).
+> 파서, 그래프 저장소, MCP 서버는 업스트림 프로젝트에서 유래했습니다. 이 포크는 패키지 이름을 변경하고 그 위에 자체 변경 사항을 추가했습니다.
+> 아래 벤치마크 수치는 업스트림 프로젝트가 측정한 것이며, 이 포크에서 다시 측정하지 않았습니다.
 
 > **참고:** 이 번역은 이전 릴리스를 기준으로 합니다. 벤치마크 수치와 플랫폼 목록은 [영문 README](README.md)보다 오래되었을 수 있습니다.
 
@@ -26,15 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
-  <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
@@ -50,7 +38,7 @@ AI 코딩 도구는 리뷰 작업에서 코드베이스의 큰 부분을 반복�
 ## 빠른 시작
 
 ```bash
-pip install gryphon                     # 또는: pipx install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git                     # 또는: pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install          # 지원되는 모든 플랫폼을 자동 감지하고 설정
 gryphon build            # 코드베이스 파싱
 ```
@@ -278,13 +266,13 @@ node_modules/**
 선택적 의존성 그룹:
 
 ```bash
-pip install "gryphon[embeddings]"          # 로컬 벡터 임베딩 (sentence-transformers)
-pip install "gryphon[google-embeddings]"   # Google Gemini 임베딩
-pip install "gryphon[communities]"         # 커뮤니티 감지 (igraph)
-pip install "gryphon[enrichment]"          # Python 호출 해결 보강 (Jedi)
-pip install "gryphon[eval]"                # 평가 벤치마크 (matplotlib)
-pip install "gryphon[wiki]"                # LLM 요약 위키 생성 (ollama)
-pip install "gryphon[all]"                 # 모든 선택적 의존성
+pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # 로컬 벡터 임베딩 (sentence-transformers)
+pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"   # Google Gemini 임베딩
+pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"         # 커뮤니티 감지 (igraph)
+pip install "gryphon[enrichment] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # Python 호출 해결 보강 (Jedi)
+pip install "gryphon[eval] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # 평가 벤치마크 (matplotlib)
+pip install "gryphon[wiki] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # LLM 요약 위키 생성 (ollama)
+pip install "gryphon[all] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                 # 모든 선택적 의존성
 ```
 
 OpenAI 호환 임베딩(실제 OpenAI, Azure, 또는 자체 호스팅 게이트웨이 new-api / LiteLLM / vLLM / LocalAI / Ollama openai 모드)은 추가 설치가 필요하지 않습니다. 환경 변수만 설정하고 `embed_graph`에 `provider="openai"`를 전달하면 됩니다:
@@ -312,7 +300,7 @@ base URL이 localhost(`127.0.0.1`, `localhost`, `0.0.0.0`, `::1`)를 가리킬 �
 ## 기여
 
 ```bash
-git clone https://github.com/tirth8205/gryphon.git
+git clone https://github.com/jjgouveia/gryphon-standalone.git
 cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -333,7 +321,6 @@ MIT. [LICENSE](LICENSE)를 참조하세요.
 
 <p align="center">
 <br>
-<a href="https://gryphon.com">gryphon.com</a><br><br>
-<code>pip install gryphon && gryphon install</code><br>
+<code>pip install git+https://github.com/jjgouveia/gryphon-standalone.git && gryphon install</code><br>
 <sub>Codex, Claude Code, Cursor, Windsurf, Zed, Continue, OpenCode, Antigravity, Gemini CLI, Qwen, Kiro, Qoder, GitHub Copilot 등 지원되는 AI 코딩 도구를 자동 감지하고 설정합니다</sub>
 </p>

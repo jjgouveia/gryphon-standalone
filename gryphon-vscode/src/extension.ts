@@ -536,7 +536,7 @@ function registerCommands(
         vscode.window.showInformationMessage("Code Graph: Embeddings computed.");
       } else {
         const msg = result.stderr.includes("not installed")
-          ? "Install embeddings support: pip install gryphon[embeddings]"
+          ? "Install embeddings support: pip install 'gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git'"
           : `Embedding failed: ${result.stderr}`;
         vscode.window.showErrorMessage(`Code Graph: ${msg}`);
       }

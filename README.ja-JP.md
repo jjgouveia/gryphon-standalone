@@ -1,15 +1,9 @@
 <h1 align="center">gryphon</h1>
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
-     target="_blank"
-     rel="noopener noreferrer">
-    <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fgryphon | Trendshift"
-         width="250"
-         height="55" />
-  </a>
-</p>
+> [!NOTE]
+> **本プロジェクトは [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph) のフォークです**（作者 Tirth Kanani、MIT ライセンス）。
+> パーサー、グラフストア、MCP サーバーは上流プロジェクトに由来します。本フォークはパッケージ名を変更し、その上に独自の変更を加えています。
+> 以下のベンチマーク値は上流プロジェクトが測定したもので、本フォークで再測定はしていません。
 
 > **注意:** この翻訳は古いリリースに基づいています。ベンチマーク数値や対応プラットフォームの一覧は[英語版 README](README.md)より古い場合があります。
 
@@ -26,15 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
-  <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
@@ -50,7 +38,7 @@ AIコーディングツールはレビュータスクでコードベースの大
 ## クイックスタート
 
 ```bash
-pip install gryphon                     # または: pipx install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git                     # または: pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install          # 対応プラットフォームを自動検出して設定
 gryphon build            # コードベースを解析
 ```
@@ -278,13 +266,13 @@ node_modules/**
 オプションの依存グループ：
 
 ```bash
-pip install "gryphon[embeddings]"          # ローカルベクトル埋め込み (sentence-transformers)
-pip install "gryphon[google-embeddings]"   # Google Gemini埋め込み
-pip install "gryphon[communities]"         # コミュニティ検出 (igraph)
-pip install "gryphon[enrichment]"          # Python呼び出し解決の補強 (Jedi)
-pip install "gryphon[eval]"                # 評価ベンチマーク (matplotlib)
-pip install "gryphon[wiki]"                # LLMサマリー付きWiki生成 (ollama)
-pip install "gryphon[all]"                 # 全オプション依存
+pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # ローカルベクトル埋め込み (sentence-transformers)
+pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"   # Google Gemini埋め込み
+pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"         # コミュニティ検出 (igraph)
+pip install "gryphon[enrichment] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # Python呼び出し解決の補強 (Jedi)
+pip install "gryphon[eval] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # 評価ベンチマーク (matplotlib)
+pip install "gryphon[wiki] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # LLMサマリー付きWiki生成 (ollama)
+pip install "gryphon[all] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                 # 全オプション依存
 ```
 
 OpenAI互換の埋め込み（本家OpenAI、Azure、または自前のゲートウェイ: new-api / LiteLLM / vLLM / LocalAI / Ollama openaiモード）は追加インストール不要です。環境変数を設定し、`embed_graph` に `provider="openai"` を渡すだけで動作します：
@@ -312,7 +300,7 @@ base URLがlocalhost（`127.0.0.1`、`localhost`、`0.0.0.0`、`::1`）を指し
 ## コントリビュート
 
 ```bash
-git clone https://github.com/tirth8205/gryphon.git
+git clone https://github.com/jjgouveia/gryphon-standalone.git
 cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -333,7 +321,6 @@ MIT。詳細は [LICENSE](LICENSE) を参照してください。
 
 <p align="center">
 <br>
-<a href="https://gryphon.com">gryphon.com</a><br><br>
-<code>pip install gryphon && gryphon install</code><br>
+<code>pip install git+https://github.com/jjgouveia/gryphon-standalone.git && gryphon install</code><br>
 <sub>Codex、Claude Code、Cursor、Windsurf、Zed、Continue、OpenCode、Antigravity、Gemini CLI、Qwen、Kiro、Qoder、GitHub Copilotなど、対応するAIコーディングツールを自動検出して設定</sub>
 </p>

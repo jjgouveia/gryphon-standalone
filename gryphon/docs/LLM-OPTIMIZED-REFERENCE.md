@@ -3,7 +3,7 @@
 Agents: fetch one section at a time with get_docs_section_tool(section_name="..."). Do not load the whole file.
 
 <section name="usage">
-Install: pip install gryphon, then gryphon install && gryphon build.
+Install: pip install git+https://github.com/jjgouveia/gryphon-standalone.git, then gryphon install && gryphon build.
 First call in any task: get_minimal_context_tool(task="<task>"). About 100 tokens: summary, risk, communities, flows_affected, next_tool_suggestions. status: not_ready means call build_or_update_graph_tool first.
 Pass detail_level="minimal" wherever a tool accepts it; use "standard" only when minimal is not enough.
 Prefer a targeted query_graph_tool call over a broad listing tool.
@@ -48,8 +48,8 @@ gryphon install adds hooks instead: PostToolUse on Edit|Write runs update (event
 </section>
 
 <section name="embeddings">
-Local provider: pip install "gryphon[embeddings]"; default model all-MiniLM-L6-v2, override with CRG_EMBEDDING_MODEL.
-Cloud providers, selected with embed_graph_tool(provider=...): openai needs CRG_OPENAI_BASE_URL, CRG_OPENAI_API_KEY and CRG_OPENAI_MODEL (any OpenAI-compatible endpoint); google needs GOOGLE_API_KEY and pip install "gryphon[google-embeddings]"; minimax needs MINIMAX_API_KEY; voyage needs VOYAGE_API_KEY, model from CRG_VOYAGE_MODEL or voyage-code-3.
+Local provider: pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"; default model all-MiniLM-L6-v2, override with CRG_EMBEDDING_MODEL.
+Cloud providers, selected with embed_graph_tool(provider=...): openai needs CRG_OPENAI_BASE_URL, CRG_OPENAI_API_KEY and CRG_OPENAI_MODEL (any OpenAI-compatible endpoint); google needs GOOGLE_API_KEY and pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"; minimax needs MINIMAX_API_KEY; voyage needs VOYAGE_API_KEY, model from CRG_VOYAGE_MODEL or voyage-code-3.
 Run embed_graph_tool once; changing model or provider re-embeds every node. semantic_search_nodes_tool uses vectors when they exist for the chosen provider, otherwise FTS5 keyword search.
 </section>
 

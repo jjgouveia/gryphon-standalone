@@ -32,7 +32,8 @@ def embed_graph(
 ) -> dict[str, Any]:
     """Compute vector embeddings for all graph nodes to enable semantic search.
 
-    Requires: ``pip install gryphon[embeddings]`` (local provider only;
+    Requires: ``pip install 'gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git'``
+    (local provider only;
     cloud providers like ``openai`` / ``google`` / ``minimax`` / ``voyage`` use
     stdlib ``urllib``).
     Default model: all-MiniLM-L6-v2. Override via ``model`` param or
@@ -84,7 +85,8 @@ def embed_graph(
                 else:
                     err = (
                         "The local embedding provider needs sentence-transformers. "
-                        "Install with: pip install gryphon[embeddings] — "
+                        "Install with: pip install 'gryphon[embeddings] @ "
+                        "git+https://github.com/jjgouveia/gryphon-standalone.git' — "
                         "or switch provider to 'openai' / 'google' / 'minimax' "
                         "/ 'voyage'."
                     )

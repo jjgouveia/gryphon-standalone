@@ -1,15 +1,9 @@
 <h1 align="center">gryphon</h1>
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/23329?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-23329"
-     target="_blank"
-     rel="noopener noreferrer">
-    <img src="https://trendshift.io/api/badge/repositories/23329"
-         alt="tirth8205%2Fgryphon | Trendshift"
-         width="250"
-         height="55" />
-  </a>
-</p>
+> [!NOTE]
+> **本项目是 [tirth8205/code-review-graph](https://github.com/tirth8205/code-review-graph) 的分支**（作者 Tirth Kanani，MIT 许可）。
+> 解析器、图存储和 MCP 服务器均源自上游项目；本分支重命名了软件包并在其基础上添加了自己的更改。
+> 下方的基准数据由上游项目测得，未针对本分支重新测量。
 
 > **注意：** 本翻译对应较早的版本；基准测试数据和平台列表可能落后于[英文 README](README.md)。
 
@@ -26,15 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/gryphon/"><img src="https://img.shields.io/pypi/v/gryphon?style=flat-square&color=blue" alt="PyPI"></a>
-  <a href="https://pepy.tech/project/gryphon"><img src="https://img.shields.io/pepy/dt/gryphon?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/tirth8205/gryphon/stargazers"><img src="https://img.shields.io/github/stars/tirth8205/gryphon?style=flat-square" alt="Stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT Licence"></a>
-  <a href="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml"><img src="https://github.com/tirth8205/gryphon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square" alt="MCP"></a>
-  <a href="https://gryphon.com"><img src="https://img.shields.io/badge/website-code--review--graph.com-blue?style=flat-square" alt="Website"></a>
-  <a href="https://discord.gg/3p58KXqGFN"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <br>
@@ -50,7 +38,7 @@ AI 编码工具在审查任务中可能会反复读取代码库的大量内容�
 ## 快速开始
 
 ```bash
-pip install gryphon                     # 或: pipx install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git                     # 或: pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
 gryphon install          # 自动检测并配置所有支持的平台
 gryphon build            # 解析代码库
 ```
@@ -276,13 +264,13 @@ node_modules/**
 可选依赖组：
 
 ```bash
-pip install "gryphon[embeddings]"          # 本地向量嵌入 (sentence-transformers)
-pip install "gryphon[google-embeddings]"   # Google Gemini 嵌入
-pip install "gryphon[communities]"         # 社区检测 (igraph)
-pip install "gryphon[enrichment]"          # Python 调用解析增强 (Jedi)
-pip install "gryphon[eval]"                # 评估基准测试 (matplotlib)
-pip install "gryphon[wiki]"                # 使用 LLM 摘要生成 Wiki (ollama)
-pip install "gryphon[all]"                 # 所有可选依赖
+pip install "gryphon[embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # 本地向量嵌入 (sentence-transformers)
+pip install "gryphon[google-embeddings] @ git+https://github.com/jjgouveia/gryphon-standalone.git"   # Google Gemini 嵌入
+pip install "gryphon[communities] @ git+https://github.com/jjgouveia/gryphon-standalone.git"         # 社区检测 (igraph)
+pip install "gryphon[enrichment] @ git+https://github.com/jjgouveia/gryphon-standalone.git"          # Python 调用解析增强 (Jedi)
+pip install "gryphon[eval] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # 评估基准测试 (matplotlib)
+pip install "gryphon[wiki] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                # 使用 LLM 摘要生成 Wiki (ollama)
+pip install "gryphon[all] @ git+https://github.com/jjgouveia/gryphon-standalone.git"                 # 所有可选依赖
 ```
 
 OpenAI 兼容嵌入（真实 OpenAI、Azure，或自建网关如 new-api / LiteLLM / vLLM / LocalAI / Ollama openai 模式）无需额外安装 —— 只需设置环境变量并在 `embed_graph` 中传入 `provider="openai"`：
@@ -310,7 +298,7 @@ export CRG_OPENAI_BATCH_SIZE=100                        # 某些网关有更严�
 ## 参与贡献
 
 ```bash
-git clone https://github.com/tirth8205/gryphon.git
+git clone https://github.com/jjgouveia/gryphon-standalone.git
 cd gryphon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -331,7 +319,6 @@ MIT。详见 [LICENSE](LICENSE)。
 
 <p align="center">
 <br>
-<a href="https://gryphon.com">gryphon.com</a><br><br>
-<code>pip install gryphon && gryphon install</code><br>
+<code>pip install git+https://github.com/jjgouveia/gryphon-standalone.git && gryphon install</code><br>
 <sub>自动检测并配置支持的 AI 编码工具，包括 Codex、Claude Code、Cursor、Windsurf、Zed、Continue、OpenCode、Antigravity、Gemini CLI、Qwen、Kiro、Qoder 和 GitHub Copilot</sub>
 </p>

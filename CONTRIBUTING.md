@@ -3,7 +3,7 @@
 ## Development Setup
 
 ```bash
-git clone https://github.com/tirth8205/gryphon.git
+git clone https://github.com/jjgouveia/gryphon-standalone.git
 cd gryphon
 uv sync --extra dev                  # requires uv
 uv run pytest tests/ --tb=short -q   # check the setup
@@ -124,7 +124,7 @@ If you only need a language for your own repository, you may not need to change 
 
 Every supported AI tool is permanent maintenance surface: its config path, schema, install merge, uninstall and tests have to keep working on every release. Some existing targets were merged without evidence that they worked in a released client, and those are the ones that break. New targets are held to the bar below.
 
-Start with a platform request issue (https://github.com/tirth8205/gryphon/issues/new/choose) so the client can be discussed before anyone writes code. A pull request that adds a platform will not be reviewed until it includes all of the following.
+Start with a platform request issue (https://github.com/jjgouveia/gryphon-standalone/issues/new/choose) so the client can be discussed before anyone writes code. A pull request that adds a platform will not be reviewed until it includes all of the following.
 
 1. A link to the platform's official MCP configuration documentation. Blog posts, forum replies and screenshots of a settings dialog are not enough.
 2. The exact config file path and the exact schema of a server entry: which top-level key holds the servers, whether that value is an object or an array, and whether a `type` field is required.
@@ -139,8 +139,8 @@ If no maintainer can install and run the client, the request may be declined or 
 
 ## Reporting Issues
 
-- Open an issue through the issue forms: https://github.com/tirth8205/gryphon/issues/new/choose (bug report, feature request or platform request; blank issues are disabled).
-- For questions and ideas, use GitHub Discussions: https://github.com/tirth8205/gryphon/discussions
+- Open an issue through the issue forms: https://github.com/jjgouveia/gryphon-standalone/issues/new/choose (bug report, feature request or platform request; blank issues are disabled).
+- For questions and ideas, use GitHub Discussions: https://github.com/jjgouveia/gryphon-standalone/discussions
 - Include your Python version, OS, steps to reproduce and the error output.
 
 ## License

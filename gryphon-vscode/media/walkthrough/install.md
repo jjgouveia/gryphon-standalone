@@ -6,12 +6,12 @@ gryphon needs a Python backend to parse your codebase.
 
 **Recommended:** Install via [uv](https://docs.astral.sh/uv/):
 ```bash
-uv pip install gryphon
+uv pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 ```
 
 **Alternatives:**
 ```bash
-pipx install gryphon
+pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
 # or
-pip install gryphon
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 ```

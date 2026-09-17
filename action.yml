@@ -47,9 +47,13 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
+    # This fork is not on PyPI; the name "gryphon" there belongs to an
+    # unrelated package. Install from Git instead.
     - name: Install gryphon
       shell: bash
-      run: python -m pip install --quiet gryphon
+      run: >-
+        python -m pip install --quiet
+        "git+https://github.com/jjgouveia/gryphon-standalone.git"
 
     # Cache the SQLite knowledge graph between runs. The "schema10" segment
     # tracks LATEST_VERSION in gryphon/migrations.py — bump it when

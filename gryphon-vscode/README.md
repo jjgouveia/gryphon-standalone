@@ -29,11 +29,11 @@ The extension requires the `gryphon` Python CLI to parse your codebase.
 
 ```bash
 # Recommended
-uv pip install gryphon
+uv pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 
 # Alternatives
-pipx install gryphon
-pip install gryphon
+pipx install git+https://github.com/jjgouveia/gryphon-standalone.git
+pip install git+https://github.com/jjgouveia/gryphon-standalone.git
 ```
 
 Requires Python 3.10+.
@@ -86,8 +86,8 @@ The graph database is stored locally at `.gryphon/graph.db` and updates automati
 
 ## Links
 
-- [Main Repository](https://github.com/tirth8205/gryphon)
-- [Report an Issue](https://github.com/tirth8205/gryphon/issues)
+- [Main Repository](https://github.com/jjgouveia/gryphon-standalone)
+- [Report an Issue](https://github.com/jjgouveia/gryphon-standalone/issues)
 
 ## License
 
