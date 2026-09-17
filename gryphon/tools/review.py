@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -21,12 +22,14 @@ from ..incremental import (
     resolve_review_base,
 )
 from ..parser import normalize_file_path
+from ..uncertainty import unindexed_changes_note
 from ._common import (
     _bounded,
     _get_store,
     _resolve_graph_file_paths,
     _shown_of,
     _validate_positive_int,
+    graph_provenance,
 )
 
 logger = logging.getLogger(__name__)
@@ -584,6 +587,78 @@ def get_affected_flows_func(
         store.close()
 
 
+def _unindexed_changed_files(store: Any, abs_files: list[str]) -> list[str]:
+    """Return the changed files the graph holds no node for.
+
+    One bounded query rather than a lookup per file: a whole-repo diff would
+    otherwise pay a round trip for every path. SQLite caps host parameters at
+    999, so the list is chunked.
+    """
+    if not abs_files:
+        return []
+    try:
+        known: set[str] = set()
+        for start in range(0, len(abs_files), 500):
+            chunk = abs_files[start:start + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            rows = store._conn.execute(
+                f"SELECT DISTINCT file_path FROM nodes "
+                f"WHERE file_path IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            known.update(r[0] for r in rows)
+        return [fp for fp in abs_files if fp not in known]
+    except sqlite3.Error:
+        # Coverage is advisory; losing it must not fail the review call.
+        logger.debug("Could not compute changed-file coverage", exc_info=True)
+        return []
+
+
+def _attach_coverage(
+    result: dict[str, Any],
+    unindexed: list[str],
+    total: int,
+    root: Path,
+    store: Any,
+) -> None:
+    """Record how much of the change set the graph covered.
+
+    Always reported, not only when the score is 0: a partially indexed change
+    set produces a plausible-looking score over the indexed half, which is the
+    harder case to notice.
+    """
+    if not total:
+        return
+    covered = total - len(unindexed)
+    result["files_in_graph"] = covered
+    result["files_not_in_graph"] = len(unindexed)
+    if not unindexed:
+        return
+    result["unindexed_files"] = unindexed[:20]
+    branch = None
+    try:
+        provenance = graph_provenance(str(root)) or {}
+        branch = provenance.get("built_on_branch")
+    except Exception:  # nosec B110 — advisory only
+        logger.debug("Could not read graph provenance", exc_info=True)
+    note = unindexed_changes_note(len(unindexed), total, branch)
+    result["confidence"] = note
+    if covered == 0:
+        # Nothing to score. Leaving status "ok" next to risk_score 0.0 made
+        # this indistinguishable from a clean review, and the advisory note
+        # alone lost to the agent's own judgement about whether a rebuild was
+        # worth the cost. "not_ready" is the established way to say the graph
+        # cannot answer yet and to name the command that fixes it.
+        result["status"] = "not_ready"
+        result["reason"] = note
+        result["next_tool_suggestions"] = ["build_or_update_graph"]
+    result["summary"] = (
+        f"{result.get('summary', '')}"
+        f"\n  - Graph coverage: {covered} of {total} "
+        f"changed file(s) indexed; {note}"
+    ).strip()
+
+
 # ---------------------------------------------------------------------------
 # Tool 16: detect_changes  [REVIEW]
 # ---------------------------------------------------------------------------
@@ -655,21 +730,24 @@ def detect_changes_func(
         # POSIX separators (#774), so normalize the joined paths.
         abs_files = [normalize_file_path(root / f) for f in changed_files]
 
-        # Parse diff ranges for line-level mapping.
-        diff_ranges = parse_diff_ranges(str(root), base)
-        # Remap to absolute paths so they match graph file_paths.
-        abs_ranges: dict[str, list[tuple[int, int]]] = {}
-        for rel_path, ranges in diff_ranges.items():
-            abs_path = normalize_file_path(root / rel_path)
-            abs_ranges[abs_path] = ranges
-
+        # Line ranges are left to analyze_changes, which derives them from
+        # the same parse_diff_ranges call and then scopes them to the files
+        # named above (#1017). Passing them here instead marked them as
+        # caller-supplied scope, so the local working-tree diff *replaced*
+        # ``changed_files``: reviewing a remote PR that is not checked out
+        # reported the entities of whatever the local checkout was diffing,
+        # under the names of the PR's files, with a risk score to match.
         analysis = analyze_changes(
             store,
             changed_files=abs_files,
-            changed_ranges=abs_ranges if abs_ranges else None,
+            changed_ranges=None,
             repo_root=str(root),
             base=base,
         )
+
+        # How much of the change set the graph actually holds. Without this a
+        # blind run and a clean run are the same response.
+        unindexed = _unindexed_changed_files(store, abs_files)
 
         # Baseline: tokens an agent would read without the graph —
         # the changed files plus every file referenced in the analysis
@@ -745,6 +823,7 @@ def detect_changes_func(
                 "test_gap_count": len(analysis.get("test_gaps", [])),
                 "review_priorities": top_priorities,
             }
+            _attach_coverage(result, unindexed, len(abs_files), root, store)
         else:
             funcs, funcs_total, funcs_cut = _bounded(
                 analysis.get("changed_functions", []),
@@ -784,6 +863,7 @@ def detect_changes_func(
                 "affected_flows_total": flows_total,
                 "truncated": any_cut,
             }
+            _attach_coverage(result, unindexed, len(abs_files), root, store)
         result["_hints"] = generate_hints(
             "detect_changes_tool", result, get_session()
         )

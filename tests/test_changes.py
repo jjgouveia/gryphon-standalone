@@ -554,8 +554,11 @@ class TestChanges:
                 "gryphon.tools.review.get_changed_files",
                 return_value=["app.py"],
             ) as get_changed,
+            # Ranges are derived inside analyze_changes so that they get
+            # scoped to changed_files (#1017); the base they use still has
+            # to be the one resolved here.
             patch(
-                "gryphon.tools.review.parse_diff_ranges",
+                "gryphon.changes.parse_diff_ranges",
                 return_value={"app.py": [(1, 10)]},
             ) as parse_ranges,
             patch.object(self.store, "close"),

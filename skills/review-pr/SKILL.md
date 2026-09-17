@@ -24,13 +24,33 @@ read, the base ref proves what the diff actually changed.
 ## 2. Graph pass
 
 1. `get_minimal_context_tool(task="review PR #<n>", changed_files=<list>)`.
-   On `status: not_ready` with `reason: stale_graph`, check
-   `built_on_branch`/`built_at_sha` first: a graph built on the PR base is
-   usable — continue with explicit `changed_files`. Only call
-   `build_or_update_graph_tool` (incremental, `postprocess="minimal"` if
-   slow) when the build is missing or its commit is gone from the clone.
+   - On `status: not_ready` with `reason: stale_graph`:
+     - Check `built_on_branch`/`built_at_sha`.
+     - If the graph was built on the **PR base branch** or an ancestor of
+       it, it is usable — continue with explicit `changed_files`.
+     - If the graph was built on a **different branch** (e.g. `new-main`
+       while reviewing a PR against `staging`), the graph nodes belong to
+       a different domain. **Rebuild in the worktree before continuing:**
+       ```bash
+       git checkout <PR_base_branch>
+       gryphon build
+       git checkout -   # return to original branch
+       ```
+       Or, for large repos where checkout is expensive, create a worktree:
+       ```bash
+       git worktree add .wt-pr<n> origin/<PR_base_branch>
+       gryphon build --repo .wt-pr<n>
+       ```
+       Then pass `repo_root` explicitly to all graph calls.
+     - Only skip the rebuild when the build commit is gone from the clone
+       (history rewrite / shallow fetch) — in that case, run
+       `build_or_update_graph_tool(full_rebuild=true, postprocess="minimal")`.
+   - On `status: ok` but `_graph.built_on_branch` differs from the PR base,
+     warn in chat but continue: the graph is usable for structural queries
+     but `detect_changes` risk scores may be off.
 2. `detect_changes_tool(changed_files=<list>, detail_level="minimal")` →
-   risk score, test gaps, affected flows.
+   risk score, test gaps, affected flows. If the graph was just rebuilt,
+   the risk scores now reflect the correct domain.
 3. For each high-risk function:
    `query_graph_tool(pattern="callers_of", target="<fn>")` finds call sites
    the diff does not show (inheritance, dynamic calls, signals), and
@@ -38,7 +58,7 @@ read, the base ref proves what the diff actually changed.
    Flag public-API changes whose callers were not updated.
 4. Escalate to `get_review_context_tool(detail_level="minimal")` or
    `get_impact_radius_tool` only when a high-risk item stays unclear.
-   Budget: ~5 graph calls per review.
+   Budget: ~5 graph calls per review (excluding the rebuild).
 
 ## 3. Verify against base and head
 

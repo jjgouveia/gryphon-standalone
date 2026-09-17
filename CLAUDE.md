@@ -204,4 +204,16 @@ gives you structural context (callers, dependents, test coverage) that file sear
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+5. **Stale graph guard**: before `detect_changes_tool`, check
+   `_graph.built_on_branch` from the `get_minimal_context_tool` envelope.
+   If it differs from the branch you are reviewing, the graph nodes belong
+   to a different domain and risk scores will be wrong. Rebuild:
+   ```bash
+   gryphon build --repo <repo_root>
+   ```
+   or in a worktree for remote PRs:
+   ```bash
+   git worktree add .wt-pr<n> origin/<headRefName>
+   gryphon build --repo .wt-pr<n>
+   ```
 <!-- /gryphon MCP tools -->
