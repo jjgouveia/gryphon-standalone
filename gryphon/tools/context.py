@@ -9,17 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from ..context_savings import attach_file_savings
-from ..graph import GraphStore
 from ..hints import get_session
-from ..incremental import (
-    get_changed_files,
-    get_db_path,
-    incremental_update,
-    resolve_incremental_base,
-    resolve_review_base,
-)
+from ..incremental import get_db_path, resolve_review_base
 from ..parser import normalize_file_path
-from ._common import _get_store, _resolve_root, compact_response, graph_provenance
+from ._common import (
+    _get_store,
+    _resolve_root,
+    compact_response,
+    ensure_graph_current,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,37 +51,6 @@ def _has_git_changes(root: Path, base: str) -> bool:
         return bool(result2.stdout.strip())
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
-
-
-def _auto_refresh_graph(root: Path, store: GraphStore, base: str) -> str | None:
-    """Top up a graph whose build commit is still usable as a diff base.
-
-    Runs the same incremental reconciliation ``gryphon update`` performs:
-    diff the recorded build commit against the worktree, re-parse what
-    changed, drop files that no longer exist, then refresh signatures and
-    FTS at the ``"minimal"`` postprocess level so search keeps working.
-
-    Best-effort: returns a short note on success, ``None`` when the
-    reconciliation could not run, in which case the caller serves the
-    older graph with a staleness note instead of refusing.
-    """
-    try:
-        from .build import _run_postprocess
-
-        result = incremental_update(root, store, base=base)
-        _run_postprocess(
-            store,
-            result,
-            "minimal",
-            changed_files=result.get("changed_files"),
-        )
-    except Exception:
-        logger.warning("Graph auto-refresh failed", exc_info=True)
-        return None
-    return (
-        "Graph auto-refreshed to HEAD: "
-        f"{result.get('files_updated', 0)} file(s) re-indexed."
-    )
 
 
 def get_minimal_context(
@@ -137,33 +104,11 @@ def get_minimal_context(
                 "The graph database contains no nodes. Build the graph before requesting context.",
             )
 
-        provenance = graph_provenance(str(root))
-        graph_note: str | None = None
-        if provenance and provenance.get("head_matches_build") is False:
-            # A commit mismatch does not by itself make the graph stale: the
-            # build commit may be an ancestor of HEAD (or otherwise diffable
-            # against the worktree), in which case an incremental update
-            # reconciles it. Only a build commit missing from the clone is
-            # genuinely stale.
-            incremental_base = resolve_incremental_base(root, store)
-            if incremental_base is None:
-                return _not_ready(
-                    "stale_graph",
-                    "The graph was built at a commit that is not available in "
-                    "this clone (history rewrite or shallow fetch). Rebuild "
-                    "it before requesting context.",
-                )
-            graph_note = _auto_refresh_graph(root, store, incremental_base)
-            if graph_note is None:
-                pending = get_changed_files(root, incremental_base)
-                shown = ", ".join(pending[:5])
-                graph_note = (
-                    "Graph is out of date and auto-refresh failed; "
-                    f"{len(pending)} file(s) changed since the build are "
-                    f"not indexed{': ' + shown if shown else ''}."
-                )
-            else:
-                stats = store.get_stats()
+        graph_note, not_ready = ensure_graph_current(root, store)
+        if not_ready is not None:
+            return not_ready
+        if graph_note is not None:
+            stats = store.get_stats()
 
         # 2. Risk from changed files
         risk = "unknown"

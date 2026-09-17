@@ -212,6 +212,99 @@ def with_provenance(result: Any, repo_root: str | None = None) -> Any:
         result["_graph"] = provenance
     return result
 
+
+def _auto_refresh_graph(root: Path, store: GraphStore, base: str) -> str | None:
+    """Top up a graph whose build commit is still usable as a diff base.
+
+    Runs the same incremental reconciliation ``gryphon update`` performs:
+    diff the recorded build commit against the worktree, re-parse what
+    changed, drop files that no longer exist, then refresh signatures and
+    FTS at the ``"minimal"`` postprocess level so search keeps working.
+
+    Best-effort: returns a short note on success, ``None`` when the
+    reconciliation could not run, in which case the caller serves the
+    older graph with a staleness note instead of refusing.
+    """
+    try:
+        from ..incremental import incremental_update
+        from .build import _run_postprocess
+
+        result = incremental_update(root, store, base=base)
+        _run_postprocess(
+            store,
+            result,
+            "minimal",
+            changed_files=result.get("changed_files"),
+        )
+    except Exception:
+        logger.warning("Graph auto-refresh failed", exc_info=True)
+        return None
+    return (
+        "Graph auto-refreshed to HEAD: "
+        f"{result.get('files_updated', 0)} file(s) re-indexed."
+    )
+
+
+def ensure_graph_current(
+    root: Path, store: GraphStore,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Reconcile a graph whose build commit no longer matches HEAD.
+
+    ``get_minimal_context`` was the only tool that checked this before
+    answering; ``detect_changes``, ``get_review_context`` and the impact/query
+    tools computed a risk score, coverage note, or blast radius straight off
+    whatever the graph happened to hold, silently, when the checkout had
+    since moved to a different commit or the graph was built for a different
+    PR/branch entirely (the graph still holds *a* node at that file path, so
+    presence-only coverage checks like ``_unindexed_changed_files`` do not
+    catch it). This is the shared reconciliation step: call it right after
+    ``_get_store`` and before reading anything from ``store``.
+
+    A commit mismatch does not by itself mean the graph is stale: the build
+    commit may be an ancestor of HEAD, or on a divergent line entirely, and
+    either can still be reconciled by diffing the build commit against the
+    worktree (``resolve_incremental_base`` decides what is diffable, not the
+    relation label). Only a build commit missing from the clone (history
+    rewrite or shallow fetch) is genuinely unusable.
+
+    Returns ``(note, not_ready)``:
+
+    - ``(None, None)``: no mismatch, or provenance unavailable — proceed.
+    - ``(note, None)``: a mismatch was found. ``store`` now reflects HEAD, or,
+      if the refresh itself raised, is unchanged and ``note`` says so either
+      way. Proceed, folding ``note`` into the response's summary.
+    - ``(None, not_ready)``: the build commit is unreachable in this clone.
+      Return ``not_ready`` as the tool's result instead of proceeding.
+    """
+    from ..incremental import get_changed_files, resolve_incremental_base
+
+    provenance = graph_provenance(str(root))
+    if not provenance or provenance.get("head_matches_build") is not False:
+        return None, None
+    incremental_base = resolve_incremental_base(root, store)
+    if incremental_base is None:
+        return None, {
+            "status": "not_ready",
+            "reason": "stale_graph",
+            "summary": (
+                "The graph was built at a commit that is not available in "
+                "this clone (history rewrite or shallow fetch). Rebuild it "
+                "before requesting this."
+            ),
+            "next_tool_suggestions": ["build_or_update_graph"],
+        }
+    note = _auto_refresh_graph(root, store, incremental_base)
+    if note is None:
+        pending = get_changed_files(root, incremental_base)
+        shown = ", ".join(pending[:5])
+        note = (
+            "Graph is out of date and auto-refresh failed; "
+            f"{len(pending)} file(s) changed since the build are not "
+            f"indexed{': ' + shown if shown else ''}."
+        )
+    return note, None
+
+
 # Common JS/TS builtin method names filtered from callers_of results.
 # "Who calls .map()?" returns hundreds of hits and is never useful.
 # These are kept in the graph (callees_of still shows them) but excluded

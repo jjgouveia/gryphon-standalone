@@ -171,9 +171,9 @@ Build the code review graph for this project
 
 | コマンド | 説明 |
 |---------|------|
-| `/gryphon:build-graph` | コードグラフのビルドまたは再ビルド |
-| `/gryphon:review-delta` | 最後のコミット以降の変更をレビュー |
-| `/gryphon:review-pr` | 影響範囲分析付きのフルPRレビュー |
+| `/build-graph` | コードグラフのビルドまたは再ビルド |
+| `/review-delta` | 最後のコミット以降の変更をレビュー |
+| `/review-pr` | 影響範囲分析付きのフルPRレビュー |
 
 </details>
 

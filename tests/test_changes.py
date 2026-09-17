@@ -486,6 +486,81 @@ class TestChanges:
         # Should still find functions even without ranges.
         assert len(result["changed_functions"]) >= 1
 
+    def test_fallback_nodes_are_tagged_whole_file_and_listed(self):
+        """Whole-file fallback nodes are distinguishable from diff-backed ones.
+
+        Without this tag, a caller reviewing a remote PR that isn't checked
+        out (so `base` can't describe the real diff, #852) cannot tell "this
+        function is in the diff" from "this function happens to live in a
+        file I named" — every pre-existing function in that file looks like
+        a fresh finding.
+        """
+        self._add_func("func_a", path="app.py", line_start=1, line_end=10)
+        self._add_func("func_b", path="app.py", line_start=15, line_end=25)
+
+        result = analyze_changes(
+            self.store,
+            changed_files=["app.py"],
+            changed_ranges=None,
+        )
+        scopes = {f["name"]: f["scope"] for f in result["changed_functions"]}
+        assert scopes == {"func_a": "whole_file", "func_b": "whole_file"}
+        assert result["whole_file_scope_files"] == ["app.py"]
+        assert "no diff hunks" in result["summary"]
+
+    def test_diff_backed_nodes_are_tagged_diff_not_whole_file(self):
+        """Nodes reached through real ranges are not flagged as fallback."""
+        self._add_func("func_a", path="app.py", line_start=1, line_end=10)
+
+        result = analyze_changes(
+            self.store,
+            changed_files=["app.py"],
+            changed_ranges={"app.py": [(1, 10)]},
+        )
+        assert result["changed_functions"][0]["scope"] == "diff"
+        assert result["whole_file_scope_files"] == []
+        assert "no diff hunks" not in result["summary"]
+
+    def test_mixed_scoped_and_fallback_files_tag_independently(self):
+        """One file with real ranges, one without: only the second falls back.
+
+        Per-file fallback only kicks in for ranges derived internally from
+        the VCS diff (``changed_ranges=None``, what every real caller does —
+        the parameter is not even exposed on ``detect_changes_func``). A
+        caller-supplied ``changed_ranges`` dict is deliberately left as-is
+        (see the ``ranges_are_derived`` branch above): a file missing from
+        it is dropped, not whole-file-fallen-back, which is exercised by
+        ``test_analyze_changes_returns_expected_keys`` and friends already.
+        This test goes through the real (internally-derived) path instead.
+        """
+        self._add_func("scoped_func", path="/repo/scoped.py", line_start=1, line_end=10)
+        self._add_func("fallback_func", path="/repo/fallback.py", line_start=1, line_end=10)
+
+        with patch(
+            "gryphon.changes.parse_diff_ranges",
+            return_value={"/repo/scoped.py": [(1, 10)]},
+        ):
+            result = analyze_changes(
+                self.store,
+                changed_files=["scoped.py", "fallback.py"],
+                repo_root="/repo",
+            )
+        scopes = {f["name"]: f["scope"] for f in result["changed_functions"]}
+        assert scopes["scoped_func"] == "diff"
+        assert scopes["fallback_func"] == "whole_file"
+        assert result["whole_file_scope_files"] == ["/repo/fallback.py"]
+
+    def test_whole_file_test_gaps_carry_scope(self):
+        """test_gaps entries carry the same scope tag as their node."""
+        self._add_func("untested", path="app.py", line_start=1, line_end=10)
+
+        result = analyze_changes(
+            self.store,
+            changed_files=["app.py"],
+            changed_ranges=None,
+        )
+        assert result["test_gaps"][0]["scope"] == "whole_file"
+
     # ---------------------------------------------------------------
     # detect_changes_func (integration)
     # ---------------------------------------------------------------
@@ -572,6 +647,60 @@ class TestChanges:
         resolve.assert_called_once_with(root, "origin/main")
         get_changed.assert_called_once_with(root, "merge-base-sha")
         parse_ranges.assert_called_once_with(str(root), "merge-base-sha")
+        assert getattr(self.store.close, "__func__", None) is GraphStore.close
+
+    def test_whole_file_fallback_entries_excluded_from_savings_counterfactual(self):
+        """Fallback-only findings must not inflate the reported token savings.
+
+        A reviewer following the real diff would never have opened
+        `fallback.py`'s untested functions — `base` didn't describe a diff
+        for it, so every function in it shows up via the whole-file
+        fallback (#852), not because it changed. Counting those against
+        the "tokens a manual reviewer would have spent" counterfactual
+        would price the graph against work nobody would have done.
+        """
+        from gryphon.tools import detect_changes_func
+
+        self._add_func("scoped_untested", path="/fake/repo/scoped.py",
+                        line_start=1, line_end=10)
+        self._add_func("fallback_untested_1", path="/fake/repo/fallback.py",
+                        line_start=1, line_end=10)
+        self._add_func("fallback_untested_2", path="/fake/repo/fallback.py",
+                        line_start=15, line_end=25)
+
+        with (
+            patch("gryphon.tools.review._get_store") as mock_get_store,
+            patch(
+                "gryphon.tools.review.get_changed_files",
+                return_value=["scoped.py", "fallback.py"],
+            ),
+            patch(
+                "gryphon.changes.parse_diff_ranges",
+                # Only scoped.py has real ranges; fallback.py falls back to
+                # its whole node set.
+                return_value={"/fake/repo/scoped.py": [(1, 10)]},
+            ),
+            patch(
+                "gryphon.tools.review.estimate_counterfactual_cost"
+            ) as mock_cf,
+            patch.object(self.store, "close"),
+        ):
+            root = Path("/fake/repo")
+            mock_get_store.return_value = (self.store, root)
+            mock_cf.return_value = {
+                "search_trace_tokens": 0, "analysis_tokens": 0,
+                "precision_tokens": 0, "file_tokens": 0,
+                "total_counterfactual": 0,
+            }
+
+            result = detect_changes_func(base="HEAD~1", repo_root=str(root))
+
+        assert result["status"] == "ok"
+        assert result["whole_file_scope_files_total"] == 1
+        # 2 fallback + 1 scoped function are untested, but only the scoped
+        # one is diff-backed.
+        assert mock_cf.call_args.kwargs["test_gaps"] == 1
+        assert mock_cf.call_args.kwargs["changed_functions"] == 1
         assert getattr(self.store.close, "__func__", None) is GraphStore.close
 
 

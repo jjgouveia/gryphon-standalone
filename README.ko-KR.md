@@ -171,9 +171,9 @@ Build the code review graph for this project
 
 | 명령 | 설명 |
 |------|------|
-| `/gryphon:build-graph` | 코드 그래프 빌드 또는 재빌드 |
-| `/gryphon:review-delta` | 마지막 커밋 이후 변경 사항 리뷰 |
-| `/gryphon:review-pr` | 영향 범위 분석을 포함한 전체 PR 리뷰 |
+| `/build-graph` | 코드 그래프 빌드 또는 재빌드 |
+| `/review-delta` | 마지막 커밋 이후 변경 사항 리뷰 |
+| `/review-pr` | 영향 범위 분석을 포함한 전체 PR 리뷰 |
 
 </details>
 

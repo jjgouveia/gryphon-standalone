@@ -473,17 +473,26 @@ def analyze_changes(
         scoped = changed_ranges or {}
         unranged = [] if scoped else list(changed_files)
 
-    # Map changes to nodes.
+    # Map changes to nodes. Nodes reached via `scoped` overlap an actual diff
+    # hunk; nodes reached via `unranged` are the whole-file fallback (#852) —
+    # every node in a file we could not compute precise ranges for (a remote
+    # PR that is not checked out, or a base that does not describe the diff
+    # the caller has in mind). Both are legitimate "changed" candidates, but
+    # only the first is actually backed by a diff, so callers that want to
+    # tell "this line moved" from "this function happens to live in a file
+    # you named" need the distinction.
     changed_nodes = map_changes_to_nodes(store, scoped) if scoped else []
+    node_scope: dict[str, str] = {n.qualified_name: "diff" for n in changed_nodes}
     if unranged:
         # map_changes_to_nodes dedups on qualified_name; match it so a node
         # reached through both paths is not counted twice.
-        seen = {n.qualified_name for n in changed_nodes}
+        seen = set(node_scope)
         for fp in unranged:
             for node in store.get_nodes_by_file(fp):
                 if node.qualified_name not in seen:
                     seen.add(node.qualified_name)
                     changed_nodes.append(node)
+                    node_scope[node.qualified_name] = "whole_file"
 
     # RTL declarations are stored as Function nodes for compatibility but
     # are not callable/testable functions.
@@ -514,6 +523,7 @@ def analyze_changes(
         node_risks.append({
             **node_to_dict(node),
             "risk_score": risk,
+            "scope": node_scope.get(node.qualified_name, "diff"),
         })
 
     # Overall risk score: max of individual risks, or 0.
@@ -540,6 +550,7 @@ def analyze_changes(
                 "file": node.file_path,
                 "line_start": node.line_start,
                 "line_end": node.line_end,
+                "scope": node_scope.get(node.qualified_name, "diff"),
             })
 
     # Review priorities: top 10 by risk score.
@@ -577,6 +588,18 @@ def analyze_changes(
             f"  - Warning: analysis capped at {_max_funcs} functions "
             f"(set CRG_MAX_CHANGED_FUNCS to adjust)"
         )
+    if unranged:
+        # Every node below tagged "scope": "whole_file" came from here, not
+        # from an actual diff hunk — e.g. a remote PR reviewed without being
+        # checked out, where `base` cannot describe the real diff. Surfaced
+        # so a caller doesn't mistake "every function in this file" for
+        # "what this change touched".
+        summary_parts.append(
+            f"  - Note: {len(unranged)} file(s) had no diff hunks at "
+            f"base={base!r} — every function in them is listed below "
+            "(not just what changed); check out the branch for a precise "
+            "diff scope"
+        )
 
     return {
         "summary": "\n".join(summary_parts),
@@ -586,4 +609,5 @@ def analyze_changes(
         "test_gaps": test_gaps,
         "review_priorities": review_priorities,
         "functions_truncated": funcs_truncated,
+        "whole_file_scope_files": sorted(unranged),
     }

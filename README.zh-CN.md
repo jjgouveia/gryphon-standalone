@@ -169,9 +169,9 @@ Build the code review graph for this project
 
 | 命令 | 说明 |
 |------|------|
-| `/gryphon:build-graph` | 构建或重新构建代码图 |
-| `/gryphon:review-delta` | 审查自上次提交以来的变更 |
-| `/gryphon:review-pr` | 完整的 PR 审查，含影响半径分析 |
+| `/build-graph` | 构建或重新构建代码图 |
+| `/review-delta` | 审查自上次提交以来的变更 |
+| `/review-pr` | 完整的 PR 审查，含影响半径分析 |
 
 </details>
 

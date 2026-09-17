@@ -37,7 +37,12 @@ from ..uncertainty import (
     empty_query_confidence,
     empty_search_confidence,
 )
-from ._common import _BUILTIN_CALL_NAMES, _get_store, _resolve_graph_file_paths
+from ._common import (
+    _BUILTIN_CALL_NAMES,
+    _get_store,
+    _resolve_graph_file_paths,
+    ensure_graph_current,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +161,10 @@ def get_impact_radius(
 
     store, root = _get_store(repo_root)
     try:
+        graph_note, not_ready = ensure_graph_current(root, store)
+        if not_ready is not None:
+            return not_ready
+
         if changed_files is None:
             base = resolve_review_base(root, base)
             changed_files = get_changed_files(root, base)
@@ -205,7 +214,10 @@ def get_impact_radius(
         truncated = result["truncated"]
         total_impacted = result["total_impacted"]
 
-        summary_parts = [
+        summary_parts = []
+        if graph_note:
+            summary_parts.append(graph_note)
+        summary_parts += [
             f"Blast radius for {len(changed_files)} changed file(s):",
             f"  - {len(changed_dicts)} nodes directly changed",
             f"  - {len(impacted_dicts)} nodes impacted (within {max_depth} hops)",

@@ -333,8 +333,10 @@ def _handle_init(args: argparse.Namespace) -> None:
 
     from .skills import (
         PLATFORMS,
+        _agents_home,
         generate_skills,
         inject_instruction_files,
+        install_agents_skills,
         install_codebuddy_hooks,
         install_codebuddy_skills,
         install_codex_hooks,
@@ -368,6 +370,14 @@ def _handle_init(args: argparse.Namespace) -> None:
         if target == "hermes" or (target == "all" and PLATFORMS["hermes"]["detect"]()):
             hermes_skills_dir = install_hermes_skills(repo_root)
             print(f"Installed Hermes Agent skills in {hermes_skills_dir}")
+
+        # The vendor-neutral store shared by every tool that reads .agents.
+        # It is user-level and not an MCP client, so there is nothing to
+        # register and no --platform value for it: populate it when the
+        # user already keeps one, and leave machines that do not alone.
+        if target == "all" and _agents_home().is_dir():
+            agents_skills_dir = install_agents_skills()
+            print(f"Installed agent-neutral skills in {agents_skills_dir}")
 
     # Confirm before writing instruction files (#173). --yes skips the
     # prompt; --no-instructions skips the whole block.

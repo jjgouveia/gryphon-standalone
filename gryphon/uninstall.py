@@ -1112,7 +1112,7 @@ def _process_platform_configs(
 
 
 def _generated_skill_slugs() -> list[str]:
-    return [filename.rsplit(".", 1)[0] for filename in skills._SKILLS]
+    return list(skills._SKILL_SLUGS)
 
 
 def _remove_legacy_mcp_configs(
@@ -1222,7 +1222,7 @@ def _process_repo(
             dry_run=dry_run,
         )
 
-    for root_name in (".claude", ".gemini", ".codebuddy"):
+    for root_name in (".claude", ".gemini", ".codebuddy", ".qoder"):
         for slug in _generated_skill_slugs():
             _remove_skill_file(
                 repo_root / root_name / "skills" / slug / "SKILL.md",
@@ -1331,6 +1331,17 @@ def _process_user(
         _remove_skill_file(
             hermes_skills / slug / "SKILL.md",
             hermes_skills,
+            report,
+            dry_run=dry_run,
+        )
+
+    # The vendor-neutral store holds skills from many sources side by side,
+    # so only the slugs this package ships are ever removed from it.
+    agents_skills = skills._agents_home() / "skills"
+    for slug in _generated_skill_slugs():
+        _remove_skill_file(
+            agents_skills / slug / "SKILL.md",
+            agents_skills,
             report,
             dry_run=dry_run,
         )

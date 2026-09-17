@@ -29,6 +29,7 @@ from ._common import (
     _resolve_graph_file_paths,
     _shown_of,
     _validate_positive_int,
+    ensure_graph_current,
     graph_provenance,
 )
 
@@ -151,6 +152,10 @@ def get_review_context(
 
     store, root = _get_store(repo_root)
     try:
+        graph_note, not_ready = ensure_graph_current(root, store)
+        if not_ready is not None:
+            return not_ready
+
         # Get impact radius first
         if changed_files is None:
             base = resolve_review_base(root, base)
@@ -228,6 +233,8 @@ def get_review_context(
                     "get_impact_radius_tool",
                 ],
             }
+            if graph_note:
+                result["summary"] = f"{graph_note}\n{result['summary']}"
             attach_context_savings(
                 result,
                 original_tokens=original_tokens,
@@ -336,6 +343,8 @@ def get_review_context(
             "summary": "\n".join(summary_parts),
             "context": context,
         }
+        if graph_note:
+            result["summary"] = f"{graph_note}\n{result['summary']}"
         attach_context_savings(
             result,
             original_tokens=original_tokens,
@@ -708,6 +717,10 @@ def detect_changes_func(
 
     store, root = _get_store(repo_root)
     try:
+        graph_note, not_ready = ensure_graph_current(root, store)
+        if not_ready is not None:
+            return not_ready
+
         base = resolve_review_base(root, base)
         # Detect changed files if not provided.
         if changed_files is None:
@@ -762,8 +775,20 @@ def detect_changes_func(
                     _scope_files.add(_step["file_path"])
         original_tokens = estimate_file_tokens(root, _scope_files)
 
-        _n_changed_funcs = len(analysis.get("changed_functions", []))
-        _n_test_gaps = len(analysis.get("test_gaps", []))
+        # Only diff-backed entries stand in for work a manual reviewer would
+        # actually have done. "whole_file" entries (#852) are every
+        # function in a file we couldn't get precise ranges for — a
+        # reviewer following the actual diff would never have opened most
+        # of them, so counting them here would price the graph against a
+        # counterfactual nobody would have performed.
+        _n_changed_funcs = sum(
+            1 for f in analysis.get("changed_functions", [])
+            if f.get("scope", "diff") == "diff"
+        )
+        _n_test_gaps = sum(
+            1 for g in analysis.get("test_gaps", [])
+            if g.get("scope", "diff") == "diff"
+        )
         _affected_flows = analysis.get("affected_flows", [])
         _flow_depths = [
             f.get("depth", f.get("node_count", 3))
@@ -809,6 +834,8 @@ def detect_changes_func(
                         except (OSError, UnicodeDecodeError):
                             func["source"] = "(could not read file)"
 
+        _whole_file_files = analysis.get("whole_file_scope_files", [])
+
         if detail_level == "minimal":
             priorities = analysis.get("review_priorities", [])
             top_priorities = [
@@ -823,6 +850,12 @@ def detect_changes_func(
                 "test_gap_count": len(analysis.get("test_gaps", [])),
                 "review_priorities": top_priorities,
             }
+            if _whole_file_files:
+                # these files had no diff hunks at `base`, so every
+                # test gap / review priority attributed to them is "lives in
+                # a touched file", not "was actually changed" — the caller
+                # should discount them, not treat them as findings.
+                result["whole_file_scope_file_count"] = len(_whole_file_files)
             _attach_coverage(result, unindexed, len(abs_files), root, store)
         else:
             funcs, funcs_total, funcs_cut = _bounded(
@@ -839,6 +872,9 @@ def detect_changes_func(
             )
             files, files_total, files_cut = _bounded(
                 changed_files, max_results, _MAX_REVIEW_FILES,
+            )
+            whole_file_files, whole_file_total, _ = _bounded(
+                _whole_file_files, max_results, _MAX_REVIEW_FILES,
             )
             any_cut = funcs_cut or gaps_cut or flows_cut or files_cut
             summary = analysis.get("summary", "")
@@ -861,9 +897,13 @@ def detect_changes_func(
                 "test_gaps_total": gaps_total,
                 "affected_flows": _project(flows, _DETECT_FLOW_FIELDS),
                 "affected_flows_total": flows_total,
+                "whole_file_scope_files": whole_file_files,
+                "whole_file_scope_files_total": whole_file_total,
                 "truncated": any_cut,
             }
             _attach_coverage(result, unindexed, len(abs_files), root, store)
+        if graph_note:
+            result["summary"] = f"{graph_note}\n{result.get('summary', '')}".strip()
         result["_hints"] = generate_hints(
             "detect_changes_tool", result, get_session()
         )

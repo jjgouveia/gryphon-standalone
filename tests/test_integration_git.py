@@ -1156,3 +1156,83 @@ def test_minimal_context_reconciles_divergent_build(tmp_path: Path) -> None:
         assert store.get_nodes_by_file(str(repo / "feature_only.py")) is not None
         assert not store.get_nodes_by_file(str(repo / "main_only.py"))
     assert graph_provenance(str(repo))["head_matches_build"] is True
+
+
+def _add_function_on_ancestor_build(tmp_path: Path) -> Path:
+    """A repo whose graph is one commit behind, missing a new function.
+
+    Unlike ``feature_only.py`` above, the changed file (``a.py``) already
+    existed when the graph was built, so a presence-only staleness check
+    (does the graph have *a node* for this path) sees it as fully covered.
+    Only ``ensure_graph_current`` catches that the graph's copy of the file
+    predates ``beta`` and tops it up before the tool reads ``store``.
+    """
+    repo = _init_repo(tmp_path)
+    build_or_update_graph(repo_root=str(repo), postprocess="none")
+    (repo / "a.py").write_text(
+        "def alpha():\n    return 1\n\n\ndef beta():\n    return 2\n"
+    )
+    _git_ok(repo, "add", ".")
+    _git_ok(repo, "commit", "-m", "add beta")
+
+    provenance = graph_provenance(str(repo))
+    assert provenance["head_matches_build"] is False
+    assert provenance["build_relation"] == "ancestor"
+    return repo
+
+
+def test_detect_changes_refreshes_stale_graph_before_scoring(
+    tmp_path: Path,
+) -> None:
+    """detect_changes tops up an ancestor-built graph, not just get_minimal_context.
+
+    Before the shared ``ensure_graph_current`` gate, ``a.py`` already had a
+    node in the graph (for ``alpha``), so the file-presence coverage check
+    reported it fully indexed and detect_changes scored the diff off the
+    stale graph, where ``beta`` does not exist yet: a genuinely new function
+    could score as "nothing changed" instead of appearing in
+    ``changed_functions``.
+    """
+    from gryphon.tools.review import detect_changes_func
+
+    repo = _add_function_on_ancestor_build(tmp_path)
+
+    result = detect_changes_func(repo_root=str(repo))
+
+    assert result["status"] == "ok"
+    assert "auto-refresh" in result.get("summary", "").lower()
+    changed_names = {f["name"] for f in result["changed_functions"]}
+    assert "beta" in changed_names
+    assert graph_provenance(str(repo))["head_matches_build"] is True
+
+
+def test_get_review_context_refreshes_stale_graph_before_scoring(
+    tmp_path: Path,
+) -> None:
+    """get_review_context tops up an ancestor-built graph before reading it."""
+    from gryphon.tools.review import get_review_context
+
+    repo = _add_function_on_ancestor_build(tmp_path)
+
+    result = get_review_context(repo_root=str(repo), detail_level="minimal")
+
+    assert result["status"] == "ok"
+    assert "auto-refresh" in result.get("summary", "").lower()
+    assert graph_provenance(str(repo))["head_matches_build"] is True
+
+
+def test_get_impact_radius_refreshes_stale_graph_before_scoring(
+    tmp_path: Path,
+) -> None:
+    """get_impact_radius tops up an ancestor-built graph before reading it."""
+    from gryphon.tools.query import get_impact_radius
+
+    repo = _add_function_on_ancestor_build(tmp_path)
+
+    result = get_impact_radius(repo_root=str(repo))
+
+    assert result["status"] == "ok"
+    assert "auto-refresh" in result.get("summary", "").lower()
+    changed_names = {n["name"] for n in result["changed_nodes"]}
+    assert "beta" in changed_names
+    assert graph_provenance(str(repo))["head_matches_build"] is True
