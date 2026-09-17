@@ -460,3 +460,66 @@ class TestApplyToolFilter:
         crg_main._apply_tool_filter(" query_graph_tool , semantic_search_nodes_tool ")
         remaining = await self._tool_names()
         assert remaining == {"query_graph_tool", "semantic_search_nodes_tool"}
+
+
+# --- embed_graph_tool() guard tests ---
+
+
+class TestEmbedGraphTool:
+    """Tests for the async ``embed_graph_tool`` MCP wrapper."""
+
+    @pytest.mark.asyncio
+    async def test_forwards_repo_root_and_params(self, tmp_path, monkeypatch):
+        """``embed_graph_tool`` must thread ``repo_root``, ``model`` and
+        ``provider`` through to ``embed_graph`` unchanged."""
+        captured: dict = {}
+
+        def fake_embed(**kwargs):
+            captured.update(kwargs)
+            return {"status": "ok", "embedded": 0, "total": 0}
+
+        monkeypatch.setattr(crg_main, "embed_graph", fake_embed)
+        monkeypatch.setattr(crg_main, "_default_repo_root", str(tmp_path))
+
+        result = await crg_main.embed_graph_tool(
+            repo_root=str(tmp_path),
+            model="text-embedding-3-small",
+            provider="openai",
+        )
+
+        assert result["status"] == "ok"
+        assert captured["repo_root"] == str(tmp_path)
+        assert captured["model"] == "text-embedding-3-small"
+        assert captured["provider"] == "openai"
+
+    @pytest.mark.asyncio
+    async def test_propagates_embed_error(self, tmp_path, monkeypatch):
+        """When ``embed_graph`` returns an error status, the wrapper must
+        surface it unchanged rather than masking it."""
+        monkeypatch.setattr(
+            crg_main, "embed_graph",
+            lambda **_kwargs: {"status": "error", "error": "provider unavailable"},
+        )
+        monkeypatch.setattr(crg_main, "_default_repo_root", str(tmp_path))
+
+        result = await crg_main.embed_graph_tool(repo_root=str(tmp_path))
+
+        assert result["status"] == "error"
+        assert result["error"] == "provider unavailable"
+
+    @pytest.mark.asyncio
+    async def test_uses_default_repo_root_when_omitted(self, tmp_path, monkeypatch):
+        """When ``repo_root`` is None the ``--repo`` flag is used instead."""
+        captured: dict = {}
+
+        def fake_embed(**kwargs):
+            captured.update(kwargs)
+            return {"status": "ok", "embedded": 0, "total": 0}
+
+        monkeypatch.setattr(crg_main, "embed_graph", fake_embed)
+        monkeypatch.setattr(crg_main, "_default_repo_root", str(tmp_path))
+
+        result = await crg_main.embed_graph_tool(repo_root=None)
+
+        assert result["status"] == "ok"
+        assert captured["repo_root"] == str(tmp_path)
