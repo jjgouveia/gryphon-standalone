@@ -509,6 +509,54 @@ class TestGraphStore:
         impacted_qns = {n.qualified_name for n in result["impacted_nodes"]}
         assert "/b.py::func_b" in impacted_qns or "/b.py" in impacted_qns
 
+    def test_impact_radius_changed_ranges_excludes_untouched_methods(self):
+        """A god-class file with two methods: only the one the diff actually
+        touched should seed the traversal. Without ``changed_ranges``, every
+        method in the changed file seeds it — including one nobody touched
+        — and pulls in that method's unrelated caller too."""
+        self.store.upsert_node(self._make_file_node("/views.py"))
+        self.store.upsert_node(NodeInfo(
+            kind="Function", name="touched", file_path="/views.py",
+            line_start=10, line_end=20, language="python",
+        ))
+        self.store.upsert_node(NodeInfo(
+            kind="Function", name="untouched", file_path="/views.py",
+            line_start=500, line_end=520, language="python",
+        ))
+        self.store.upsert_node(self._make_file_node("/caller_of_touched.py"))
+        self.store.upsert_node(self._make_func_node(
+            "calls_touched", "/caller_of_touched.py",
+        ))
+        self.store.upsert_node(self._make_file_node("/caller_of_untouched.py"))
+        self.store.upsert_node(self._make_func_node(
+            "calls_untouched", "/caller_of_untouched.py",
+        ))
+        self.store.upsert_edge(EdgeInfo(
+            kind="CALLS", source="/caller_of_touched.py::calls_touched",
+            target="/views.py::touched", file_path="/caller_of_touched.py", line=10,
+        ))
+        self.store.upsert_edge(EdgeInfo(
+            kind="CALLS", source="/caller_of_untouched.py::calls_untouched",
+            target="/views.py::untouched", file_path="/caller_of_untouched.py", line=10,
+        ))
+        self.store.commit()
+
+        # Diff only touched lines 10-20 (the "touched" method).
+        result = self.store.get_impact_radius(
+            ["/views.py"], max_depth=2,
+            changed_ranges={"/views.py": [(10, 20)]},
+        )
+        impacted_qns = {n.qualified_name for n in result["impacted_nodes"]}
+        assert "/caller_of_touched.py::calls_touched" in impacted_qns
+        assert "/caller_of_untouched.py::calls_untouched" not in impacted_qns
+
+        # Without changed_ranges, the whole-file fallback seeds both methods.
+        result_whole_file = self.store.get_impact_radius(["/views.py"], max_depth=2)
+        impacted_qns_whole_file = {
+            n.qualified_name for n in result_whole_file["impacted_nodes"]
+        }
+        assert "/caller_of_untouched.py::calls_untouched" in impacted_qns_whole_file
+
     def test_upsert_edge_preserves_multiple_call_sites(self):
         """Multiple CALLS edges to the same target from the same source on different lines."""
         edge1 = EdgeInfo(
