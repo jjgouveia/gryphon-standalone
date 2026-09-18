@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from ..changes import parse_git_diff_ranges
 from ..config_keys import normalize_spring_config_key
 from ..context_savings import (
     attach_context_savings,
@@ -184,8 +185,25 @@ def get_impact_radius(
 
         # Resolve user-facing paths to the file paths stored in the graph.
         abs_files = _resolve_graph_file_paths(store, root, changed_files)
+
+        # Narrow seeding to the lines the diff actually touched (falls back
+        # to whole-file seeding per-file when a path has no diff hunks —
+        # new files, renames, or an explicit changed_files list that isn't
+        # all present at `base`). Without this, every node in a changed
+        # file seeds the traversal, so a two-line fix in one method of a
+        # huge class radiates out through every other method's callers too.
+        # `_resolve_graph_file_paths` dedups/merges across a whole batch, so
+        # each `rel_path` is resolved on its own to keep the range keyed by
+        # the same path string `_impact_seed_qns` sees in `abs_files`.
+        changed_ranges = parse_git_diff_ranges(root, base)
+        ranges_by_abs_path: dict[str, list[tuple[int, int]]] = {}
+        for rel_path, ranges in changed_ranges.items():
+            for resolved in _resolve_graph_file_paths(store, root, [rel_path]):
+                ranges_by_abs_path[resolved] = ranges
+
         result = store.get_impact_radius(
-            abs_files, max_depth=max_depth, max_nodes=max_results
+            abs_files, max_depth=max_depth, max_nodes=max_results,
+            changed_ranges=ranges_by_abs_path,
         )
 
         # Baseline: tokens an agent would read without the graph —

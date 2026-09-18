@@ -428,6 +428,42 @@ class TestChanges:
         assert "__construct" not in gap_names
         assert "realMethod" in gap_names
 
+    def test_analyze_changes_pytest_fixtures_not_test_gaps(self):
+        """pytest/pytest-asyncio fixtures are scaffolding, not units under
+        test — flagging them as a gap is a category error: nothing calls a
+        fixture directly, pytest injects it, so it can never earn a
+        TESTED_BY edge on its own."""
+        self._add_func(
+            "db_session", path="conftest.py", line_start=1, line_end=5,
+            extra={"decorators": ["pytest.fixture"]},
+        )
+        self._add_func(
+            "_contenttypes_cache_limpo", path="test_thing.py",
+            line_start=6, line_end=10,
+            extra={"decorators": ["pytest.fixture(autouse=True)"]},
+        )
+        self._add_func(
+            "event_loop", path="conftest.py", line_start=11, line_end=15,
+            extra={"decorators": ["pytest_asyncio.fixture"]},
+        )
+        self._add_func(
+            "realMethod", path="conftest.py", line_start=16, line_end=25,
+        )
+
+        result = analyze_changes(
+            self.store,
+            changed_files=["conftest.py", "test_thing.py"],
+            changed_ranges={
+                "conftest.py": [(1, 25)],
+                "test_thing.py": [(6, 10)],
+            },
+        )
+        gap_names = {g["name"] for g in result["test_gaps"]}
+        assert "db_session" not in gap_names
+        assert "_contenttypes_cache_limpo" not in gap_names
+        assert "event_loop" not in gap_names
+        assert "realMethod" in gap_names
+
     def test_analyze_changes_flows_with_relative_cli_paths(self):
         """Relative changed_files still hit flows stored under absolute paths.
 

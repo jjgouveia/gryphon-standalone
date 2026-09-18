@@ -1558,7 +1558,11 @@ class GraphStore:
 
     # --- Impact / Graph traversal ---
 
-    def _impact_seed_qns(self, changed_files: list[str]) -> set[str]:
+    def _impact_seed_qns(
+        self,
+        changed_files: list[str],
+        changed_ranges: dict[str, list[tuple[int, int]]] | None = None,
+    ) -> set[str]:
         """Seed qualified names for the impact traversal.
 
         Includes every node in the changed files plus, for changed C#
@@ -1568,10 +1572,34 @@ class GraphStore:
         reach importers of a changed .cs file. The namespace strings have
         no node rows, so they act purely as bridges and never surface in
         results. See: #310
+
+        When ``changed_ranges`` has an entry for a file, only nodes whose
+        line range overlaps the diff hunks are seeded — otherwise every
+        node in the file is a seed, including untouched methods. On a
+        large god-class file that difference is the whole point: a 2-line
+        fix in one method of a 6000-line ViewSet should not seed the other
+        99 methods and radiate out through every one of their callers. A
+        file with no entry in ``changed_ranges`` (new file, rename, or no
+        ``changed_ranges`` supplied at all) keeps the whole-file fallback,
+        since there is no finer-grained signal to narrow it with.
         """
         seeds: set[str] = set()
         for f in changed_files:
+            ranges = (changed_ranges or {}).get(f)
             for n in self.get_nodes_by_file(f):
+                # File nodes are structural anchors, not "changed logic" —
+                # always seed them (and their C# namespace bridges below)
+                # regardless of diff hunks. Only Function/Class/Test nodes
+                # get narrowed, since those are what inflate the god-class
+                # blast radius.
+                if (
+                    n.kind != "File"
+                    and ranges is not None
+                    and n.line_start is not None
+                    and n.line_end is not None
+                    and not any(n.line_start <= end and n.line_end >= start for start, end in ranges)
+                ):
+                    continue
                 seeds.add(n.qualified_name)
                 if n.kind == "File" and n.language == "csharp":
                     for ns in n.extra.get("csharp_namespaces") or []:
@@ -1584,6 +1612,7 @@ class GraphStore:
         changed_files: list[str],
         max_depth: int = MAX_IMPACT_DEPTH,
         max_nodes: int = MAX_IMPACT_NODES,
+        changed_ranges: dict[str, list[tuple[int, int]]] | None = None,
     ) -> dict[str, Any]:
         """Find dependents and tests impacted by changed files within depth N.
 
@@ -1596,6 +1625,13 @@ class GraphStore:
         does not expand the traversal because every node in a changed file is
         already seeded.
 
+        ``changed_ranges`` (file -> list of (start, end) line tuples, as
+        produced by ``parse_git_diff_ranges``) narrows seeding to the nodes
+        the diff actually touched. Without it, every node in every changed
+        file is seeded — fine for a small file, but on a large multi-method
+        class it seeds untouched methods too and inflates the blast radius
+        with their unrelated callers.
+
         Returns dict with:
           - changed_nodes: nodes in changed files
           - impacted_nodes: reachable nodes ordered by best-path impact score
@@ -1606,9 +1642,11 @@ class GraphStore:
         if BFS_ENGINE == "networkx":
             return self._get_impact_radius_networkx(
                 changed_files, max_depth=max_depth, max_nodes=max_nodes,
+                changed_ranges=changed_ranges,
             )
         return self.get_impact_radius_sql(
             changed_files, max_depth=max_depth, max_nodes=max_nodes,
+            changed_ranges=changed_ranges,
         )
 
     # -- Bounded SQLite relaxation version (default) ----------------------
@@ -1618,6 +1656,7 @@ class GraphStore:
         changed_files: list[str],
         max_depth: int = MAX_IMPACT_DEPTH,
         max_nodes: int = MAX_IMPACT_NODES,
+        changed_ranges: dict[str, list[tuple[int, int]]] | None = None,
     ) -> dict[str, Any]:
         """Impact radius via bounded best-score relaxation in SQLite.
 
@@ -1638,7 +1677,7 @@ class GraphStore:
             }
 
         # Seed qualified names
-        seeds = self._impact_seed_qns(changed_files)
+        seeds = self._impact_seed_qns(changed_files, changed_ranges)
 
         if not seeds:
             return {
@@ -1831,13 +1870,14 @@ class GraphStore:
         changed_files: list[str],
         max_depth: int = MAX_IMPACT_DEPTH,
         max_nodes: int = MAX_IMPACT_NODES,
+        changed_ranges: dict[str, list[tuple[int, int]]] | None = None,
     ) -> dict[str, Any]:
         """BFS via NetworkX (legacy). Used when CRG_BFS_ENGINE=networkx."""
         max_depth = max(0, int(max_depth))
         max_nodes = max(0, int(max_nodes))
         nxg = self._build_networkx_graph()
 
-        seeds = self._impact_seed_qns(changed_files)
+        seeds = self._impact_seed_qns(changed_files, changed_ranges)
 
         best: dict[str, float] = dict.fromkeys(seeds, 1.0)
         frontier = dict(best)

@@ -2005,6 +2005,106 @@ def _modifier_annotation_names(node) -> list[str]:
     return names
 
 
+_DJANGO_ROUTER_REGISTER_RE = re.compile(
+    r"""\.register\(\s*r?(?P<q1>["'])(?P<prefix>(?:(?!(?P=q1)).)*)(?P=q1)\s*,\s*
+        (?P<viewset>[A-Za-z_][\w.]*)\s*
+        (?:,\s*basename\s*=\s*(?P<q2>["'])(?P<basename>(?:(?!(?P=q2)).)*)(?P=q2)\s*)?\)""",
+    re.VERBOSE,
+)
+
+
+def _detect_django_router_registrations(source: bytes) -> list[dict[str, Optional[str]]]:
+    """Best-effort extraction of DRF ``router.register(...)`` calls.
+
+    A regex over raw source rather than a tree-sitter walk: there is one
+    shape to find (a ``.register(prefix, ViewSetClass[, basename=...])``
+    call, normally at module scope in ``urls.py``), so a full AST walk buys
+    nothing a targeted pattern doesn't already cover. Feeds
+    ``resolve_django_routes``, which closes DRF's routed test-gap blind
+    spot: a test hitting a ViewSet action via ``client.post(url)`` leaves
+    no direct CALLS edge to the handler, since Django's router resolves
+    the URL at runtime — invisible to static analysis.
+    """
+    text = source.decode("utf-8", errors="replace")
+    registrations: list[dict[str, Optional[str]]] = []
+    for m in _DJANGO_ROUTER_REGISTER_RE.finditer(text):
+        registrations.append({
+            "prefix": m.group("prefix").strip("/"),
+            "viewset": m.group("viewset").rsplit(".", 1)[-1],
+            "basename": m.group("basename"),
+        })
+    return registrations
+
+
+_DJANGO_ACTION_DECORATOR_RE = re.compile(r"^action\s*\(", re.IGNORECASE)
+_DJANGO_ACTION_DETAIL_RE = re.compile(r"detail\s*=\s*(True|False)")
+_DJANGO_ACTION_URL_PATH_RE = re.compile(r"""url_path\s*=\s*["']([^"']+)["']""")
+# DRF's router expands a ViewSet into these six conventional actions even
+# without an explicit @action decorator. "Detail" routes (retrieve/update/
+# partial_update/destroy) address one object (.../{pk}/); the rest address
+# the collection.
+_DJANGO_VIEWSET_DEFAULT_ACTIONS: dict[str, bool] = {
+    "list": False, "create": False,
+    "retrieve": True, "update": True, "partial_update": True, "destroy": True,
+}
+
+
+def _drf_action_metadata(
+    name: str, enclosing_class: Optional[str], decorators: tuple[str, ...],
+) -> Optional[dict[str, Any]]:
+    """Return DRF route metadata for a ViewSet method, or ``None``.
+
+    Covers the two ways a DRF ViewSet method becomes routable: an
+    ``@action(...)`` decorator (custom route) or one of the six
+    router-generated default action names (conventional route). Both
+    require the enclosing class to look like a ViewSet — a name heuristic,
+    since confirming inheritance from ``ViewSet``/``ModelViewSet`` would
+    need resolving imports across the whole class hierarchy for a check
+    this narrow.
+    """
+    if not enclosing_class or "viewset" not in enclosing_class.lower():
+        return None
+    for deco in decorators:
+        if not _DJANGO_ACTION_DECORATOR_RE.match(deco.strip()):
+            continue
+        detail_match = _DJANGO_ACTION_DETAIL_RE.search(deco)
+        url_path_match = _DJANGO_ACTION_URL_PATH_RE.search(deco)
+        return {
+            "url_path": url_path_match.group(1) if url_path_match else name,
+            "detail": detail_match.group(1) == "True" if detail_match else True,
+        }
+    if name in _DJANGO_VIEWSET_DEFAULT_ACTIONS:
+        return {"url_path": "", "detail": _DJANGO_VIEWSET_DEFAULT_ACTIONS[name]}
+    return None
+
+
+_DJANGO_CLIENT_CALL_RE = re.compile(
+    r"""\.(get|post|put|patch|delete)\(\s*
+        f?(?P<q>["'])(?P<url>(?:(?!(?P=q)).)*)(?P=q)""",
+    re.VERBOSE,
+)
+
+
+def _drf_test_client_calls(body_text: str) -> list[dict[str, str]]:
+    """Extract literal-ish ``client.<verb>(url, ...)`` calls from a test body.
+
+    A regex over the method's own source slice, not a call-graph walk: the
+    receiver is left unconstrained (could be ``self.client``, ``api_client``,
+    a plain dict with a same-named ``.get`` — a false match there just
+    never matches a real route later and is silently dropped, so being
+    loose here costs nothing). F-string interpolations (``{due_id}``) are
+    kept as literal ``{...}`` markers; ``resolve_django_routes`` treats a
+    whole path segment containing one as a wildcard, which is enough to
+    bridge the common "hit the detail route with a positional pk" shape.
+    It is not a general expression evaluator: a URL built via ``reverse()``
+    or string concatenation outside the call itself will not match.
+    """
+    return [
+        {"http_method": m.group(1), "url": m.group("url")}
+        for m in _DJANGO_CLIENT_CALL_RE.finditer(body_text)
+    ]
+
+
 def _python_decorator_names(node) -> list[str]:
     """Return decorators wrapping a Python definition in source order."""
     parent = node.parent
@@ -2790,6 +2890,14 @@ class CodeParser:
             ns_list = _csharp_namespaces(tree.root_node)
             if ns_list:
                 file_extra["csharp_namespaces"] = ns_list
+        # Django REST Framework: record router.register() calls so
+        # resolve_django_routes can later join them against ViewSet action
+        # methods (drf_action, below) and test client calls
+        # (django_client_calls, below). See _detect_django_router_registrations.
+        if language == "python":
+            registrations = _detect_django_router_registrations(source)
+            if registrations:
+                file_extra["django_router_registrations"] = registrations
         nodes.append(NodeInfo(
             kind="File",
             name=file_path_str,
@@ -10615,6 +10723,22 @@ class CodeParser:
         modifiers_str: Optional[str] = ",".join(deco_list) if deco_list else None
         if deco_list:
             method_extra["decorators"] = list(deco_list)
+
+        # Django REST Framework routing metadata — see
+        # _drf_action_metadata / _drf_test_client_calls / _detect_django_-
+        # router_registrations and resolve_django_routes for the full
+        # picture of how these three pieces join back into a TESTED_BY edge.
+        if language == "python":
+            if not is_test:
+                drf_action = _drf_action_metadata(name, enclosing_class, decorators)
+                if drf_action is not None:
+                    method_extra["drf_action"] = drf_action
+            else:
+                client_calls = _drf_test_client_calls(
+                    child.text.decode("utf-8", errors="replace"),
+                )
+                if client_calls:
+                    method_extra["django_client_calls"] = client_calls
 
         docstring = self._get_docstring_summary(child, language)
         if docstring:

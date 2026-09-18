@@ -31,6 +31,21 @@ _TEST_GAP_EXEMPT_NAMES = frozenset({
     "__construct", "__init__", "__destruct",
 })
 
+# pytest/pytest-asyncio fixtures are test scaffolding, not production units —
+# flagging them as a "test gap" is a category error (a fixture isn't tested,
+# it's used by tests). Decorator text keeps any call args (e.g.
+# ``pytest.fixture(autouse=True)``), so this matches on prefix.
+_FIXTURE_DECORATOR_PREFIXES = (
+    "fixture", "pytest.fixture", "pytest_asyncio.fixture",
+)
+
+
+def _is_pytest_fixture(node: GraphNode) -> bool:
+    decorators = (node.extra or {}).get("decorators") or []
+    return any(
+        d.startswith(_FIXTURE_DECORATOR_PREFIXES) for d in decorators
+    )
+
 _GIT_TIMEOUT = int(os.environ.get("CRG_GIT_TIMEOUT", "30"))  # seconds, configurable
 
 _SAFE_GIT_REF = re.compile(r"^[A-Za-z0-9_.~^/@{}\-]+$")
@@ -538,6 +553,8 @@ def analyze_changes(
         if node.is_test:
             continue
         if node.name in _TEST_GAP_EXEMPT_NAMES:
+            continue
+        if _is_pytest_fixture(node):
             continue
         # TESTED_BY edges are stored as source=production, target=test by the
         # parser, so a changed production function finds its tests by source.
