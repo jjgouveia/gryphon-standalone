@@ -61,7 +61,7 @@ embeddings = [
     "numpy>=1.26,<3",
 ]
 google-embeddings = [
-    "google-genai>=1.0.0,<3",
+    "google-genai>=2.24.0,<3",
 ]
 communities = [
     "igraph>=0.11.0",
