@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub pull request or branch diff using the knowledge graph for structural context, verify the change against base and head, and publish the review with gh. Outputs a structured review with blast-radius analysis.
+description: Review a GitHub pull request or branch diff using the knowledge graph for structural context, verify the change against base and head, and publish the review with gh. Outputs a structured review with blast-radius analysis. Covers first-pass reviews and re-review rounds that verify prior findings against a new head.
 argument-hint: "[PR URL, number, or branch name]"
 ---
 
@@ -20,6 +20,50 @@ read, the base ref proves what the diff actually changed.
   as `base` in graph calls.
 - Never rely on graph auto-detect for a remote PR: it diffs the working
   tree, which may sit on an unrelated commit.
+- **PR already reviewed?** The change set is the delta since the last
+  reviewed head, not the full file list. See *Re-review* below before
+  any graph call.
+
+## Re-review: continuing a reviewed PR
+
+When the PR already has review rounds (yours or others'), the unit of
+work is the **open findings list**, not the full diff.
+
+1. **Pull the whole thread** — three different surfaces:
+   - `gh api repos/<o>/<r>/pulls/<n>/reviews` → formal reviews (`state`,
+     `body`, `submitted_at`)
+   - `gh api repos/<o>/<r>/issues/<n>/comments` → conversation replies
+     (the author's "fixed it" claims live here)
+   - `gh api repos/<o>/<r>/pulls/<n>/comments` → inline review comments
+
+   Walk the reviews newest-first and extract each numbered finding as
+   open/resolved/obsolete. Author replies claiming a fix are claims,
+   not evidence.
+2. **Isolate the delta.** Prior review bodies usually cite the head
+   SHA they verified (e.g. `head 964e6756`); otherwise bound it by
+   `submitted_at` against the commit list. Then `git fetch origin
+   <head>` + `git diff <old-head>..origin/<head>`. Review that delta
+   plus only the files the open findings touch. Merge commits inside
+   the delta carry base-branch commits — they belong to the base, not
+   to this review.
+3. **Verify each open finding at head.** Read the cited symbol at head.
+   Resolved means: the fix matches one of the suggested resolutions
+   *and* a regression test covers the behavior. A test that mocks the
+   function under test proves nothing — check what it asserts. Also
+   re-check "dead code" and "nobody calls this" claims from previous
+   rounds: the fix may have revived the call path.
+4. **Re-run what was red first.** Tests that failed in previous rounds
+   are the cheapest oracle — run them before the broader suite. Lint
+   the touched files too (`ruff check --select F821` catches
+   missing-import breakage without booting the app).
+5. **Expect breakage inside the fix.** Fix commits often introduce new
+   issues (a re-added call path drops an import, a restored fan-out
+   drops the debounce). Diff the delta fresh; don't assume a fix
+   commit is only a fix.
+6. **Body continuity.** Title the pass ("segunda passada", "quarta
+   passada"), open with per-item resolution status keyed to the prior
+   numbering, then new findings. Never re-report a resolved item as
+   new; never re-list nits already raised unless they regressed.
 
 ## 2. Graph pass
 
