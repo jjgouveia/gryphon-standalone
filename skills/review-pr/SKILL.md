@@ -145,6 +145,13 @@ work is the **open findings list**, not the full diff.
   `gh pr comment <n> --body-file <file>` instead.
 - If the user edits the draft, apply the edit verbatim and re-show the
   body before publishing.
+- Pertinent findings that do not block the merge (test gaps, latent
+  footguns, follow-up refactors) deserve tracking, not just a paragraph in
+  the review. Offer to open a GitHub issue assigned to the PR author
+  (`gh issue create --repo <owner>/<repo> --assignee <author-login>`).
+  Draft the issue in chat first and create it only after an explicit yes.
+  Match the repo's issue conventions — title prefix, sections, language —
+  by checking a recent issue from the same team first.
 
 ## Output
 
