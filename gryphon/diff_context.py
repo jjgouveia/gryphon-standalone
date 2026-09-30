@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 _SEPARATORS = {";", "&&", "||", "|", "&", "(", ")", "\n"}
 # Options of `git` itself (before the subcommand) that take a value.
 _GIT_GLOBAL_WITH_VALUE = {"-c", "--git-dir", "--work-tree", "--namespace"}
-_SAFE_TOKEN = re.compile(r"^[\w./~^@{}:!*\-+=,]+$")
+_SAFE_ARG = re.compile(r"^[\w./~^@{}:!*\-+=,]+$")
 _GIT_TIMEOUT = 15
 
 # Paths whose symbols are generated or vendored: never worth a reviewer's time.
@@ -119,16 +119,16 @@ def extract_git_diffs(command: str) -> list[tuple[str, list[str]]]:
             continue
         args: list[str] = []
         after_dashdash = False
-        for token in seg[i + 1:]:
-            if token == "--":
+        for word in seg[i + 1:]:
+            if word == "--":
                 after_dashdash = True
-                args.append(token)
+                args.append(word)
                 continue
-            if not after_dashdash and token.startswith("-"):
+            if not after_dashdash and word.startswith("-"):
                 continue  # every option is dropped
-            if not _SAFE_TOKEN.match(token):
+            if not _SAFE_ARG.match(word):
                 break  # redirection or something we will not pass to git
-            args.append(token)
+            args.append(word)
         found.append((directory, args))
     return found
 
