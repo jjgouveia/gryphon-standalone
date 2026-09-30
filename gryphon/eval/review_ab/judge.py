@@ -12,7 +12,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import random
 import re
 import subprocess
 import time
@@ -143,11 +142,16 @@ Write `title`, `rationale` and `comment` in the language of the PR title.
 
 
 def _labels(case_id: str, run_id: str, n: int) -> list[str]:
-    """A deterministic shuffle of R1..Rn for this case and run."""
-    seed = int(hashlib.sha256(f"{case_id}:{run_id}".encode()).hexdigest()[:16], 16)
+    """A deterministic shuffle of R1..Rn for this case and run.
+
+    Ordering by a hash of (case, run, label) shuffles without a PRNG: the
+    order only needs to be unpredictable to the judge, not secret.
+    """
     labels = [f"R{i + 1}" for i in range(n)]
-    random.Random(seed).shuffle(labels)
-    return labels
+    return sorted(
+        labels,
+        key=lambda label: hashlib.sha256(f"{case_id}:{run_id}:{label}".encode()).hexdigest(),
+    )
 
 
 def judgeable(records: list[dict], case_id: str) -> list[dict]:

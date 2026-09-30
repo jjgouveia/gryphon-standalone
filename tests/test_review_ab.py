@@ -751,3 +751,100 @@ def test_building_the_cli_does_not_import_the_runner():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+def test_mine_repo_credits_the_pr_that_introduced_the_fixed_lines(tmp_path: Path):
+    """PR #1 introduces a bug, PR #2 fixes it: #1 is ranked with the fix, #2 is not."""
+    from gryphon.eval.review_ab.mine import mine_repo
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+
+    _git(repo, "checkout", "-q", "-b", "feat")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs) + 1\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "feat: new total")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "feat", "-m", "Merge pull request #1 from o/feat")
+
+    _git(repo, "checkout", "-q", "-b", "fix")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "fix: off by one in total")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "fix", "-m", "Merge pull request #2 from o/fix")
+
+    ranked = mine_repo(repo, ["main"])
+    assert [r["pr"] for r in ranked] == [1]
+    issue = ranked[0]["known_issues"][0]
+    assert issue["fix_pr"] == 2 and issue["fix_subject"] == "fix: off by one in total"
+    assert issue["file"] == "app.py" and issue["confirmed"] is False
+    assert ranked[0]["changed_commits"] == 1
+
+
+def test_removed_ranges_survives_a_commit_without_parent(tmp_path: Path):
+    """The root commit (or a shallow clone's edge) has no parent to diff."""
+    from gryphon.eval.review_ab.mine import removed_ranges
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    (repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "fix: root")
+    assert removed_ranges(repo, _git(repo, "rev-parse", "HEAD")) == {}
+
+
+def test_mine_repo_credits_the_feature_pr_not_the_promotion(tmp_path: Path):
+    """feature -> homologation -> main: the bug belongs to the small feature PR."""
+    from gryphon.eval.review_ab.mine import mine_repo
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "homologation")
+    _git(repo, "checkout", "-q", "-b", "feat")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs) + 1\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "feat: new total")
+    _git(repo, "checkout", "-q", "homologation")
+    _git(repo, "merge", "-q", "--no-ff", "feat", "-m", "Merge pull request #7 from o/feat")
+    (repo / "b.py").write_text("y = 1\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "chore: other work")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "homologation", "-m",
+         "Merge pull request #9 from o/homologation")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "fix: off by one")
+
+    ranked = mine_repo(repo, ["main"])
+    assert [r["pr"] for r in ranked] == [7]
+
+
+def test_mine_repo_keeps_only_the_hosts_prs(tmp_path: Path):
+    """Merges from another repository's history are dropped; numbers come from the host."""
+    from gryphon.eval.review_ab.mine import merged_prs, mine_repo
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feat")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs) + 1\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "feat: new total")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "feat", "-m", "Merge pull request #2515 from old/feat")
+    (repo / "app.py").write_text("def total(xs):\n    return sum(xs)\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "fix: off by one")
+    merge = merged_prs(repo, ["main"])[0]["merge_sha"]
+
+    assert mine_repo(repo, ["main"], merge_shas={}) == []
+    ranked = mine_repo(repo, ["main"], merge_shas={merge: 12})
+    assert [r["pr"] for r in ranked] == [12]

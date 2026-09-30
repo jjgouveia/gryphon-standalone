@@ -75,6 +75,27 @@ def add_parser(sub) -> argparse.ArgumentParser:
         help="Store candidates as unconfirmed known_issues (set confirmed: true to use them)",
     )
 
+    mine_repo = rsub.add_parser(
+        "mine-repo", help="SZZ over a branch: PRs ranked by later fixes blamed back to them",
+    )
+    mine_repo.add_argument("--source", required=True, help="Local clone to mine")
+    mine_repo.add_argument(
+        "--refs", nargs="+", default=["--remotes"],
+        help="Refs to read merges and fixes from (default: every remote branch)",
+    )
+    mine_repo.add_argument("--top", type=int, default=15, help="How many PRs to list")
+    mine_repo.add_argument(
+        "--add", type=int, default=0, metavar="N",
+        help="Add the top N PRs as cases (needs --gh-repo), with the mined fixes as "
+             "unconfirmed known_issues",
+    )
+    mine_repo.add_argument(
+        "--gh-repo", default=None,
+        help="owner/name on GitHub: keeps only merges that are PRs of this repo (by merge "
+             "SHA) and is required by --add",
+    )
+    mine_repo.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
+
     audit = rsub.add_parser("audit", help="Recompute leak flags of a run from its streams")
     audit.add_argument("--run", required=True, help="Run directory")
     audit.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
@@ -189,6 +210,32 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if args.write:
             save_cases(updated, path)
             print(f"written to {path} (unconfirmed; review and set confirmed: true)")
+        return
+
+    if args.review_eval_command == "mine-repo":
+        from dataclasses import replace
+
+        from .cases import case_from_github, upsert_case
+        from .mine import github_merge_shas
+        from .mine import mine_repo as mine_branch
+
+        if args.add and not args.gh_repo:
+            raise SystemExit("--add needs --gh-repo")
+        shas = github_merge_shas(args.gh_repo) if args.gh_repo else None
+        ranked = mine_branch(Path(args.source), args.refs, merge_shas=shas)
+        print(f"{len(ranked)} PR(s) with later fixes blamed back to them")
+        for row in ranked[:args.top]:
+            fixes = ", ".join(
+                f"{k['fix_commit'][:8]}" + (f" (#{k['fix_pr']})" if k["fix_pr"] else "")
+                for k in row["known_issues"]
+            )
+            print(f"  #{row['pr']:<5} {len(row['known_issues'])} fix(es), "
+                  f"{row['changed_commits']} commit(s)  <- {fixes}")
+        for row in ranked[:args.add]:
+            case = case_from_github(args.gh_repo, row["pr"], Path(args.source))
+            case = replace(case, known_issues=row["known_issues"])
+            upsert_case(case, Path(args.cases))
+            print(f"added {case.id}: {case.title} ({len(case.known_issues)} unconfirmed)")
         return
 
     if args.review_eval_command == "audit":

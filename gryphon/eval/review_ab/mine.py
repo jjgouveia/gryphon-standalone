@@ -62,7 +62,12 @@ def fix_commits(repo: Path, since: int, exclude: set[str]) -> list[tuple[str, st
 
 def removed_ranges(repo: Path, sha: str) -> dict[str, list[tuple[int, int]]]:
     """Old-side line ranges each file lost or changed in commit *sha*."""
-    diff = _git(repo, "diff", "-U0", "--no-color", "--no-renames", f"{sha}^", sha)
+    try:
+        diff = _git(repo, "diff", "-U0", "--no-color", "--no-renames", f"{sha}^", sha)
+    except subprocess.CalledProcessError as exc:
+        # A root commit, or the edge of a shallow clone: no parent to diff.
+        logger.warning("no parent diff for %s: %s", sha[:8], (exc.stderr or "").strip()[:120])
+        return {}
     ranges: dict[str, list[tuple[int, int]]] = {}
     current: str | None = None
     for line in diff.splitlines():
@@ -123,3 +128,122 @@ def mine_case(case: ReviewCase, *, max_fixes: int = 200) -> list[dict]:
                 "confirmed": False,
             })
     return candidates
+
+
+_MERGE_PR_RE = re.compile(r"^Merge pull request #(\d+)\b")
+
+
+def merged_prs(repo: Path, refs: list[str]) -> list[dict]:
+    """PRs merged with a merge commit anywhere in *refs*: number, SHAs, commits.
+
+    A PR's commits are those reachable from the merge's second parent and not
+    from its first. Squash and rebase merges leave no merge commit and are
+    not seen. All branches count, not only the first-parent line of one: in a
+    feature -> homologation -> main flow, feature PRs never reach main's
+    first-parent history.
+    """
+    out = _git(repo, "log", "--merges", *refs, "--format=%H%x09%P%x09%ct%x09%s")
+    prs = []
+    seen: set[str] = set()
+    for line in out.splitlines():
+        sha, parents, ts, subject = (line.split("\t", 3) + ["", "", ""])[:4]
+        m = _MERGE_PR_RE.match(subject)
+        parent_list = parents.split()
+        if not m or len(parent_list) != 2 or sha in seen:
+            continue
+        seen.add(sha)
+        first, second = parent_list
+        commits = set(_git(repo, "rev-list", f"{first}..{second}").split())
+        prs.append({
+            "pr": int(m.group(1)), "merge_sha": sha, "base_sha": first, "head_sha": second,
+            "merged_at": int(ts), "subject": subject, "commits": commits,
+        })
+    return prs
+
+
+def github_merge_shas(gh_repo: str) -> dict[str, int]:
+    """Merge commit SHA -> PR number for every merged PR of *gh_repo*.
+
+    A clone can carry merges of another repository's history (a repo that
+    started as a copy of an older one), numbered in that repository; only a
+    merge SHA the host reports as a PR of *gh_repo* identifies one of its PRs.
+    """
+    result = subprocess.run(
+        ["gh", "pr", "list", "--repo", gh_repo, "--state", "merged", "--limit", "5000",
+         "--json", "number,mergeCommit"],
+        capture_output=True, text=True, encoding="utf-8", check=True,
+    )
+    import json
+
+    return {
+        pr["mergeCommit"]["oid"]: pr["number"]
+        for pr in json.loads(result.stdout)
+        if pr.get("mergeCommit")
+    }
+
+
+def mine_repo(
+    repo: Path, refs: list[str], *, max_fixes: int = 400,
+    merge_shas: dict[str, int] | None = None,
+) -> list[dict]:
+    """PRs merged in *refs* ranked by later fixes blamed back to their commits.
+
+    The reverse of :func:`mine_case`: start from every fix-looking commit in
+    *refs*, blame the lines it removed or changed, and credit the PR whose
+    commits introduced them. A fix never counts against its own PR. A commit
+    carried by several PRs (a feature PR, then the promotion PR that moved it
+    to main) belongs to the smallest one: the feature PR that wrote it.
+    *merge_shas* (see :func:`github_merge_shas`) keeps only the merges that
+    are PRs of the repository on the host, numbered as the host numbers them.
+    """
+    prs = merged_prs(repo, refs)
+    if merge_shas is not None:
+        prs = [{**pr, "pr": merge_shas[pr["merge_sha"]]}
+               for pr in prs if pr["merge_sha"] in merge_shas]
+    owner: dict[str, int] = {}
+    size: dict[str, int] = {}
+    for pr in prs:
+        for c in pr["commits"]:
+            if c not in owner or len(pr["commits"]) < size[c]:
+                owner[c], size[c] = pr["pr"], len(pr["commits"])
+    by_number: dict[int, dict] = {}
+    for pr in prs:
+        by_number.setdefault(pr["pr"], pr)
+    history = _git(repo, "log", "--no-merges", *refs, "--format=%H%x09%s").splitlines()
+    fixes = [
+        (sha, subject) for sha, _, subject in (line.partition("\t") for line in history)
+        if FIX_SUBJECT_RE.search(subject)
+    ][:max_fixes]
+
+    found: dict[int, list[dict]] = {}
+    for sha, subject in fixes:
+        own_pr = owner.get(sha)
+        blamed: dict[int, list[dict]] = {}
+        for path, spans in removed_ranges(repo, sha).items():
+            for start, end in spans:
+                for origin in blame_origins(repo, sha, path, start, end):
+                    pr_number = owner.get(origin)
+                    if pr_number is None or pr_number == own_pr:
+                        continue
+                    blamed.setdefault(pr_number, []).append(
+                        {"file": path, "lines": f"{start}-{end}"}
+                    )
+        for pr_number, hits in blamed.items():
+            found.setdefault(pr_number, []).append({
+                "id": f"K-{sha[:8]}",
+                "fix_commit": sha,
+                "fix_pr": own_pr,
+                "fix_subject": subject,
+                "file": hits[0]["file"],
+                "description": subject,
+                "blamed_lines": hits,
+                "source": "szz",
+                "confirmed": False,
+            })
+    ranked = [
+        {**{k: v for k, v in by_number[pr].items() if k != "commits"},
+         "changed_commits": len(by_number[pr]["commits"]), "known_issues": issues}
+        for pr, issues in found.items()
+    ]
+    ranked.sort(key=lambda r: (-len(r["known_issues"]), -r["merged_at"]))
+    return ranked
