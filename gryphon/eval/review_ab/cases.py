@@ -109,12 +109,21 @@ def case_from_github(gh_repo: str, pr: int, source_repo: Path) -> ReviewCase:
         ["git", "rev-parse", f"{merge_sha}^1"],
         cwd=str(source_repo), capture_output=True, text=True, check=True,
     )
+    head = meta["headRefOid"]
+    head_known = subprocess.run(
+        ["git", "cat-file", "-e", f"{head}^{{commit}}"],
+        cwd=str(source_repo), capture_output=True,
+    ).returncode == 0
+    if not head_known:
+        # A squash-merged PR whose branch is gone: the squash commit holds the
+        # same change against the same parent.
+        head = merge_sha
     repo_slug = gh_repo.rsplit("/", 1)[-1]
     return ReviewCase(
         id=f"{repo_slug}-{pr}",
         source_repo=str(source_repo.resolve()),
         base_sha=parent.stdout.strip(),
-        head_sha=meta["headRefOid"],
+        head_sha=head,
         title=meta.get("title") or "",
         body=meta.get("body") or "",
         gh_repo=gh_repo,

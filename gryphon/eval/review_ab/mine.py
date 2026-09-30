@@ -24,10 +24,10 @@ FIX_SUBJECT_RE = re.compile(r"\b(fix|fixes|fixed|hotfix|revert|bug|corrig\w*|con
 _HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@")
 
 
-def _git(repo: Path, *args: str) -> str:
+def _git(repo: Path, *args: str, stdin: str | None = None) -> str:
     return subprocess.run(
         ["git", *args], cwd=str(repo), capture_output=True, text=True,
-        encoding="utf-8", errors="replace", check=True,
+        encoding="utf-8", errors="replace", check=True, input=stdin,
     ).stdout
 
 
@@ -133,30 +133,69 @@ def mine_case(case: ReviewCase, *, max_fixes: int = 200) -> list[dict]:
 _MERGE_PR_RE = re.compile(r"^Merge pull request #(\d+)\b")
 
 
-def merged_prs(repo: Path, refs: list[str]) -> list[dict]:
-    """PRs merged with a merge commit anywhere in *refs*: number, SHAs, commits.
+def merged_prs(
+    repo: Path, refs: list[str], *, merge_shas: dict[str, int] | None = None,
+) -> list[dict]:
+    """PRs merged anywhere in *refs*: number, merge SHA, base, head, commits.
 
-    A PR's commits are those reachable from the merge's second parent and not
-    from its first. Squash and rebase merges leave no merge commit and are
-    not seen. All branches count, not only the first-parent line of one: in a
-    feature -> homologation -> main flow, feature PRs never reach main's
-    first-parent history.
+    Without *merge_shas*, a PR is a merge commit whose message starts with
+    "Merge pull request #N" and its commits are those reachable from the
+    second parent and not from the first. All branches count, not only one
+    first-parent line: in a feature -> homologation -> main flow, feature PRs
+    never reach main's first-parent history.
+
+    With *merge_shas* (SHA -> number, from the host), a PR is identified by
+    its SHA whatever the message says, and squash merges count too: a
+    single-parent commit the host reports as a PR's merge is that PR, with
+    itself as its only commit.
     """
     out = _git(repo, "log", "--merges", *refs, "--format=%H%x09%P%x09%ct%x09%s")
     prs = []
     seen: set[str] = set()
     for line in out.splitlines():
         sha, parents, ts, subject = (line.split("\t", 3) + ["", "", ""])[:4]
-        m = _MERGE_PR_RE.match(subject)
         parent_list = parents.split()
-        if not m or len(parent_list) != 2 or sha in seen:
+        if len(parent_list) != 2 or sha in seen:
+            continue
+        if merge_shas is not None:
+            number = merge_shas.get(sha)
+        else:
+            m = _MERGE_PR_RE.match(subject)
+            number = int(m.group(1)) if m else None
+        if number is None:
             continue
         seen.add(sha)
         first, second = parent_list
         commits = set(_git(repo, "rev-list", f"{first}..{second}").split())
         prs.append({
-            "pr": int(m.group(1)), "merge_sha": sha, "base_sha": first, "head_sha": second,
+            "pr": number, "merge_sha": sha, "base_sha": first, "head_sha": second,
             "merged_at": int(ts), "subject": subject, "commits": commits,
+        })
+    if merge_shas:
+        prs += _squash_prs(repo, {s: n for s, n in merge_shas.items() if s not in seen})
+    return prs
+
+
+def _squash_prs(repo: Path, candidates: dict[str, int]) -> list[dict]:
+    """Single-parent commits among *candidates* that exist in the clone."""
+    if not candidates:
+        return []
+    check = _git(repo, "cat-file", "--batch-check", stdin="\n".join(candidates) + "\n")
+    present = [line.split()[0] for line in check.splitlines() if line.endswith(" commit")
+               or " commit " in line]
+    if not present:
+        return []
+    out = _git(repo, "log", "--no-walk=unsorted", "--stdin", "--format=%H%x09%P%x09%ct%x09%s",
+               stdin="\n".join(present) + "\n")
+    prs = []
+    for line in out.splitlines():
+        sha, parents, ts, subject = (line.split("\t", 3) + ["", "", ""])[:4]
+        parent_list = parents.split()
+        if len(parent_list) != 1:
+            continue
+        prs.append({
+            "pr": candidates[sha], "merge_sha": sha, "base_sha": parent_list[0],
+            "head_sha": sha, "merged_at": int(ts), "subject": subject, "commits": {sha},
         })
     return prs
 
@@ -196,10 +235,7 @@ def mine_repo(
     *merge_shas* (see :func:`github_merge_shas`) keeps only the merges that
     are PRs of the repository on the host, numbered as the host numbers them.
     """
-    prs = merged_prs(repo, refs)
-    if merge_shas is not None:
-        prs = [{**pr, "pr": merge_shas[pr["merge_sha"]]}
-               for pr in prs if pr["merge_sha"] in merge_shas]
+    prs = merged_prs(repo, refs, merge_shas=merge_shas)
     owner: dict[str, int] = {}
     size: dict[str, int] = {}
     for pr in prs:

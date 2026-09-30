@@ -848,3 +848,37 @@ def test_mine_repo_keeps_only_the_hosts_prs(tmp_path: Path):
     assert mine_repo(repo, ["main"], merge_shas={}) == []
     ranked = mine_repo(repo, ["main"], merge_shas={merge: 12})
     assert [r["pr"] for r in ranked] == [12]
+
+
+def test_mine_repo_by_sha_accepts_any_message_and_squash_merges(tmp_path: Path):
+    """Hosts can title merges with the PR title, or squash them into one commit."""
+    from gryphon.eval.review_ab.mine import merged_prs, mine_repo
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+    (repo / "b.py").write_text("def b():\n    return 1\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    # PR 1: a merge commit titled like the PR, not "Merge pull request".
+    _git(repo, "checkout", "-q", "-b", "feat")
+    (repo / "a.py").write_text("def a():\n    return 2\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "feat: a")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "feat", "-m", "feat: a (#1)")
+    merge_1 = _git(repo, "rev-parse", "HEAD")
+    # PR 2: squash merge, a single-parent commit.
+    (repo / "b.py").write_text("def b():\n    return 2\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "feat: b (#2)")
+    squash_2 = _git(repo, "rev-parse", "HEAD")
+    # Later fixes of both.
+    (repo / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+    (repo / "b.py").write_text("def b():\n    return 1\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "fix: revert a and b")
+
+    host = {merge_1: 1, squash_2: 2, "0" * 40: 3}  # PR 3 is not in this clone
+    prs = {p["pr"]: p for p in merged_prs(repo, ["main"], merge_shas=host)}
+    assert set(prs) == {1, 2}
+    assert prs[2]["commits"] == {squash_2} and prs[2]["head_sha"] == squash_2
+    assert sorted(r["pr"] for r in mine_repo(repo, ["main"], merge_shas=host)) == [1, 2]
