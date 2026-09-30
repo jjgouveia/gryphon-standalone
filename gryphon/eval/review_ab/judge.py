@@ -26,15 +26,31 @@ from .sandbox import BASE_BRANCH, REVIEW_BRANCH, changed_files, prepare_arm
 logger = logging.getLogger(__name__)
 
 JUDGE_MODEL = "claude-opus-5-5"
-JUDGE_VERSION = "1"
+JUDGE_VERSION = "2"
+# Per-candidate cap on the later fix diff shown to the judge, and in total.
+FIX_DIFF_CHARS = 3000
+FIX_DIFF_TOTAL_CHARS = 24000
 VERDICTS = ("real", "false", "unverifiable")
 RUBRIC = ("correctness", "impact", "tests", "signal", "actionability")
 
 JUDGE_SCHEMA: dict = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["issues", "reviews"],
+    "required": ["issues", "reviews", "known_verdicts"],
     "properties": {
+        "known_verdicts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "is_defect", "rationale"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "is_defect": {"type": "boolean"},
+                    "rationale": {"type": "string"},
+                },
+            },
+        },
         "issues": {
             "type": "array",
             "items": {
@@ -112,7 +128,10 @@ and their order means nothing.
 
 {reviews}
 
-Known issues (defects confirmed after the PR, e.g. by a later fix commit):
+Known issues. Each is a later commit whose removed or changed lines were
+written by this PR. CONFIRMED ones are defects a person verified.
+CANDIDATE ones were found automatically and may also be refactors,
+formatting, renames or follow-up features; their later diff is shown.
 {known}
 
 Instructions:
@@ -127,7 +146,8 @@ Instructions:
    - unverifiable: it depends on runtime data or context you cannot check.
    Set the severity you judge (blocker, major, minor; none for false), not
    the reviewer's. The rationale cites the code that decided the verdict.
-3. If an issue matches a known issue, set `known_issue` to its id; else null.
+3. If an issue matches a known issue (confirmed or candidate), set
+   `known_issue` to its id; else null.
 4. Score each review from 1 to 5; the scores must follow from your verdicts:
    - correctness: how many of its claims are true;
    - impact: whether it found consequences outside the diff (callers, other
@@ -135,7 +155,12 @@ Instructions:
    - tests: whether it identified missing or wrong tests correctly;
    - signal: share of useful content versus noise and false alarms;
    - actionability: whether the author can act on it as written.
-5. Do not modify, create or delete files. There is no network access.
+5. For every CANDIDATE known issue, add an entry to `known_verdicts`:
+   `is_defect` is true only when the later diff corrects wrong behavior
+   that this PR introduced; false for refactors, renames, formatting, new
+   features or changed requirements. The rationale cites the diff. Leave
+   `known_verdicts` empty when there are no candidates.
+6. Do not modify, create or delete files. There is no network access.
 
 Write `title`, `rationale` and `comment` in the language of the PR title.
 """
@@ -192,10 +217,7 @@ def build_judge_prompt(
 ) -> str:
     from .prompts import _format_files
 
-    known = "\n".join(
-        f"- {k.get('id')}: {k.get('file', '')} — {k.get('description', '')}"
-        for k in case.confirmed_issues()
-    ) or "(none recorded)"
+    known = _format_known(case)
     return _PROMPT.format(
         review=REVIEW_BRANCH,
         base=BASE_BRANCH,
@@ -205,6 +227,47 @@ def build_judge_prompt(
         reviews="\n\n".join(_format_review(label, rec) for label, rec in labeled),
         known=known,
     )
+
+
+def _fix_diff(case: ReviewCase, issue: dict) -> str:
+    """The later fix's diff on the blamed files, as the judge's reference.
+
+    Read from the source repository: the judge may see the future, only the
+    reviewers may not.
+    """
+    sha = issue.get("fix_commit")
+    if not sha:
+        return ""
+    files = sorted({h["file"] for h in issue.get("blamed_lines", []) if h.get("file")})
+    try:
+        out = subprocess.run(
+            ["git", "show", "--no-color", "--format=%s", "--unified=3", sha, "--", *files],
+            cwd=case.source_repo, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        logger.warning("fix diff unavailable for %s: %s", sha[:8], exc)
+        return "(diff unavailable)"
+    if len(out) > FIX_DIFF_CHARS:
+        out = out[:FIX_DIFF_CHARS] + "\n... (truncated)"
+    return out
+
+
+def _format_known(case: ReviewCase) -> str:
+    """Known issues for the prompt: confirmed ones, then candidates with diffs."""
+    if not case.known_issues:
+        return "(none recorded)"
+    lines: list[str] = []
+    budget = FIX_DIFF_TOTAL_CHARS
+    for k in case.known_issues:
+        confirmed = k.get("confirmed", True)
+        tag = "CONFIRMED" if confirmed else "CANDIDATE"
+        lines.append(f"- {k.get('id')} [{tag}] {k.get('file', '')} — {k.get('description', '')}")
+        if not confirmed:
+            diff = _fix_diff(case, k) if budget > 0 else "(diff omitted: prompt budget spent)"
+            budget -= len(diff)
+            lines.append("  Later diff:\n" + "\n".join("    " + d for d in diff.splitlines()))
+    return "\n".join(lines)
 
 
 def check_assignment(judgment: dict, labeled: list[tuple[str, dict]]) -> dict:

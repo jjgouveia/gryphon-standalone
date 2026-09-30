@@ -580,14 +580,55 @@ def test_mine_ignores_fixes_of_code_the_pr_did_not_write(case, source_repo):
     assert "fix: docs typo" not in subjects
 
 
-def test_unconfirmed_candidates_stay_out_of_the_judge(case):
+def test_candidates_reach_the_judge_with_their_fix_diff(case, source_repo):
+    """Unconfirmed SZZ candidates go to the judge tagged, with the later diff."""
     with_candidate = ReviewCase(**{**case.__dict__, "known_issues": [
-        {"id": "K-1", "description": "szz", "confirmed": False},
+        {"id": "K-1", "description": "fix: off by one", "confirmed": False, "file": "app.py",
+         "fix_commit": source_repo["future"],
+         "blamed_lines": [{"file": "app.py", "lines": "2-2"}]},
         {"id": "K-2", "description": "manual"},
     ]})
     assert [k["id"] for k in with_candidate.confirmed_issues()] == ["K-2"]
     prompt = judge_mod.build_judge_prompt(with_candidate, [], [])
-    assert "K-2" in prompt and "K-1" not in prompt
+    assert "- K-1 [CANDIDATE] app.py" in prompt and "- K-2 [CONFIRMED]" in prompt
+    assert "-    return sum(xs) + 1" in prompt  # the fix's diff, as reference
+    assert "known_verdicts" in prompt
+
+
+def test_judge_confirmed_candidates_count_as_ground_truth():
+    payload, labels, records = _judged()
+    payload["judgment"]["known_verdicts"] = [
+        {"id": "K1", "is_defect": True, "rationale": "fixes the off by one"},
+        {"id": "K9", "is_defect": False, "rationale": "rename only"},
+    ]
+    scored = score_case(payload, labels, records, known_ids=[])
+    assert scored["known_ids"] == ["K1"] and scored["judge_confirmed"] == ["K1"]
+    base, graph = scored["rows"]
+    assert base["known_recall"] == 1.0 and graph["known_recall"] == 1.0
+
+
+def test_load_runs_pools_several_runs(tmp_path):
+    from gryphon.eval.review_ab.score import load_runs
+
+    payload, labels, records = _judged()
+    for run_id in ("run-a", "run-b"):
+        d = tmp_path / run_id
+        (d / "judgments").mkdir(parents=True)
+        (d / "run.json").write_text(json.dumps({
+            "run_id": run_id, "model": "m", "effort": "high", "prompt_version": "3",
+            "reps": 1, "cases": ["demo-1"],
+        }), encoding="utf-8")
+        (d / "records.jsonl").write_text(
+            "\n".join(json.dumps(r) for r in records), encoding="utf-8")
+        (d / "judgments" / "demo-1.json").write_text(
+            json.dumps({**payload, "status": "ok", "judge_model": "j", "judge_version": "2",
+                        "total_cost_usd": 0.5}), encoding="utf-8")
+        (d / "judgments" / "demo-1.labels.json").write_text(json.dumps(labels), encoding="utf-8")
+    pooled = load_runs([tmp_path / "run-a", tmp_path / "run-b"], {})
+    assert list(pooled["cases"]) == ["demo-1", "demo-1 (run-b)"]
+    assert pooled["by_arm"]["baseline"]["reviews"] == 2
+    assert pooled["run"]["run_id"] == "run-a + run-b" and pooled["run"]["model"] == "m"
+    assert "Recall gabarito" in render_markdown(pooled)
 
 
 def test_audit_ignores_drive_lookalikes_inside_grep_patterns(tmp_path: Path):

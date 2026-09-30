@@ -40,6 +40,12 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
         for ref in issue["reported_by"]:
             by_ref[f"{ref['review']}:F{ref['finding']}"] = issue
     real = {i["id"]: i for i in issues if i["verdict"] == "real"}
+    # Ground truth: the person-confirmed ids plus the candidates the judge
+    # confirmed from their later diff.
+    judge_confirmed = {
+        v["id"] for v in judgment.get("known_verdicts", []) if v.get("is_defect")
+    }
+    known_ids = sorted(set(known_ids) | judge_confirmed)
     total_weight = sum(SEVERITY_WEIGHT[i["severity"]] for i in real.values())
     scores = {r["review"]: r for r in judgment["reviews"]}
     record_by_stream = {r["stream"]: r for r in records}
@@ -102,7 +108,11 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
     reps_per_arm: dict[str, int] = {}
     for meta in labels.values():
         reps_per_arm[meta["arm"]] = reps_per_arm.get(meta["arm"], 0) + 1
-    return {"rows": rows, "matrix": matrix, "reps_per_arm": reps_per_arm}
+    return {
+        "rows": rows, "matrix": matrix, "reps_per_arm": reps_per_arm,
+        "known_ids": known_ids, "judge_confirmed": sorted(judge_confirmed),
+        "known_verdicts": judgment.get("known_verdicts", []),
+    }
 
 
 _MEAN_FIELDS = (
@@ -163,6 +173,41 @@ def load_run(run_dir: Path, known_by_case: dict[str, list[str]]) -> dict:
     }
 
 
+def load_runs(run_dirs: list[Path], known_by_case: dict[str, list[str]]) -> dict:
+    """Pool several runs into one scored result (runs stopped and resumed).
+
+    A case judged in more than one run keeps both, keyed ``case (run)``.
+    """
+    loaded = [load_run(d, known_by_case) for d in run_dirs]
+    if len(loaded) == 1:
+        return loaded[0]
+    cases: dict[str, dict] = {}
+    for scored in loaded:
+        for case_id, case in scored["cases"].items():
+            key = case_id if case_id not in cases else f"{case_id} ({scored['run']['run_id']})"
+            cases[key] = case
+    rows = [row for scored in loaded for row in scored["rows"]]
+
+    def same(key: str):
+        values = {str(s["run"].get(key)) for s in loaded}
+        return values.pop() if len(values) == 1 else "vários"
+
+    run = {
+        "run_id": " + ".join(s["run"]["run_id"] for s in loaded),
+        "model": same("model"), "effort": same("effort"),
+        "prompt_version": same("prompt_version"), "reps": same("reps"),
+        "cases": [c for s in loaded for c in s["run"]["cases"]],
+    }
+    return {
+        "run": run,
+        "records": [r for s in loaded for r in s["records"]],
+        "judges": [j for s in loaded for j in s["judges"]],
+        "cases": cases,
+        "rows": rows,
+        "by_arm": aggregate_by_arm(rows),
+    }
+
+
 def _fmt(value, pct: bool = False) -> str:
     if value is None:
         return "—"
@@ -205,15 +250,16 @@ def render_markdown(scored: dict) -> str:
     lines += ["", "## Por braço (médias)", ""]
     header = (
         "| Braço | Revisões | Achados | Reais | Falsos | Precisão | Recall combinado "
-        "| Recall ponderado | Corretude | Impacto | Testes | Sinal | Acionável "
-        "| Custo | Turnos | Tempo (s) | Chamadas ao grafo |"
+        "| Recall ponderado | Recall gabarito | Corretude | Impacto | Testes | Sinal "
+        "| Acionável | Custo | Turnos | Tempo (s) | Chamadas ao grafo |"
     )
-    lines += [header, "|" + "---|" * 17]
+    lines += [header, "|" + "---|" * 18]
     for arm, a in scored["by_arm"].items():
         lines.append(
             f"| {arm} | {a['reviews']} | {_fmt(a['findings'])} | {_fmt(a['real'])} "
             f"| {_fmt(a['false'])} | {_fmt(a['precision'], True)} "
             f"| {_fmt(a['pooled_recall'], True)} | {_fmt(a['weighted_recall'], True)} "
+            f"| {_fmt(a['known_recall'], True)} "
             + " ".join(f"| {_fmt(a[k])}" for k in RUBRIC)
             + f" | {_usd(a['cost_usd'])} | {_fmt(a['turns'])} | {_fmt(a['wall_seconds'])} "
             f"| {_fmt(a['graph_tool_calls'])} |"
@@ -223,15 +269,16 @@ def render_markdown(scored: dict) -> str:
         lines += ["", f"## {case_id}", "", "### Revisões", ""]
         lines += [
             "| Rótulo | Braço | Rep | Achados | Reais | Falsos | Precisão | Recall combinado "
-            "| Corretude | Impacto | Testes | Sinal | Acionável | Custo | Grafo | Protocolo |",
-            "|" + "---|" * 16,
+            "| Recall gabarito | Corretude | Impacto | Testes | Sinal | Acionável | Custo "
+            "| Grafo | Protocolo |",
+            "|" + "---|" * 17,
         ]
         for r in case["rows"]:
             protocol = {True: "ok", False: "**violado**", None: "—"}[r["protocol_ok"]]
             lines.append(
                 f"| {r['label']} | {r['arm']} | {r['rep']} | {r['findings']} | {r['real']} "
                 f"| {r['false']} | {_fmt(r['precision'], True)} "
-                f"| {_fmt(r['pooled_recall'], True)} "
+                f"| {_fmt(r['pooled_recall'], True)} | {_fmt(r['known_recall'], True)} "
                 + " ".join(f"| {_fmt(r[k])}" for k in RUBRIC)
                 + f" | {_usd(r['cost_usd'])} | {_fmt(r['graph_tool_calls'])} | {protocol} |"
             )
@@ -253,6 +300,17 @@ def render_markdown(scored: dict) -> str:
                 f"| {m['id']} | {m['verdict']} | {m['severity']} | `{m['file']}` | {cells} "
                 f"| {m['title']} |"
             )
+        verdicts = case.get("known_verdicts") or []
+        if case.get("known_ids") or verdicts:
+            lines += ["", "### Gabarito", ""]
+            lines.append(
+                f"{len(case.get('known_ids') or [])} bug(s) conhecido(s) contam para o recall, "
+                f"{len(case.get('judge_confirmed') or [])} confirmado(s) pelo juiz a partir "
+                "do diff do fix."
+            )
+            for v in verdicts:
+                mark = "defeito" if v.get("is_defect") else "não é defeito"
+                lines.append(f"- **{v['id']}** ({mark}): {v.get('rationale', '')}")
         lines += ["", "### Justificativas do juiz", ""]
         for m in case["matrix"]:
             lines.append(f"- **{m['id']}** ({m['verdict']}): {m['rationale']}")

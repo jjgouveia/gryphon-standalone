@@ -90,6 +90,10 @@ def add_parser(sub) -> argparse.ArgumentParser:
              "unconfirmed known_issues",
     )
     mine_repo.add_argument(
+        "--add-prs", type=int, nargs="+", default=None, metavar="PR",
+        help="Add these mined PRs as cases (needs --gh-repo)",
+    )
+    mine_repo.add_argument(
         "--gh-repo", default=None,
         help="owner/name on GitHub: keeps only merges that are PRs of this repo (by merge "
              "SHA) and is required by --add",
@@ -101,8 +105,11 @@ def add_parser(sub) -> argparse.ArgumentParser:
     audit.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
     audit.add_argument("--workdir", default=None, help="Directory for sanitized clones")
 
-    report = rsub.add_parser("report", help="Score a judged run and write report.md")
-    report.add_argument("--run", required=True, help="Run directory")
+    report = rsub.add_parser("report", help="Score judged runs and write report.md")
+    report.add_argument(
+        "--run", required=True, nargs="+",
+        help="Run directory, or several to pool (the report goes to the first)",
+    )
     report.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
     return cmd
 
@@ -219,8 +226,8 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         from .mine import github_merge_shas
         from .mine import mine_repo as mine_branch
 
-        if args.add and not args.gh_repo:
-            raise SystemExit("--add needs --gh-repo")
+        if (args.add or args.add_prs) and not args.gh_repo:
+            raise SystemExit("--add and --add-prs need --gh-repo")
         shas = github_merge_shas(args.gh_repo) if args.gh_repo else None
         ranked = mine_branch(Path(args.source), args.refs, merge_shas=shas)
         print(f"{len(ranked)} PR(s) with later fixes blamed back to them")
@@ -231,7 +238,14 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             )
             print(f"  #{row['pr']:<5} {len(row['known_issues'])} fix(es), "
                   f"{row['changed_commits']} commit(s)  <- {fixes}")
-        for row in ranked[:args.add]:
+        chosen = ranked[:args.add]
+        if args.add_prs:
+            by_pr = {row["pr"]: row for row in ranked}
+            missing = [n for n in args.add_prs if n not in by_pr]
+            if missing:
+                raise SystemExit(f"not among the mined PRs: {missing}")
+            chosen = [by_pr[n] for n in args.add_prs]
+        for row in chosen:
             case = case_from_github(args.gh_repo, row["pr"], Path(args.source))
             case = replace(case, known_issues=row["known_issues"])
             upsert_case(case, Path(args.cases))
@@ -252,14 +266,15 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
 
     if args.review_eval_command == "report":
         from .cases import load_cases
-        from .score import load_run, render_markdown
+        from .score import load_runs, render_markdown
 
-        run_dir = Path(args.run)
+        run_dirs = [Path(r) for r in args.run]
+        run_dir = run_dirs[0]
         known = {
             c.id: [k.get("id") for k in c.confirmed_issues()]
             for c in load_cases(Path(args.cases))
         } if Path(args.cases).exists() else {}
-        scored = load_run(run_dir, known)
+        scored = load_runs(run_dirs, known)
         report_path = run_dir / "report.md"
         report_path.write_text(render_markdown(scored), encoding="utf-8")
         (run_dir / "scores.json").write_text(
