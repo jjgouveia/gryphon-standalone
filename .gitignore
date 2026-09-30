@@ -100,3 +100,6 @@ SCALING_AND_TOKEN_EFFICIENCY_PLAN.md
 .codex/
 # Added by gryphon
 .gryphon/
+
+# review-eval runs: transcripts of private repos, never committed
+evaluate/review_ab/
