@@ -286,7 +286,21 @@ class TestGenerateHooksConfig:
     def test_has_only_valid_hook_types(self):
         config = generate_hooks_config(Path("/repo"))
         hook_types = set(config["hooks"].keys())
-        assert hook_types == {"PostToolUse", "SessionStart"}
+        assert hook_types == {"PostToolUse", "PreToolUse", "SessionStart"}
+
+    def test_enrich_hooks_bring_graph_context(self):
+        """Reviews showed agents rarely call the MCP tools: hooks push the context."""
+        config = generate_hooks_config(Path("/repo"))
+        post = config["hooks"]["PostToolUse"]
+        assert post[0]["matcher"] == "Edit|Write"  # the update entry stays first (#549)
+        assert post[1]["matcher"] == "Bash"
+        assert "gryphon enrich" in post[1]["hooks"][0]["command"]
+        assert "*git*diff*" in post[1]["hooks"][0]["command"]
+        pre = {e["matcher"]: e["hooks"][0]["command"] for e in config["hooks"]["PreToolUse"]}
+        assert set(pre) == {"Grep|Glob|Read", "Bash"}
+        assert all("gryphon enrich" in cmd for cmd in pre.values())
+        assert "case" not in pre["Grep|Glob|Read"]
+        assert '*"sed "*' in pre["Bash"]
 
     def test_hook_entries_use_nested_hooks_array(self):
         config = generate_hooks_config(Path("/repo"))
@@ -2830,3 +2844,87 @@ class TestNonAsciiConfigPreservation:
         raw = (cursor_dir / "hooks.json").read_text(encoding="utf-8")
         assert self.NON_ASCII in raw
         assert "\\u" not in raw
+
+
+def _working_bash() -> str | None:
+    """A bash that runs POSIX hooks here (on Windows `bash` may be WSL's)."""
+    import shutil
+
+    candidates = [
+        str(Path(r"C:/Program Files/Git/bin/bash.exe")),  # Git Bash first on Windows
+        shutil.which("bash"),
+    ]
+    for bash in candidates:
+        if not bash or not Path(bash).exists():
+            continue
+        try:
+            probe = subprocess.run([bash, "-c", "command -v git >/dev/null && echo ok"],
+                                   capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.stdout.strip() == "ok":
+            return bash
+    return None
+
+
+class TestEnrichHookCommands:
+    """Run the generated enrich hooks in bash with a fake ``gryphon`` on PATH."""
+
+    @pytest.fixture
+    def env(self, tmp_path):
+        bash = _working_bash()
+        if bash is None:
+            pytest.skip("no bash that can run POSIX hooks")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        marker = tmp_path / "called.txt"
+        fake = bindir / "gryphon"
+        fake.write_text(
+            "#!/bin/sh\n"
+            f'cat > "{marker.as_posix()}"\n'
+            f'echo "$@" >> "{marker.as_posix()}.args"\n',
+            encoding="utf-8",
+            newline="\n",
+        )
+        fake.chmod(0o755)
+        # bash's own spelling of the directory (/c/... under Git Bash).
+        bin_posix = subprocess.run([bash, "-c", f'cd "{bindir.as_posix()}" && pwd'],
+                                   capture_output=True, text=True).stdout.strip()
+        return bash, repo, marker, bin_posix
+
+    def _run(self, env, command, payload):
+        bash, repo, _marker, bin_posix = env
+        script = f'export PATH="{bin_posix}:$PATH"; {command}'
+        proc = subprocess.run([bash, "-c", script], input=payload, capture_output=True,
+                              text=True, encoding="utf-8", cwd=repo, timeout=60)
+        assert proc.returncode == 0, proc.stderr
+        return proc
+
+    def _pre_bash(self):
+        config = generate_hooks_config(Path("/repo"))
+        return next(e for e in config["hooks"]["PreToolUse"] if e["matcher"] == "Bash")
+
+    def test_irrelevant_bash_never_starts_gryphon(self, env):
+        cmd = self._pre_bash()["hooks"][0]["command"]
+        self._run(env, cmd, json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}}))
+        assert not env[2].exists()
+
+    def test_relevant_bash_gets_the_payload_intact(self, env):
+        cmd = self._pre_bash()["hooks"][0]["command"]
+        payload = json.dumps({"tool_name": "Bash",
+                              "tool_input": {"command": "grep -n foo a.py"},
+                              "blob": "x" * 200_000})
+        self._run(env, cmd, payload)
+        assert json.loads(env[2].read_text(encoding="utf-8")) == json.loads(payload)
+        assert "enrich --repo" in Path(str(env[2]) + ".args").read_text(encoding="utf-8")
+
+    def test_post_tool_use_only_reacts_to_git_diff(self, env):
+        config = generate_hooks_config(Path("/repo"))
+        cmd = config["hooks"]["PostToolUse"][1]["hooks"][0]["command"]
+        self._run(env, cmd, json.dumps({"tool_input": {"command": "pytest -q"}}))
+        assert not env[2].exists()
+        self._run(env, cmd, json.dumps({"tool_input": {"command": "git diff main...x"}}))
+        assert env[2].exists()

@@ -24,6 +24,15 @@
   (#952).
 - `CRG_HOOK_WORKTREES=1` keeps the generated pre-commit hook active inside
   a linked Git worktree (#953).
+- `install` adds Claude Code hooks that bring graph context to the agent
+  without it calling the MCP tools, which reviews showed agents rarely do.
+  After a `git diff`, a `PostToolUse` hook lists the changed symbols called
+  from outside the diff and those with no direct test (`diff_context.py`);
+  `PreToolUse` enriches searches and file reads, including Bash reads
+  (`sed -n A,Bp`, `head`, `cat`, after a `cd`), limited to the lines read.
+  Only the non-option arguments of the agent's `git diff` are reused, with
+  `--no-ext-diff --no-textconv`. A shell prefilter keeps unrelated Bash
+  commands from starting Python, and context is not repeated in a session.
 
 ### Changed
 
@@ -49,6 +58,15 @@
 
 ### Fixed
 
+- `enrich` found no graph kept outside the repository (`--data-dir`,
+  `CRG_DATA_DIR`): search and file-read enrichment read a hard-coded
+  `.gryphon/graph.db` and silently returned nothing.
+- The per-repo `savings.jsonl` followed the data directory neither, and
+  created an untracked `.gryphon/` in the working tree.
+- `enrich` split Bash commands on whitespace, so `grep "class Foo"` searched
+  for `class`; quotes are respected, regex alternation is split and
+  keywords such as `def` and `class` are skipped. Test names are no longer
+  repeated in the context.
 - An explicit `changed_files` list now defines the change set. It used to be
   discarded whenever a working-tree diff was computable, so reviewing a PR
   whose branch is not checked out analysed whatever the local checkout was

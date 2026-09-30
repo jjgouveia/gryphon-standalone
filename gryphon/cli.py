@@ -1129,8 +1129,13 @@ def main() -> None:
              "`pip install tiktoken`.",
     )
 
-    # enrich (Claude Code PreToolUse hook; reads one JSON object from stdin)
-    sub.add_parser("enrich", help="Enrich hook input with graph context")
+    # enrich (Claude Code PreToolUse/PostToolUse hook; reads one JSON object
+    # from stdin)
+    enrich_cmd = sub.add_parser("enrich", help="Enrich hook input with graph context")
+    enrich_cmd.add_argument(
+        "--repo", default=None,
+        help="Repository root (default: found from the hook's cwd)",
+    )
 
     # dead-code
     dead_cmd = sub.add_parser(
@@ -1454,7 +1459,7 @@ def main() -> None:
     if args.command == "enrich":
         from .enrich import run_hook
 
-        run_hook()
+        run_hook(repo=args.repo or None)
         return
 
     if args.command == "savings":

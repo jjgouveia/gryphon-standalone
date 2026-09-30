@@ -992,6 +992,33 @@ def generate_skills(repo_root: Path, skills_dir: Path | None = None) -> Path:
     return skills_dir
 
 
+def _enrich_hook_command(prefilter: tuple[str, ...] = ()) -> str:
+    """``gryphon enrich`` fed the hook payload, with the usual guards.
+
+    The payload is read once into ``$p`` (which also drains stdin on every
+    early exit, see #493). *prefilter* is a list of shell ``case`` patterns:
+    payloads matching none of them exit before Python starts, so Bash calls
+    that cannot carry graph context (``ls``, ``pytest``...) cost nothing.
+    """
+    guard = ""
+    if prefilter:
+        guard = f'case "$p" in {"|".join(prefilter)}) ;; *) exit 0 ;; esac; '
+    return (
+        'p="$(cat)"; '
+        f"{guard}"
+        "command -v gryphon >/dev/null 2>&1 || exit 0; "
+        "git rev-parse --git-dir >/dev/null 2>&1 || exit 0; "
+        "printf '%s' \"$p\" | gryphon enrich"
+        " --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\""
+        " || true"
+    )
+
+
+# Bash payloads that may be a search, a file read or a diff (see enrich.py).
+_ENRICH_BASH_PRE = ('*grep*', '*"rg "*', '*"sed "*', '*"head "*', '*"cat "*')
+_ENRICH_BASH_POST = ("*git*diff*",)
+
+
 def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
     """Generate Claude Code hooks configuration.
 
@@ -1005,6 +1032,13 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
     is shareable across collaborators with different checkout paths.
     A PATH guard ensures the hook exits silently when the binary is not on
     ``$PATH`` (e.g. installed in a project venv).
+
+    Besides keeping the graph fresh, the hooks bring graph context to the
+    agent without it having to call the MCP tools (reviews showed agents
+    rarely do): ``PreToolUse`` enriches searches and file reads, and a
+    separate ``PostToolUse`` entry on Bash adds, after a ``git diff``, the
+    changed symbols called from outside the diff. The update entry stays
+    first and keeps its Edit|Write matcher (#549).
     """
     return {
         "hooks": {
@@ -1023,6 +1057,34 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
                                 " || true"
                             ),
                             "timeout": 30,
+                        },
+                    ],
+                },
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": _enrich_hook_command(_ENRICH_BASH_POST),
+                            "timeout": 30,
+                        },
+                    ],
+                },
+            ],
+            "PreToolUse": [
+                {
+                    "matcher": "Grep|Glob|Read",
+                    "hooks": [
+                        {"type": "command", "command": _enrich_hook_command(), "timeout": 10},
+                    ],
+                },
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": _enrich_hook_command(_ENRICH_BASH_PRE),
+                            "timeout": 10,
                         },
                     ],
                 },
