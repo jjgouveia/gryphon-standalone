@@ -178,10 +178,16 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             model=args.model or JUDGE_MODEL,
         )
         for case in _select(cases, args.case):
-            path = judge_case(
-                case, run_dir, settings,
-                workdir=Path(args.workdir) if args.workdir else default_workdir(),
-            )
+            try:
+                path = judge_case(
+                    case, run_dir, settings,
+                    workdir=Path(args.workdir) if args.workdir else default_workdir(),
+                )
+            except ValueError as exc:
+                # A run stopped early can leave a case with no usable review;
+                # the other cases still get judged.
+                print(f"{case.id}: skipped ({exc})")
+                continue
             payload = json.loads(path.read_text(encoding="utf-8"))
             issues = (payload.get("judgment") or {}).get("issues") or []
             print(
