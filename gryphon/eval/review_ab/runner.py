@@ -33,6 +33,7 @@ from .sandbox import (
     ARMS,
     CLAUDE_MD_ARMS,
     ArmSandbox,
+    NoMergeBaseError,
     _opaque_name,
     changed_files,
     prepare_arm,
@@ -529,10 +530,16 @@ def run_cases(
     for case in cases:
         # One sandbox per kind: the graph arms share a clone and a graph.
         by_kind: dict[str, ArmSandbox] = {}
-        for arm in arms:
-            kind = sandbox_kind(arm)
-            if kind not in by_kind:
-                by_kind[kind] = prepare_arm(case, arm, workdir, fresh=fresh)
+        try:
+            for arm in arms:
+                kind = sandbox_kind(arm)
+                if kind not in by_kind:
+                    by_kind[kind] = prepare_arm(case, arm, workdir, fresh=fresh)
+        except NoMergeBaseError as exc:
+            # One case the clone cannot serve must not cost the whole run.
+            logger.warning("skipping %s", exc)
+            print(f"{case.id}: skipped ({exc})")
+            continue
         for rep in range(reps):
             order = list(arms) if rep % 2 == 0 else list(reversed(arms))
             for arm in order:

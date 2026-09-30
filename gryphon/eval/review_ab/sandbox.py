@@ -65,6 +65,10 @@ EXCLUDED_PATHS = (
 _INSTRUCTION_FILE_RE = re.compile(r"(^|/)(CLAUDE|AGENTS|GEMINI|QODER)(\.[\w-]+)?\.md$", re.I)
 _GRAPH_MENTION_RE = re.compile(r"gryphon|code-review-graph", re.I)
 
+class NoMergeBaseError(ValueError):
+    """The PR's base and head have no common commit in the source clone."""
+
+
 REVIEW_BRANCH = "review"
 BASE_BRANCH = "base"
 _READY_MARKER = ".rab-ready"
@@ -147,6 +151,16 @@ def _clone(case: ReviewCase, repo: Path) -> None:
     )
     _git(["config", "core.sparseCheckout", "true"], repo)
     _git(["checkout", "-q", REVIEW_BRANCH], repo)
+    has_base = subprocess.run(
+        ["git", "merge-base", BASE_BRANCH, REVIEW_BRANCH], cwd=str(repo), capture_output=True,
+    ).returncode == 0
+    if not has_base:
+        # `git diff base...review` needs the fork point. A shallow source
+        # clone can stop before it; say so instead of failing later on git.
+        raise NoMergeBaseError(
+            f"{case.id}: base and head share no commit in {case.source_repo}; the clone is"
+            " probably shallow past the PR's fork point (git fetch --deepen=N there)"
+        )
 
 
 def contamination_warnings(repo: Path) -> list[str]:

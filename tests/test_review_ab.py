@@ -923,3 +923,27 @@ def test_mine_repo_by_sha_accepts_any_message_and_squash_merges(tmp_path: Path):
     assert set(prs) == {1, 2}
     assert prs[2]["commits"] == {squash_2} and prs[2]["head_sha"] == squash_2
     assert sorted(r["pr"] for r in mine_repo(repo, ["main"], merge_shas=host)) == [1, 2]
+
+
+def test_case_without_merge_base_is_skipped_with_a_clear_error(tmp_path, monkeypatch):
+    """Base and head from unrelated histories (a shallow source): skip, keep going."""
+    repo = tmp_path / "src"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "a")
+    (repo / "x.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "a")
+    base = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "--orphan", "b")
+    (repo / "x.py").write_text("x = 2\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "b")
+    head = _git(repo, "rev-parse", "HEAD")
+    orphan = ReviewCase(id="orphan-1", source_repo=str(repo), base_sha=base, head_sha=head,
+                        title="t")
+    with pytest.raises(sandbox.NoMergeBaseError, match="deepen"):
+        prepare_arm(orphan, "baseline", tmp_path / "work")
+    calls = []
+    monkeypatch.setattr(runner, "_run_claude", lambda *a, **k: calls.append(a))
+    runner.run_cases([orphan], arms=("baseline",), out_dir=tmp_path / "out",
+                     workdir=tmp_path / "work")
+    assert calls == []
