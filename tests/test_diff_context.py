@@ -187,3 +187,15 @@ def test_pathspec_after_cd_is_resolved_from_that_directory(tmp_path, repo):
     finally:
         store.close()
     assert "1 changed function(s)/class(es) in 1 file(s)" in text
+
+
+def test_no_outside_callers_message_names_the_static_limit(tmp_path, repo):
+    store = _store(tmp_path, repo)
+    try:
+        # Only lib.py changes and its one caller (app.py) is dropped from the graph.
+        store.remove_file_data(f"{repo.as_posix()}/app.py")
+        text = build_diff_context(str(repo), ["main...feature"], store=store)
+    finally:
+        store.close()
+    assert "No callers outside this diff were found statically" in text
+    assert "signals, decorators and dynamic dispatch" in text

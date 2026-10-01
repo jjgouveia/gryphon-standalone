@@ -248,17 +248,24 @@ def _format_node_context(
 
     lines = [header]
 
-    # Callers (max 5, deduplicated)
+    # Callers (max 5, deduplicated), with the same edge rules as the diff
+    # context: exact edges, plus name-only edges when the name is unique.
+    from .diff_context import NO_STATIC_CALLERS, _callers
+
     callers: list[str] = []
     seen: set[str] = set()
-    for e in store.get_edges_by_target(qn):
-        if e.kind == "CALLS" and len(callers) < 5:
-            c = store.get_node(e.source_qualified)
-            if c and c.name not in seen and not VENDORED_RE.search(c.file_path or ""):
-                seen.add(c.name)
-                callers.append(c.name)
+    for c, _line in _callers(store, node):
+        if len(callers) >= 5:
+            break
+        if c.name not in seen and not VENDORED_RE.search(c.file_path or ""):
+            seen.add(c.name)
+            callers.append(c.name)
     if callers:
         lines.append(f"  Called by: {', '.join(callers)}")
+    elif node.kind in ("Function", "Method", "Class"):
+        # Saying nothing read as "nothing calls this" and led reviewers to
+        # call signal receivers and decorated hooks dead code.
+        lines.append(f"  Called by: {NO_STATIC_CALLERS}")
 
     # Callees (max 5, deduplicated)
     callees: list[str] = []

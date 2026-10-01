@@ -394,3 +394,50 @@ def test_windows_absolute_path_is_not_joined_to_the_cd_directory():
     # Quoted, as bash needs it: unquoted, bash itself reads the backslash as an escape.
     reads = extract_file_reads("Bash", {"command": r'cd src && cat "C:\repo\m.py"'})
     assert reads == [(r"C:\repo\m.py", None, None)]
+
+
+def _range_store(tmp_path, monkeypatch, nodes, edges=()):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"
+    (repo / ".gryphon").mkdir(parents=True)
+    store = GraphStore(repo / ".gryphon" / "graph.db")
+    try:
+        for n in nodes:
+            store.upsert_node(n)
+        for e in edges:
+            store.upsert_edge(e)
+    finally:
+        store.close()
+    return repo
+
+
+def test_no_static_caller_is_said_not_omitted(tmp_path, monkeypatch):
+    """An empty "Called by" read as dead code for signal receivers."""
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="on_save", file_path=f"{root}/signals.py",
+                 line_start=1, line_end=4, language="python"),
+        NodeInfo(kind="Type", name="Payload", file_path=f"{root}/signals.py",
+                 line_start=6, line_end=8, language="python"),
+    ])
+    text = enrich_mod.enrich_file_range("signals.py", str(repo), 1, 8)
+    on_save, payload = text.split("Payload", 1)
+    assert "Called by: none found statically" in on_save
+    assert "signals, decorators and dynamic dispatch" in on_save
+    assert "Called by" not in payload  # types are not "called"
+
+
+def test_unique_name_only_edge_counts_as_a_caller(tmp_path, monkeypatch):
+    """Same rule as the diff context: a bare CALLS target with a unique name."""
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(
+        tmp_path, monkeypatch,
+        [NodeInfo(kind="Function", name="helper", file_path=f"{root}/util.py",
+                  line_start=1, line_end=2, language="python"),
+         NodeInfo(kind="Function", name="run", file_path=f"{root}/main.py",
+                  line_start=1, line_end=3, language="python")],
+        [EdgeInfo(kind="CALLS", source=f"{root}/main.py::run", target="helper",
+                  file_path=f"{root}/main.py", line=2)],
+    )
+    text = enrich_mod.enrich_file_range("util.py", str(repo), 1, 2)
+    assert "Called by: run" in text and "none found statically" not in text

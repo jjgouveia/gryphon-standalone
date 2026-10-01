@@ -43,6 +43,15 @@ TEST_SUPPORT_RE = re.compile(
     re.I,
 )
 
+# What to say when the graph has no caller for a symbol. An empty answer reads
+# as "nothing calls this"; in Django, signal receivers, decorated hooks and
+# dynamic dispatch never show up as CALLS edges (a pilot review called a field
+# set by a pre_save receiver dead code right after such an empty answer).
+NO_STATIC_CALLERS = (
+    "none found statically (signals, decorators and dynamic dispatch are not in "
+    "the graph; grep for the name before calling it unused)"
+)
+
 MAX_NODES = 8
 MAX_CALLERS = 4
 MAX_UNTESTED = 10
@@ -281,7 +290,10 @@ def build_diff_context(
                 extra = len(outside) - MAX_NODES
                 lines.append(f"  ({extra} more changed symbols have outside callers)")
         else:
-            lines.append("No callers outside this diff were found in the graph.")
+            lines.append(
+                "No callers outside this diff were found statically (signals, decorators "
+                "and dynamic dispatch are not in the graph)."
+            )
         if untested:
             names = ", ".join(n.name for n in untested[:MAX_UNTESTED])
             more = f" +{len(untested) - MAX_UNTESTED} more" if len(untested) > MAX_UNTESTED else ""
