@@ -441,3 +441,28 @@ def test_unique_name_only_edge_counts_as_a_caller(tmp_path, monkeypatch):
     )
     text = enrich_mod.enrich_file_range("util.py", str(repo), 1, 2)
     assert "Called by: run" in text and "none found statically" not in text
+
+
+def test_signal_receiver_shows_its_sender_and_siblings(tmp_path, monkeypatch):
+    from gryphon.django_signal_resolver import resolve_django_signals
+
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Class", name="Document", file_path=f"{root}/models.py",
+                 line_start=1, line_end=9, language="python"),
+        NodeInfo(kind="Function", name="capture", file_path=f"{root}/signals.py",
+                 line_start=1, line_end=3, language="python",
+                 extra={"decorators": ["receiver(pre_save, sender=Document)"]}),
+        NodeInfo(kind="Function", name="on_saved", file_path=f"{root}/signals.py",
+                 line_start=5, line_end=7, language="python",
+                 extra={"decorators": ["receiver(post_save, sender=Document)"]}),
+    ])
+    store = GraphStore(repo / ".gryphon" / "graph.db")
+    try:
+        resolve_django_signals(store)
+    finally:
+        store.close()
+    text = enrich_mod.enrich_file_range("signals.py", str(repo), 5, 7)
+    assert "Called by: Document (via post_save)" in text
+    assert "Other receivers of Document: capture [pre_save]" in text
+    assert "none found statically" not in text

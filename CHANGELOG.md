@@ -33,6 +33,13 @@
   Only the non-option arguments of the agent's `git diff` are reused, with
   `--no-ext-diff --no-textconv`. A shell prefilter keeps unrelated Bash
   commands from starting Python, and context is not repeated in a session.
+- Django signal receivers are no longer graph orphans: a post-build pass
+  (`django_signal_resolver.py`) reads `@receiver(signal, sender=Model)` and
+  links the sender's model class to the receiver with a CALLS edge tagged
+  with the signal. Hook context shows such callers as `Model (via pre_save)`
+  and, for a changed receiver, the other receivers of the same model.
+  Symbols with no caller at all are reported as "none found statically",
+  with the reason, instead of with no line.
 
 ### Changed
 

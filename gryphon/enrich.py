@@ -250,22 +250,26 @@ def _format_node_context(
 
     # Callers (max 5, deduplicated), with the same edge rules as the diff
     # context: exact edges, plus name-only edges when the name is unique.
-    from .diff_context import NO_STATIC_CALLERS, _callers
+    from .diff_context import NO_STATIC_CALLERS, _callers, caller_label, sibling_receivers
 
+    found = _callers(store, node)
     callers: list[str] = []
     seen: set[str] = set()
-    for c, _line in _callers(store, node):
+    for c, _line, signal in found:
         if len(callers) >= 5:
             break
         if c.name not in seen and not VENDORED_RE.search(c.file_path or ""):
             seen.add(c.name)
-            callers.append(c.name)
+            callers.append(caller_label(c, signal))
     if callers:
         lines.append(f"  Called by: {', '.join(callers)}")
     elif node.kind in ("Function", "Method", "Class"):
         # Saying nothing read as "nothing calls this" and led reviewers to
         # call signal receivers and decorated hooks dead code.
         lines.append(f"  Called by: {NO_STATIC_CALLERS}")
+    for sender_name, others in sibling_receivers(store, node, found):
+        names = ", ".join(f"{t.name} [{sig}]" for t, sig in others[:4])
+        lines.append(f"  Other receivers of {sender_name}: {names}")
 
     # Callees (max 5, deduplicated)
     callees: list[str] = []

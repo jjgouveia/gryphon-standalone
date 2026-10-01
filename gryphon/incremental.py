@@ -159,6 +159,16 @@ def _run_spring_event_resolver(store: GraphStore) -> Optional[dict]:
         return None
 
 
+def _run_django_signal_resolver(store: GraphStore) -> Optional[dict]:
+    """Run the Django signal-receiver resolver without failing a build."""
+    try:
+        from .django_signal_resolver import resolve_django_signals
+        return resolve_django_signals(store)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Django signal resolver failed: %s", exc)
+        return None
+
+
 def _run_django_route_resolver(store: GraphStore) -> Optional[dict]:
     """Run the DRF route/test-gap resolver without failing a build."""
     try:
@@ -1573,6 +1583,7 @@ def full_build(
             ("event_resolution", _run_spring_event_resolver),
             ("temporal_resolution", _run_temporal_resolver),
             ("django_route_resolution", _run_django_route_resolver),
+            ("django_signal_resolution", _run_django_signal_resolver),
         ],
     )
 
@@ -1833,6 +1844,7 @@ def incremental_update(
         wave2.append(("temporal_resolution", _run_temporal_resolver))
     if python_changed:
         wave2.append(("django_route_resolution", _run_django_route_resolver))
+        wave2.append(("django_signal_resolution", _run_django_signal_resolver))
 
     resolver_stats = _run_resolvers(store, wave1, wave2)
 

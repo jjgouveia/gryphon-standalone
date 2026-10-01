@@ -18,7 +18,7 @@ import re
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -206,8 +206,40 @@ def _callers(store, node) -> list:
         seen.add(e.source_qualified)
         caller = store.get_node(e.source_qualified)
         if caller is not None:
-            callers.append((caller, e.line))
+            signal = (e.extra or {}).get("django_signal")
+            # A signal edge's line is the receiver's, in the receiver's file;
+            # shown next to the sender it must be the sender's own line.
+            callers.append((caller, caller.line_start if signal else e.line, signal))
     return callers
+
+
+def caller_label(caller, signal: Optional[str]) -> str:
+    """``Document (via pre_save)`` for a signal-wired caller, else the name."""
+    return f"{caller.name} (via {signal})" if signal else caller.name
+
+
+def sibling_receivers(store, node, callers: list) -> list[tuple[str, list]]:
+    """Other receivers of the models that send signals to *node*.
+
+    Receivers of one model share its instance across the save: a pre_save
+    receiver can set what a post_save receiver reads, so a reviewer looking
+    at one needs the others.
+    """
+    out = []
+    for sender, _line, signal in callers:
+        if not signal:
+            continue
+        others = []
+        for e in store.iter_edges_by_source(sender.qualified_name):
+            other_signal = (e.extra or {}).get("django_signal")
+            if e.kind != "CALLS" or not other_signal or e.target_qualified == node.qualified_name:
+                continue
+            target = store.get_node(e.target_qualified)
+            if target is not None:
+                others.append((target, other_signal))
+        if others:
+            out.append((sender.name, others))
+    return out
 
 
 def _is_test_code(node) -> bool:
@@ -216,7 +248,7 @@ def _is_test_code(node) -> bool:
 
 def _has_test(store, node, callers: list) -> bool:
     """A TESTED_BY edge, or test code that calls the node directly."""
-    if any(_is_test_code(c) for c, _line in callers):
+    if any(_is_test_code(c) for c, _line, _signal in callers):
         return True
     return any(e.kind == "TESTED_BY" for e in store.iter_edges_by_source(node.qualified_name))
 
@@ -254,11 +286,12 @@ def build_diff_context(
             return ""
         outside: list[tuple[Any, list]] = []
         untested = []
+        siblings: list[tuple[Any, str, list]] = []
         for node in nodes:
             callers = _callers(store, node)
             # Tests calling the node are coverage, not callers that can break.
             ext = [
-                (c, line) for c, line in callers
+                (c, line, signal) for c, line, signal in callers
                 if not _is_test_code(c)
                 and not _in_changed(c.file_path, changed)
                 and not VENDORED_RE.search(c.file_path)
@@ -267,6 +300,8 @@ def build_diff_context(
                 outside.append((node, ext))
             if not _has_test(store, node, callers):
                 untested.append(node)
+            for sender_name, others in sibling_receivers(store, node, callers):
+                siblings.append((node, sender_name, others))
         outside.sort(key=lambda item: -len(item[1]))
 
         label = " ".join(a for a in args if a != "--") or "working tree"
@@ -281,8 +316,9 @@ def build_diff_context(
             for node, ext in outside[:MAX_NODES]:
                 where = f"{_rel(node.file_path, repo_root)}:{node.line_start}"
                 shown = ", ".join(
-                    f"{c.name} ({_rel(c.file_path, repo_root)}:{line or c.line_start})"
-                    for c, line in ext[:MAX_CALLERS]
+                    f"{caller_label(c, signal)} ({_rel(c.file_path, repo_root)}:"
+                    f"{line or c.line_start})"
+                    for c, line, signal in ext[:MAX_CALLERS]
                 )
                 more = f" +{len(ext) - MAX_CALLERS} more" if len(ext) > MAX_CALLERS else ""
                 lines.append(f"- {node.name} ({where}) <- {shown}{more}")
@@ -294,6 +330,18 @@ def build_diff_context(
                 "No callers outside this diff were found statically (signals, decorators "
                 "and dynamic dispatch are not in the graph)."
             )
+        if siblings:
+            lines.append(
+                "Changed signal receivers share their model with other receivers "
+                "(one can set what another reads):"
+            )
+            for node, sender_name, others in siblings[:MAX_NODES]:
+                shown = ", ".join(
+                    f"{t.name} [{sig}] ({_rel(t.file_path, repo_root)}:{t.line_start})"
+                    for t, sig in others[:MAX_CALLERS]
+                )
+                more = f" +{len(others) - MAX_CALLERS} more" if len(others) > MAX_CALLERS else ""
+                lines.append(f"- {node.name} on {sender_name}: also {shown}{more}")
         if untested:
             names = ", ".join(n.name for n in untested[:MAX_UNTESTED])
             more = f" +{len(untested) - MAX_UNTESTED} more" if len(untested) > MAX_UNTESTED else ""
