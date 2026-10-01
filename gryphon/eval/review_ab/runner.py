@@ -99,10 +99,17 @@ def gryphon_python(arm: str | None, settings: RunSettings) -> str:
 
 
 def _ref_call(python: str, code: str, *args: str) -> str:
-    """Run *code* with the reference interpreter's gryphon and return stdout."""
+    """Run *code* with the reference interpreter's gryphon and return stdout.
+
+    ``-I`` keeps the current directory off ``sys.path``: run from this
+    checkout, ``python -c`` would import this gryphon instead of the
+    reference one.
+    """
+    import tempfile
+
     return subprocess.run(
-        [python, "-c", code, *args], capture_output=True, text=True, encoding="utf-8",
-        check=True, timeout=120, stdin=subprocess.DEVNULL,
+        [python, "-I", "-c", code, *args], capture_output=True, text=True, encoding="utf-8",
+        check=True, timeout=120, stdin=subprocess.DEVNULL, cwd=tempfile.gettempdir(),
     ).stdout
 
 

@@ -1066,3 +1066,10 @@ def test_jobs_run_cases_in_parallel_and_still_stop_at_a_limit(tmp_path, case, mo
     assert peak[0] == 2
     lines = (run_dir / "records.jsonl").read_text(encoding="utf-8").splitlines()
     assert sorted(json.loads(x)["case_id"] for x in lines) == ["demo-1", "demo-2"]
+
+
+def test_reference_calls_do_not_import_the_checkout_they_run_from(tmp_path, monkeypatch):
+    """``python -c`` from this checkout imported this gryphon, not the reference one."""
+    monkeypatch.chdir(Path(runner.__file__).parents[3])
+    out = runner._ref_call(sys.executable, "import sys; print(repr(sys.path[0]))")
+    assert out.strip() not in ("''", repr(str(Path.cwd())))

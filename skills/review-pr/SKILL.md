@@ -145,6 +145,24 @@ work is the **open findings list**, not the full diff.
   `gh pr comment <n> --body-file <file>` instead.
 - If the user edits the draft, apply the edit verbatim and re-show the
   body before publishing.
+- Findings that would warrant a "before merging I'd change X" but are
+  not blockers (test gaps, latent footguns, follow-up refactors) become a
+  GitHub issue assigned to the PR author
+  (`gh issue create --repo <owner>/<repo> --assignee <author-login>`) for
+  a follow-up PR — the review does not hold the merge over them and only
+  references the issue. Draft the issue in chat first and create it only
+  after an explicit yes. Match the repo's issue conventions — title
+  prefix, sections, language — by checking a recent issue from the same
+  team first.
+- **Never file a follow-up issue before checking what's already tracked.**
+  Search open issues for the finding's theme:
+  `gh issue list --repo <o>/<r> --state open --search "<keywords>"`.
+  Read the issues the PR body references too (`Closes #n`, `Refs`,
+  `Referencia`) — they delimit the PR's mandate, and debt from prior
+  reviews often already lives there (e.g. a "review follow-up" issue
+  covering the exact method your finding names). If an open issue covers
+  the finding, comment the new deltas on it instead of filing a
+  duplicate; create a new issue only for what nothing covers.
 
 ## Output
 
