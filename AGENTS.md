@@ -71,7 +71,7 @@ functions, classes, calls, imports and tests built with Tree-sitter. It answers 
 questions (who calls this, which tests reach it, what a change can affect) that a text search
 answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
 "callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
-`detect_changes_tool` for a diff.
+`review_diff_tool(base=<ref>)` for the callers and test gaps of a diff.
 
 In Claude Code, gryphon's hooks add graph facts to some tool results: after a `git diff`, the
 changed code called from outside the diff and the changes no test reaches; on a file read or an

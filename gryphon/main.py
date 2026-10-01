@@ -58,6 +58,7 @@ from .tools import (
     list_repos_func,
     query_graph,
     refactor_func,
+    review_diff_func,
     run_postprocess,
     semantic_search_nodes,
     traverse_graph_func,
@@ -747,6 +748,40 @@ async def detect_changes_tool(
 
 
 @mcp.tool()
+async def review_diff_tool(
+    base: str = "HEAD~1",
+    paths: Optional[list[str]] = None,
+    repo_root: Optional[str] = None,
+) -> dict:
+    """Graph facts to read next to a diff: who calls the changed code from outside it.
+
+    For each changed function or class: its callers outside the diff (contract
+    changes such as a new signature, return or raise first, most-called
+    callers first), the changes no test reaches, and for Django signal
+    receivers the other receivers of the same model. Static analysis:
+    callers through signals, decorators or dynamic dispatch are named as
+    such, not omitted. Under ~1,000 tokens. The text is in ``context``.
+
+    In Claude Code the gryphon hooks add this after every ``git diff``; call
+    it on platforms without hooks, or for another base.
+
+    Args:
+        base: Revision to diff against; a branch resolves to its merge base
+            with HEAD. Default: HEAD~1.
+        paths: Limit the diff to these paths (a git pathspec).
+        repo_root: Repository root path. Auto-detected if omitted.
+    """
+    root = _resolve_repo_root(repo_root)
+
+    def _run() -> dict:
+        return with_provenance(
+            review_diff_func(base=base, paths=paths, repo_root=root), root,
+        )
+
+    return await asyncio.to_thread(_run)
+
+
+@mcp.tool()
 def refactor_tool(
     mode: str = "rename",
     old_name: Optional[str] = None,
@@ -1124,12 +1159,33 @@ def pre_merge_check(base: str = "HEAD~1") -> list[dict]:
     return pre_merge_check_prompt(base=base)
 
 
+# Named tool sets for ``serve --tools <name>`` / ``CRG_TOOLS=<name>``. Agents
+# choose worse from long tool lists (OpenAI suggests fewer than 20 functions;
+# Anthropic's tool search exists because 30+ definitions cost tokens and
+# accuracy), and a review needs these six: the diff facts, one-symbol lookups,
+# the blast radius, a name search, the entry point, and a rebuild for
+# platforms without update hooks.
+TOOL_PROFILES: dict[str, tuple[str, ...]] = {
+    "review": (
+        "review_diff_tool",
+        "query_graph_tool",
+        "get_impact_radius_tool",
+        "semantic_search_nodes_tool",
+        "get_minimal_context_tool",
+        "build_or_update_graph_tool",
+    ),
+}
+
+
 def _apply_tool_filter(tools: str | None = None) -> None:
     """Remove tools not listed in the allow-list.
 
     Accepts a comma-separated string of tool names to keep.  When set,
     every registered MCP tool whose name is **not** in the list is
     removed via ``FastMCP.remove_tool()``.
+
+    An entry may name a profile from ``TOOL_PROFILES`` (``review``), which
+    stands for its tools; profiles and tool names can be mixed.
 
     The allow-list can be supplied in two ways (first match wins):
 
@@ -1138,7 +1194,7 @@ def _apply_tool_filter(tools: str | None = None) -> None:
 
     When neither is set, all tools remain available.
 
-    This is useful for token-constrained environments: CRG exposes 28+
+    This is useful for token-constrained environments: CRG exposes 31
     tools by default (~8k description tokens per LLM turn).  Filtering
     to a working set of 5-10 tools can reduce overhead by 70-85%.
 
@@ -1156,7 +1212,9 @@ def _apply_tool_filter(tools: str | None = None) -> None:
     raw = tools or os.environ.get("CRG_TOOLS")
     if not raw:
         return
-    allowed = {t.strip() for t in raw.split(",") if t.strip()}
+    allowed: set[str] = set()
+    for name in (t.strip() for t in raw.split(",")):
+        allowed.update(TOOL_PROFILES.get(name, (name,)) if name else ())
     if not allowed:
         return
     # FastMCP >=3 exposes tool enumeration via the async ``list_tools``

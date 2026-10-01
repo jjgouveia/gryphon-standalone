@@ -174,6 +174,7 @@ Enables `semantic_search_nodes_tool` — search entities by concept ("rate limit
 | `get_impact_radius_tool` | Files/functions affected by a change |
 | `get_review_context_tool` | Token-optimised structural summary for review (~156–207 tokens) |
 | `detect_changes_tool` | Risk-scored change analysis |
+| `review_diff_tool` | Callers outside a diff and untested changes, in ~1,000 tokens |
 | `query_graph_tool` | Callers, callees, tests, imports, inheritance |
 | `semantic_search_nodes_tool` | Search entities by name or meaning (needs embeddings) |
 | `get_architecture_overview_tool` | High-level codebase structure |
@@ -181,6 +182,8 @@ Enables `semantic_search_nodes_tool` — search entities by concept ("rate limit
 | `find_large_functions_tool` | Functions/classes over a line-count threshold |
 | `refactor_tool` | Rename preview, dead code, suggestions |
 | `list_graph_stats_tool` | Graph size and health statistics |
+
+`gryphon serve --tools review` (or `CRG_TOOLS=review`) exposes only the six tools a review needs.
 
 ## CLI Reference
 

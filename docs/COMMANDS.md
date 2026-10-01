@@ -294,6 +294,22 @@ priorities. Embedded flows carry per-flow metadata only; use
 `test_gaps_total` and `affected_flows_total` report the untruncated counts.
 Responses may include estimated `context_savings` metadata.
 
+#### `review_diff_tool`
+```
+base: str = "HEAD~1"         # A branch resolves to its merge base with HEAD
+paths: list[str] | None      # Limit the diff (git pathspec)
+repo_root: str | None
+```
+The graph facts to read next to a diff, as one short text in `context`: each
+changed function or class with callers outside the diff (signature, return,
+raise and field changes first and tagged, most-called callers first), the
+changes no direct test reaches, and the other receivers of a changed Django
+signal receiver's model. Callers matched by name only are marked `(by name)`;
+symbols with no static caller say why when the graph can tell (decorated, a
+method of a class with a base). It is what the Claude Code `PostToolUse` hook
+adds after a `git diff`, offered as a tool for platforms without hooks.
+Capped at about 1,000 tokens.
+
 #### `refactor_tool`
 ```
 mode: str = "rename"         # "rename", "dead_code", or "suggest"
@@ -483,6 +499,9 @@ gryphon eval                         # Run evaluation benchmarks
 gryphon serve                        # Start MCP server (stdio)
 gryphon serve --http                 # Streamable HTTP on 127.0.0.1:5555 (--host, --port)
 gryphon serve --tools query_graph_tool,detect_changes_tool  # Tool allowlist (or CRG_TOOLS)
+gryphon serve --tools review        # The 6-tool review profile (review_diff_tool, query_graph_tool,
+                                    # get_impact_radius_tool, semantic_search_nodes_tool,
+                                    # get_minimal_context_tool, build_or_update_graph_tool)
 gryphon mcp                          # Alias for serve; accepts only --repo and --auto-watch
 ```
 

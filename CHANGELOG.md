@@ -49,6 +49,13 @@
   Symbols with no caller at all are reported as "none found statically",
   with the reason, instead of with no line.
 
+- `review_diff_tool`: the text the `PostToolUse` hook adds after a `git diff`
+  (callers outside the diff, untested changes, sibling signal receivers),
+  as an MCP tool for platforms without hooks. A branch base resolves to its
+  merge base with `HEAD`.
+- `serve --tools review` (or `CRG_TOOLS=review`) exposes a six-tool review
+  profile instead of all 31. A profile name can be mixed with tool names.
+
 ### Changed
 
 - The hook context aims for precision over volume.

@@ -997,7 +997,7 @@ class TestInjectPlatformInstructionsFiltering:
         assert second == []
         content = (tmp_path / "CODEBUDDY.md").read_text(encoding="utf-8")
         assert content.count(_CLAUDE_MD_SECTION_MARKER) == 1
-        assert "detect_changes_tool" in content
+        assert "review_diff_tool" in content
         assert not (tmp_path / "CLAUDE.md").exists()
         assert not (tmp_path / "AGENTS.md").exists()
 
