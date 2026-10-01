@@ -51,6 +51,10 @@
 
 ### Changed
 
+- `query_graph_tool` returns 10 results by default instead of 100. With bare
+  names now resolving instead of answering `ambiguous`, a `callers_of` on a
+  widely called function returned about 16,000 tokens, four times the tool's
+  budget. `results_omitted` reports the rest; pass `max_results` for more.
 - Hints, `next_tool_suggestions`, the prompt templates and the generated
   instruction blocks name the registered tools (`detect_changes_tool`, not
   `detect_changes`), so agents are no longer told to call tools that do
@@ -208,6 +212,11 @@
 - The Qoder skills are bundled in the wheel, so `install --platform qoder`
   works from a pip install and never copies the target project's own
   `skills/` directory (#909).
+- `query_graph_tool` with a bare name no longer answers `ambiguous` because a
+  longer name contains it: `callers_of total` matched `test_total_works` and
+  `total_with_tax` too, so most functions with a test were unreachable by
+  name. Exact-name matches win, and among them a single non-test; two
+  exact matches in different files stay ambiguous.
 
 ## [2.3.8] - 2026-08-21
 
