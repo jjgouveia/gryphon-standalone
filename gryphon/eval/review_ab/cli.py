@@ -33,7 +33,7 @@ def add_parser(sub) -> argparse.ArgumentParser:
     run.add_argument(
         "--arms", default="baseline,graph,graph_required",
         help="Comma-separated arms (baseline, graph, graph_required, graph_md, "
-             "graph_md_enrich)",
+             "graph_md_enrich, graph_install, graph_install_ref)",
     )
     run.add_argument("--reps", type=int, default=1, help="Repetitions per arm")
     run.add_argument("--model", default=DEFAULT_MODEL, help="Reviewer model")
@@ -57,6 +57,15 @@ def add_parser(sub) -> argparse.ArgumentParser:
              "user hooks do not",
     )
     run.add_argument("--claude-bin", default="claude", help="claude executable")
+    run.add_argument(
+        "--ref-python", default=None,
+        help="Python of another gryphon checkout; graph_install_ref uses its install "
+             "(hooks, CLAUDE.md block, MCP server, gryphon on PATH)",
+    )
+    run.add_argument(
+        "--jobs", type=int, default=1,
+        help="Cases reviewed at once (the arms of one case stay sequential)",
+    )
 
     judge = rsub.add_parser("judge", help="Blind-judge the reviews of a run")
     judge.add_argument("--run", required=True, help="Run directory (holds records.jsonl)")
@@ -148,6 +157,7 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             timeout_s=args.timeout,
             claude_bin=args.claude_bin,
             isolation=args.isolation,
+            ref_python=args.ref_python,
         )
         try:
             run_dir = run_cases(
@@ -158,6 +168,7 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
                 out_dir=Path(args.out),
                 workdir=Path(args.workdir) if args.workdir else default_workdir(),
                 fresh=args.fresh,
+                jobs=args.jobs,
             )
         except RunAbortedError as exc:
             raise SystemExit(f"stopped: {exc}") from exc

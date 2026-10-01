@@ -40,11 +40,16 @@ logger = logging.getLogger(__name__)
 # graph_install: exactly what `gryphon install` sets up for Claude Code today
 # (skills.generate_hooks_config verbatim + the CLAUDE.md block), so it follows
 # every change to the install instead of a copy of it.
+# graph_install_ref: the same, from another gryphon checkout (``--ref-python``):
+# its hooks, its CLAUDE.md block, its MCP server and its `gryphon` on PATH.
+# Two versions of the install compete in one run and one blind judgment.
 ARMS = (
     "baseline", "graph", "graph_required", "graph_md", "graph_md_enrich", "graph_install",
+    "graph_install_ref",
 )
 GRAPH_ARMS = frozenset(ARMS) - {"baseline"}
-CLAUDE_MD_ARMS = frozenset({"graph_md", "graph_md_enrich", "graph_install"})
+CLAUDE_MD_ARMS = frozenset({"graph_md", "graph_md_enrich", "graph_install", "graph_install_ref"})
+REF_ARMS = frozenset({"graph_install_ref"})
 
 
 def sandbox_kind(arm: str) -> str:

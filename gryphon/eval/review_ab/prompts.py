@@ -123,6 +123,7 @@ TOOLS_BY_ARM = {
     "graph_md": _TOOLS_GRAPH,
     "graph_md_enrich": _TOOLS_GRAPH,
     "graph_install": _TOOLS_GRAPH,
+    "graph_install_ref": _TOOLS_GRAPH,
 }
 
 

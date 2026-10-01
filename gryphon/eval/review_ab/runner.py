@@ -15,8 +15,10 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +34,7 @@ from .prompts import FINDINGS_SCHEMA, PROMPT_VERSION, build_prompt
 from .sandbox import (
     ARMS,
     CLAUDE_MD_ARMS,
+    REF_ARMS,
     ArmSandbox,
     NoMergeBaseError,
     _opaque_name,
@@ -81,16 +84,47 @@ class RunSettings:
     # loads the clone's CLAUDE.md; the user's ~/.claude/CLAUDE.md loads too,
     # but no user hooks or plugins. Every arm of a run shares the same mode.
     isolation: str = "restricted"
+    # Interpreter of another gryphon checkout, for the graph_install_ref arm.
+    ref_python: str | None = None
 
 
-def mcp_config(sandbox: ArmSandbox) -> dict:
+def gryphon_python(arm: str | None, settings: RunSettings) -> str:
+    """The interpreter whose gryphon serves *arm*: the reference one for
+    graph_install_ref, this one otherwise."""
+    if arm in REF_ARMS:
+        if not settings.ref_python:
+            raise ValueError(f"arm {arm!r} needs --ref-python")
+        return settings.ref_python
+    return sys.executable
+
+
+def _ref_call(python: str, code: str, *args: str) -> str:
+    """Run *code* with the reference interpreter's gryphon and return stdout."""
+    return subprocess.run(
+        [python, "-c", code, *args], capture_output=True, text=True, encoding="utf-8",
+        check=True, timeout=120, stdin=subprocess.DEVNULL,
+    ).stdout
+
+
+def ref_commit(python: str) -> str:
+    """The git commit of the checkout the reference gryphon is imported from."""
+    folder = _ref_call(
+        python, "import gryphon, os; print(os.path.dirname(gryphon.__file__))",
+    ).strip()
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=folder, capture_output=True, text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def mcp_config(sandbox: ArmSandbox, python: str | None = None) -> dict:
     """MCP servers for the arm: none for baseline, gryphon for graph."""
     if sandbox.kind != "graph":
         return {"mcpServers": {}}
     return {
         "mcpServers": {
             "gryphon": {
-                "command": sys.executable,
+                "command": python or sys.executable,
                 "args": ["-m", "gryphon", "serve", "--repo", str(sandbox.repo)],
                 "env": sandbox.gryphon_env(),
             }
@@ -152,6 +186,7 @@ def build_command(
     judge runs with the same isolation and its own output contract).
     """
     arm = arm or sandbox.kind
+    python = gryphon_python(arm, settings)
     if settings.isolation == "restricted":
         # Ignores user, project and local settings (so no hooks run) and
         # confines the file tools to the clone. Does not load CLAUDE.md.
@@ -164,7 +199,7 @@ def build_command(
         raise ValueError(f"unknown isolation {settings.isolation!r}")
     cmd = [
         settings.claude_bin, "-p", *isolation, "--tools", BUILTIN_TOOLS,
-        "--strict-mcp-config", "--mcp-config", json.dumps(mcp_config(sandbox)),
+        "--strict-mcp-config", "--mcp-config", json.dumps(mcp_config(sandbox, python)),
         "--disable-slash-commands", "--no-session-persistence",
         "--model", settings.model, "--effort", settings.effort,
         "--max-budget-usd", str(settings.max_budget_usd),
@@ -178,6 +213,14 @@ def build_command(
             from gryphon.skills import generate_hooks_config
 
             hooks = generate_hooks_config(sandbox.repo)
+        elif arm in REF_ARMS:
+            hooks = json.loads(_ref_call(
+                python,
+                "import json, sys; from pathlib import Path; "
+                "from gryphon.skills import generate_hooks_config; "
+                "print(json.dumps(generate_hooks_config(Path(sys.argv[1]))))",
+                str(sandbox.repo),
+            ))
         else:
             hooks = graph_settings(sandbox, enrich=arm == "graph_md_enrich")
         cmd += ["--settings", json.dumps(hooks)]
@@ -286,12 +329,13 @@ def audit_tool_calls(
     return leaks, notes
 
 
-def _install_claude_md(sandbox: ArmSandbox):
+def _install_claude_md(sandbox: ArmSandbox, python: str | None = None):
     """Write the install's CLAUDE.md block into the clone, the way
     ``gryphon install`` does, and return a callable that undoes it.
 
     The graph clone is shared with arms that must not see the block, so the
     file goes back to its tracked content (or away) right after the run.
+    *python* writes the block of another gryphon checkout instead.
     """
     from gryphon.skills import inject_claude_md
 
@@ -300,7 +344,15 @@ def _install_claude_md(sandbox: ArmSandbox):
         ["git", "ls-files", "--error-unmatch", "CLAUDE.md"],
         cwd=str(sandbox.repo), capture_output=True,
     ).returncode == 0
-    inject_claude_md(sandbox.repo)
+    if python and python != sys.executable:
+        _ref_call(
+            python,
+            "import sys; from pathlib import Path; "
+            "from gryphon.skills import inject_claude_md; inject_claude_md(Path(sys.argv[1]))",
+            str(sandbox.repo),
+        )
+    else:
+        inject_claude_md(sandbox.repo)
 
     def restore() -> None:
         if tracked:
@@ -318,7 +370,7 @@ def _run_claude(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, **kwargs)
 
 
-def _child_env(sandbox: ArmSandbox) -> dict[str, str]:
+def _child_env(sandbox: ArmSandbox, python: str | None = None) -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if not k.startswith("CRG_")}
     for var in _PARENT_SESSION_VARS:
         env.pop(var, None)
@@ -326,7 +378,7 @@ def _child_env(sandbox: ArmSandbox) -> dict[str, str]:
     env.update(sandbox.gryphon_env())
     if sandbox.kind == "graph":
         # Installed hooks call `gryphon` from PATH, as on a user's machine.
-        scripts = str(Path(sys.executable).parent)
+        scripts = str(Path(python or sys.executable).parent)
         env["PATH"] = scripts + os.pathsep + env.get("PATH", "")
     return env
 
@@ -405,7 +457,8 @@ def run_arm(
     started = time.monotonic()
     exit_code: int | None = None
     timed_out = False
-    restore = _install_claude_md(sandbox) if arm in CLAUDE_MD_ARMS else None
+    python = gryphon_python(arm, settings)
+    restore = _install_claude_md(sandbox, python) if arm in CLAUDE_MD_ARMS else None
     with open(stream_path, "w", encoding="utf-8") as out, open(
         stderr_path, "w", encoding="utf-8"
     ) as err:
@@ -414,7 +467,7 @@ def run_arm(
                 build_command(sandbox, settings, arm=arm),
                 cwd=str(sandbox.repo), input=prompt, stdout=out, stderr=err,
                 text=True, encoding="utf-8", errors="replace",
-                env=_child_env(sandbox), timeout=settings.timeout_s,
+                env=_child_env(sandbox, python), timeout=settings.timeout_s,
             )
             exit_code = proc.returncode
         except subprocess.TimeoutExpired:
@@ -502,15 +555,20 @@ def run_cases(
     out_dir: Path,
     workdir: Path,
     fresh: bool = False,
+    jobs: int = 1,
 ) -> Path:
     """Run every case × arm × rep and append records to ``records.jsonl``.
 
     Arms alternate order between reps so neither always runs first (rate
-    limits and cache warmth drift over a long run). Returns the run directory.
+    limits and cache warmth drift over a long run). *jobs* cases run at once;
+    the arms of one case stay sequential, since the graph arms share a clone
+    and write CLAUDE.md into it. Returns the run directory.
     """
     for arm in arms:
         if arm not in ARMS:
             raise ValueError(f"unknown arm {arm!r}; expected one of {ARMS}")
+    if any(a in REF_ARMS for a in arms) and not settings.ref_python:
+        raise ValueError("graph_install_ref needs --ref-python")
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = out_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -525,9 +583,18 @@ def run_cases(
         "isolation": settings.isolation,
         "max_budget_usd": settings.max_budget_usd,
         "prompt_version": PROMPT_VERSION,
+        "gryphon_commit": ref_commit(sys.executable),
+        "ref_python": settings.ref_python,
+        "ref_commit": ref_commit(settings.ref_python) if settings.ref_python else None,
     }, indent=2), encoding="utf-8")
 
-    for case in cases:
+    lock = threading.Lock()
+    stop = threading.Event()
+    aborted: list[str] = []
+
+    def run_case(case: ReviewCase) -> None:
+        if stop.is_set():
+            return
         # One sandbox per kind: the graph arms share a clone and a graph.
         by_kind: dict[str, ArmSandbox] = {}
         try:
@@ -539,29 +606,46 @@ def run_cases(
             # One case the clone cannot serve must not cost the whole run.
             logger.warning("skipping %s", exc)
             print(f"{case.id}: skipped ({exc})")
-            continue
+            return
         for rep in range(reps):
             order = list(arms) if rep % 2 == 0 else list(reversed(arms))
             for arm in order:
+                if stop.is_set():
+                    return
                 logger.info("running %s / %s / rep %d", case.id, arm, rep)
                 record = run_arm(
                     case, by_kind[sandbox_kind(arm)], settings,
                     arm=arm, rep=rep, run_dir=run_dir,
                 )
-                with open(records_path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
-                print(
-                    f"{case.id} {arm} r{rep}: {record['status']} "
-                    f"${record['total_cost_usd']} turns={record['num_turns']} "
-                    f"findings={len(record['findings'] or [])} "
-                    f"graph_calls={record['graph_tool_calls']} "
-                    f"leaks={len(record['leak_flags'])}"
-                )
+                with lock:
+                    with open(records_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    print(
+                        f"{case.id} {arm} r{rep}: {record['status']} "
+                        f"${record['total_cost_usd']} turns={record['num_turns']} "
+                        f"findings={len(record['findings'] or [])} "
+                        f"graph_calls={record['graph_tool_calls']} "
+                        f"leaks={len(record['leak_flags'])}",
+                        flush=True,
+                    )
                 if record["status"] in STOP_STATUSES:
                     # A usage or rate limit fails every later run the same way.
-                    raise RunAbortedError(
+                    aborted.append(
                         f"{case.id}/{arm}/r{rep} hit {record['status']}"
-                        f" ({record.get('result_text') or 'no message'}); run stopped,"
-                        f" records so far in {records_path}"
+                        f" ({record.get('result_text') or 'no message'})"
                     )
+                    stop.set()
+                    return
+
+    if jobs <= 1:
+        for case in cases:
+            run_case(case)
+    else:
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            for future in [pool.submit(run_case, c) for c in cases]:
+                future.result()
+    if aborted:
+        raise RunAbortedError(
+            f"{aborted[0]}; run stopped, records so far in {records_path}"
+        )
     return run_dir
