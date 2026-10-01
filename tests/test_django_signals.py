@@ -135,6 +135,6 @@ def test_diff_context_shows_signal_callers_and_sibling_receivers(tmp_path, store
     resolve_django_signals(store)
 
     text = build_diff_context(str(repo), ["main...feat"], store=store)
-    assert "- on_saved (signals.py:5) <- Document (via post_save) (models.py:3)" in text
+    assert "- on_saved (signals.py:5) [return] <- Document (via post_save) (models.py:3)" in text
     assert "on_saved on Document: also capture [pre_save] (signals.py:1)" in text
     assert "none found statically" not in text

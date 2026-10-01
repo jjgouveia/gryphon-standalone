@@ -439,9 +439,114 @@ This project uses **gryphon** for structural code analysis via MCP.
 4. Use `query_graph` pattern="tests_for" to check coverage.
 """
 
+# skills.py _COPILOT_SECTION as of e4287cc6 (2155 chars)
+_SECTION_11 = """---
+applyTo: '**'
+description: >-
+  Use gryphon MCP tools for token-efficient
+  codebase exploration and code review.
+---
+
+<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
+
+**This project has a knowledge graph. Start with the gryphon
+MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
+gives you structural context (callers, dependents, test coverage) that file search cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool`
+- **Understanding impact**: `get_impact_radius_tool`
+- **Code review**: `detect_changes_tool` + `get_review_context_tool`
+- **Finding relationships**: `query_graph_tool` callers_of/callees_of
+- **Architecture questions**: `get_architecture_overview_tool`
+
+### Verify in the source
+
+- Narrow scope with the graph, then read the source. Do not change code from graph output alone.
+- For any non-trivial change, read the implementation and the relevant tests before concluding.
+- Verify the exact source when touching behavior, database logic, migrations, retries, fallbacks,
+  recovery, or compatibility code.
+- When the graph and the source disagree, the source wins. The graph may be stale or may not
+  model that relationship.
+- An empty graph result can mean "not indexed" or "not statically visible", not "does not exist".
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes_tool` | Risk-scored change analysis |
+| `get_review_context_tool` | Token-efficient source snippets |
+| `get_impact_radius_tool` | Blast radius of a change |
+| `get_affected_flows_tool` | Impacted execution paths |
+| `query_graph_tool` | Trace callers, callees, imports, tests |
+| `semantic_search_nodes_tool` | Find functions/classes by keyword |
+| `get_architecture_overview_tool` | High-level structure |
+| `refactor_tool` | Rename planning, dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes_tool` for code review.
+3. Use `get_affected_flows_tool` to understand impact.
+4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+<!-- /gryphon MCP tools -->
+"""
+
+# skills.py _CLAUDE_MD_SECTION as of e4287cc6 (2301 chars)
+_SECTION_12 = """<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
+
+**This project has a knowledge graph. Start with the gryphon
+MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
+gives you structural context (callers, dependents, test coverage) that file search cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
+- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
+- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
+- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+
+### Verify in the source
+
+- Narrow scope with the graph, then read the source. Do not change code from graph output alone.
+- For any non-trivial change, read the implementation and the relevant tests before concluding.
+- Verify the exact source when touching behavior, database logic, migrations, retries, fallbacks,
+  recovery, or compatibility code.
+- When the graph and the source disagree, the source wins. The graph may be stale or may not
+  model that relationship.
+- An empty graph result can mean "not indexed" or "not statically visible", not "does not exist".
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context_tool` | Need source snippets for review — token-efficient |
+| `get_impact_radius_tool` | Understanding blast radius of a change |
+| `get_affected_flows_tool` | Finding which execution paths are impacted |
+| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
+| `get_architecture_overview_tool` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes_tool` for code review.
+3. Use `get_affected_flows_tool` to understand impact.
+4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+<!-- /gryphon MCP tools -->
+"""
+
 # Longest first: a shorter variant must never shadow a longer one that
 # contains it. ``skills`` relies on this ordering when it picks a match.
 LEGACY_INSTRUCTION_SECTIONS: tuple[str, ...] = (
+    _SECTION_12,
+    _SECTION_11,
     _SECTION_01,
     _SECTION_02,
     _SECTION_03,

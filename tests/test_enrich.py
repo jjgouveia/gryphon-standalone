@@ -202,10 +202,11 @@ class TestEnrichFileRead:
         for line in symbol_lines:
             assert "parser.py (" not in line or "parse_" in line
 
-    def test_includes_callees(self):
+    def test_leaves_out_what_the_code_already_shows(self):
+        """Callees are in the code being read; flows did not help a review."""
         result = enrich_file_read(self.file_path, self.tmpdir)
-        assert "Calls:" in result
-        assert "parse_imports" in result
+        assert "Calls:" not in result and "Flows:" not in result
+        assert "Called by: parse_file" in result  # parse_imports' caller
 
     def test_empty_for_unknown_file(self):
         result = enrich_file_read("/nonexistent/file.py", self.tmpdir)
@@ -466,3 +467,47 @@ def test_signal_receiver_shows_its_sender_and_siblings(tmp_path, monkeypatch):
     assert "Called by: Document (via post_save)" in text
     assert "Other receivers of Document: capture [pre_save]" in text
     assert "none found statically" not in text
+
+
+def test_search_needs_an_exact_symbol_name(tmp_path, monkeypatch):
+    """Half a name or a phrase used to pull in keyword matches."""
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="parse_file", file_path=f"{root}/parser.py",
+                 line_start=1, line_end=2, language="python"),
+    ])
+    assert 'named "parse_file"' in enrich_mod.enrich_search("parse_file", str(repo))
+    assert enrich_mod.enrich_search("parse", str(repo)) == ""
+    assert enrich_mod.enrich_search("Parse_File", str(repo)) == ""
+
+
+def test_search_skips_a_name_defined_too_often(tmp_path, monkeypatch):
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="save", file_path=f"{root}/m{i}.py",
+                 line_start=1, line_end=2, language="python")
+        for i in range(4)
+    ])
+    assert enrich_mod.enrich_search("save", str(repo)) == ""
+
+
+def test_whole_file_read_does_not_repeat_symbols_in_a_session(tmp_path, monkeypatch):
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="helper", file_path=f"{root}/util.py",
+                 line_start=1, line_end=2, language="python"),
+    ])
+    seen = enrich_mod._SessionMemory(str(repo), "sess")
+    assert "helper" in enrich_mod.enrich_file_range("util.py", str(repo), None, None, seen=seen)
+    assert enrich_mod.enrich_file_range("util.py", str(repo), None, None, seen=seen) == ""
+
+
+def test_no_static_caller_says_what_may_call_it(tmp_path, monkeypatch):
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="sync_job", file_path=f"{root}/tasks.py",
+                 line_start=1, line_end=2, language="python",
+                 extra={"decorators": ["shared_task(bind=True)"]}),
+    ])
+    text = enrich_mod.enrich_file_range("tasks.py", str(repo), 1, 2)
+    assert "none found statically" in text and "; decorated @shared_task" in text

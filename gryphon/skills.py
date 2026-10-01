@@ -1099,9 +1099,9 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
                                 "cat >/dev/null || true; "
                                 "command -v gryphon >/dev/null 2>&1 || exit 0; "
                                 "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon status"
+                                " && gryphon status --brief"
                                 " --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\""
-                                " || echo 'Not a git repo, skipping'"
+                                " || true"
                             ),
                             "timeout": 10,
                         },
@@ -1400,9 +1400,12 @@ _CLAUDE_MD_SECTION_MARKER = "<!-- gryphon MCP tools -->"
 _CLAUDE_MD_SECTION_END_MARKER = "<!-- /gryphon MCP tools -->"
 
 # Shared across every platform instruction file so the wording stays identical.
-_INSTRUCTION_INTRO = """**This project has a knowledge graph. Start with the gryphon
-MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
-gives you structural context (callers, dependents, test coverage) that file search cannot."""
+_INSTRUCTION_INTRO = """This repository has a gryphon code graph: a static index of
+functions, classes, calls, imports and tests built with Tree-sitter. It answers structural
+questions (who calls this, which tests reach it, what a change can affect) that a text search
+answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
+"callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
+`detect_changes_tool` for a diff."""
 
 _INSTRUCTION_GUARDRAILS = """### Verify in the source
 
@@ -1419,35 +1422,11 @@ _CLAUDE_MD_SECTION = f"""{_CLAUDE_MD_SECTION_MARKER}
 
 {_INSTRUCTION_INTRO}
 
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
-- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
-- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
-- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+In Claude Code, gryphon's hooks add graph facts to some tool results: after a `git diff`, the
+changed code called from outside the diff and the changes no test reaches; on a file read or an
+exact-name search, the callers and tests of that code.
 
 {_INSTRUCTION_GUARDRAILS}
-
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context_tool` | Need source snippets for review — token-efficient |
-| `get_impact_radius_tool` | Understanding blast radius of a change |
-| `get_affected_flows_tool` | Finding which execution paths are impacted |
-| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
-| `get_architecture_overview_tool` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes_tool` for code review.
-3. Use `get_affected_flows_tool` to understand impact.
-4. Use `query_graph_tool` pattern=\"tests_for\" to check coverage.
 {_CLAUDE_MD_SECTION_END_MARKER}
 """
 
@@ -1465,35 +1444,7 @@ description: >-
 
 {_INSTRUCTION_INTRO}
 
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool`
-- **Understanding impact**: `get_impact_radius_tool`
-- **Code review**: `detect_changes_tool` + `get_review_context_tool`
-- **Finding relationships**: `query_graph_tool` callers_of/callees_of
-- **Architecture questions**: `get_architecture_overview_tool`
-
 {_INSTRUCTION_GUARDRAILS}
-
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes_tool` | Risk-scored change analysis |
-| `get_review_context_tool` | Token-efficient source snippets |
-| `get_impact_radius_tool` | Blast radius of a change |
-| `get_affected_flows_tool` | Impacted execution paths |
-| `query_graph_tool` | Trace callers, callees, imports, tests |
-| `semantic_search_nodes_tool` | Find functions/classes by keyword |
-| `get_architecture_overview_tool` | High-level structure |
-| `refactor_tool` | Rename planning, dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes_tool` for code review.
-3. Use `get_affected_flows_tool` to understand impact.
-4. Use `query_graph_tool` pattern=\"tests_for\" to check coverage.
 {_CLAUDE_MD_SECTION_END_MARKER}
 """
 
