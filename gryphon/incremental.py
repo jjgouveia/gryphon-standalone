@@ -209,29 +209,16 @@ def _run_resolvers(
     wave1: list[tuple[str, _ResolverFn]],
     wave2: list[tuple[str, _ResolverFn]],
 ) -> dict[str, Optional[dict]]:
-    """Run resolver passes in two waves, parallelising within each wave.
+    """Run resolver passes: *wave1*, then *wave2*, each in order.
 
-    *wave1* resolvers are independent and run concurrently.  *wave2*
-    resolvers depend on wave1 results (e.g. temporal skips edges already
-    marked ``spring_resolved``) and run sequentially after wave1 finishes.
-
-    SQLite WAL mode allows concurrent readers; writes serialise via
-    ``busy_timeout``.  Each resolver is read-heavy with a short write
-    phase, so contention is minimal.
+    *wave2* resolvers depend on wave1 results (e.g. temporal skips edges
+    already marked ``spring_resolved``). Nothing runs concurrently: every
+    resolver writes through the store's single SQLite connection, which
+    does not isolate transactions per thread, so concurrent resolvers
+    interleave BEGIN/COMMIT and one of them loses its writes.
     """
     results: dict[str, Optional[dict]] = {}
-
-    if wave1:
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(len(wave1), 5),
-        ) as ex:
-            futures = {
-                ex.submit(fn, store): name for name, fn in wave1
-            }
-            for fut in concurrent.futures.as_completed(futures):
-                results[futures[fut]] = fut.result()
-
-    for name, fn in wave2:
+    for name, fn in [*wave1, *wave2]:
         results[name] = fn(store)
 
     return results

@@ -642,3 +642,36 @@ class TestResolveBareEndpointsStep:
         assert "bare_edges_resolved" not in result
         assert any("Call-target resolution" in w for w in result["warnings"])
         assert "communities_detected" in result
+
+
+def test_post_processing_steps_run_on_the_calling_thread(monkeypatch, tmp_path):
+    """Regression: two steps ran in threads on the store's one SQLite connection.
+
+    A connection does not isolate transactions per thread, so one step's
+    BEGIN/COMMIT interleaved with the other's ("cannot rollback - no
+    transaction is active") and bare-call edges went silently missing.
+    """
+    import threading
+
+    from gryphon import postprocessing
+    from gryphon.graph import GraphStore
+
+    caller = threading.get_ident()
+    seen: dict[str, int] = {}
+
+    def recorder(name):
+        def step(store, *args, **kwargs):
+            seen[name] = threading.get_ident()
+            return {}, []
+        return step
+
+    for name in ("_resolve_bare_endpoints", "_compute_signatures", "_rebuild_fts_index",
+                 "_trace_flows", "_detect_communities"):
+        monkeypatch.setattr(postprocessing, name, recorder(name))
+    store = GraphStore(tmp_path / "graph.db")
+    try:
+        postprocessing.run_post_processing(store)
+    finally:
+        store.close()
+    assert {"_resolve_bare_endpoints", "_compute_signatures"} <= set(seen)
+    assert set(seen.values()) == {caller}

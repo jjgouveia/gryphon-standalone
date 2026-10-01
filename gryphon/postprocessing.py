@@ -10,10 +10,11 @@ post-processing steps must run to populate derived tables:
 5. Detect code communities
 6. Refresh embeddings (optional, cloud providers)
 
-Steps are grouped into three waves and parallelised within each wave.
-SQLite WAL mode allows concurrent readers; writes serialise via
-``busy_timeout``.  Each step is read-heavy with a short write phase,
-so contention is minimal.
+Steps run one after the other. They share the store's single SQLite
+connection, and a connection does not isolate transactions per thread:
+run concurrently, one step's BEGIN/COMMIT interleaves with another's
+("cannot rollback - no transaction is active"), the failing step logs a
+warning and its edges are silently missing from the graph.
 
 This module extracts that pipeline so every entry point — MCP tool, CLI
 commands, and watch mode — produces identical results.
@@ -21,7 +22,6 @@ commands, and watch mode — produces identical results.
 
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 import sqlite3
 from typing import Any
@@ -40,8 +40,8 @@ def run_post_processing(
     """Run all post-build steps on a populated graph.
 
     Each step is non-fatal: failures are logged and collected as warnings
-    so the primary build result is never lost.  Independent steps within
-    each wave run concurrently via a ThreadPoolExecutor.
+    so the primary build result is never lost. Steps run sequentially on the
+    store's one connection (see the module docstring).
 
     Args:
         store: An open GraphStore with nodes and edges already populated.
@@ -54,24 +54,16 @@ def run_post_processing(
     warnings: list[str] = []
 
     def _run_wave(steps: list) -> None:
-        """Run *steps* concurrently, merging per-step results and warnings."""
-        if len(steps) == 1:
-            # Single step — skip thread overhead.
-            r, w = steps[0](store)
+        """Run *steps* in order, merging per-step results and warnings.
+
+        Not concurrently: the steps write through one shared connection.
+        """
+        for step in steps:
+            r, w = step(store)
             result.update(r)
             warnings.extend(w)
-            return
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(steps),
-        ) as ex:
-            futures = {ex.submit(fn, store): fn for fn in steps}
-            for fut in concurrent.futures.as_completed(futures):
-                r, w = fut.result()
-                result.update(r)
-                warnings.extend(w)
 
-    # Wave 1: bare endpoint resolution + signature computation (independent,
-    # both mostly read nodes/edges then do a batch write).
+    # Bare endpoint resolution, then signatures (both read, then batch write).
     _run_wave([_resolve_bare_endpoints, _compute_signatures])
 
     # FTS rebuild drops and recreates the virtual table — run alone.
