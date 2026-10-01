@@ -104,7 +104,7 @@ pattern: str    # callers_of, references_to, callees_of, imports_of, importers_o
 target: str     # Node name, qualified name, or file path
 repo_root: str | None
 detail_level: str = "standard"   # "standard" or "minimal"
-max_results: int = 100           # Minimal mode also caps visible results at 5
+max_results: int = 10            # More exist? results_omitted says so. Minimal caps at 5
 ```
 
 #### `get_review_context_tool`

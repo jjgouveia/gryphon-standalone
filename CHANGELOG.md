@@ -27,6 +27,10 @@
 
 ### Changed
 
+- `query_graph_tool` returns 10 results by default instead of 100. With bare
+  names now resolving instead of answering `ambiguous`, a `callers_of` on a
+  widely called function returned about 16,000 tokens, four times the tool's
+  budget. `results_omitted` reports the rest; pass `max_results` for more.
 - Hints, `next_tool_suggestions`, the prompt templates and the generated
   instruction blocks name the registered tools (`detect_changes_tool`, not
   `detect_changes`), so agents are no longer told to call tools that do
