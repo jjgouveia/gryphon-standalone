@@ -299,7 +299,7 @@ def serve_dashboard(host: str = "127.0.0.1", port: int = 8765) -> None:
 
         webbrowser.open(url)
     except Exception:  # noqa: BLE001 - browser is best-effort
-        pass
+        logger.debug("could not open a browser", exc_info=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

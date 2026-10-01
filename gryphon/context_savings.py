@@ -7,8 +7,11 @@ conservative character-count approximation instead of model-specific tokenizers.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Iterable
+
+logger = logging.getLogger(__name__)
 
 CHARS_PER_TOKEN = 4
 
@@ -211,7 +214,7 @@ def attach_context_savings(
             result if returned_context is None else returned_context
         )
     )
-    estimate = estimate_context_savings(
+    estimate: dict[str, Any] | None = estimate_context_savings(
         original_tokens=baseline,
         returned_tokens=returned,
     )
@@ -263,7 +266,7 @@ def _log_tool_savings(
             extra=extra,
         )
     except Exception:  # noqa: BLE001 - logging must never break a tool call
-        pass
+        logger.debug("could not log tool savings", exc_info=True)
 
 
 def format_context_savings(estimate: dict[str, Any] | None) -> str | None:

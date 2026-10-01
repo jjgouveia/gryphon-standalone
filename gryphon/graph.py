@@ -1597,7 +1597,9 @@ class GraphStore:
                     and ranges is not None
                     and n.line_start is not None
                     and n.line_end is not None
-                    and not any(n.line_start <= end and n.line_end >= start for start, end in ranges)
+                    and not any(
+                        n.line_start <= end and n.line_end >= start for start, end in ranges
+                    )
                 ):
                     continue
                 seeds.add(n.qualified_name)
