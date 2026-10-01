@@ -98,6 +98,14 @@
   the MCP tool - the one the review workflows call - kept reporting the
   local checkout's functions under the reviewed PR's file names, with a risk
   score and test gaps to match.
+- Build post-processing and the resolver passes no longer run in threads on
+  the store's single SQLite connection. A connection does not isolate
+  transactions per thread: two steps interleaved BEGIN/COMMIT ("cannot
+  rollback - no transaction is active"), the losing step only logged a
+  warning, and its bare-call edges were silently missing from the graph.
+  The steps now run in order; on a 4,344-file repository the full build
+  took 98 s against 93 s in parallel (within run-to-run spread) and produced
+  the same graph.
 - `detect_changes_tool` reports `files_in_graph` and `files_not_in_graph`,
   and attaches a `confidence` note naming the branch the graph was built on
   when part of the change set is missing from it. A change set the graph

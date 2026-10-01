@@ -1977,3 +1977,33 @@ class TestGraphExtraCorruption:
             assert str(tmp_path / "virtual.py") not in files, "virtual=true stays resolver-managed"
         finally:
             store.close()
+
+
+def test_resolvers_run_on_the_calling_thread_in_order(tmp_path):
+    """Regression: wave-1 resolvers ran concurrently on one SQLite connection."""
+    import threading
+
+    from gryphon.graph import GraphStore
+    from gryphon.incremental import _run_resolvers
+
+    caller = threading.get_ident()
+    calls: list[tuple[str, int]] = []
+
+    def resolver(name):
+        def run(store):
+            calls.append((name, threading.get_ident()))
+            return {"name": name}
+        return run
+
+    store = GraphStore(tmp_path / "graph.db")
+    try:
+        results = _run_resolvers(
+            store,
+            wave1=[("a", resolver("a")), ("b", resolver("b")), ("c", resolver("c"))],
+            wave2=[("d", resolver("d"))],
+        )
+    finally:
+        store.close()
+    assert [name for name, _ in calls] == ["a", "b", "c", "d"]
+    assert {ident for _, ident in calls} == {caller}
+    assert results["d"] == {"name": "d"}
