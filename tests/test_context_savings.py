@@ -256,3 +256,19 @@ def test_tool_call_log_entry_omits_ref_without_session_task(tmp_path):
     )
 
     assert "ref" not in read_entries(tmp_path)[-1]
+
+
+def test_repo_savings_log_follows_the_data_dir(tmp_path, monkeypatch):
+    """With the graph outside the repo, the per-repo log goes there too."""
+    from gryphon.savings_log import log_savings, read_entries
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    data_dir = tmp_path / "external-data"
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CRG_DATA_DIR", str(data_dir))
+    log_savings(repo, kind="tool_call", baseline_tokens=10, returned_tokens=2,
+                saved_tokens=8, saved_percent=80, tool="t")
+    assert not (repo / ".gryphon").exists()
+    assert (data_dir / "savings.jsonl").is_file()
+    assert [e["tool"] for e in read_entries(repo)] == ["t"]

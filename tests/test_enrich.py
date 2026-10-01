@@ -240,3 +240,229 @@ class TestRunHookOutput:
         result = enrich_search("my_function", tmpdir)
         assert result.startswith("[gryphon]")
         assert "my_function" in result
+
+
+def test_enrich_uses_the_configured_data_dir(tmp_path, monkeypatch):
+    """A graph kept outside the repo (CRG_DATA_DIR) is found, like everywhere else."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    data_dir = tmp_path / "external-data"
+    data_dir.mkdir()
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CRG_DATA_DIR", str(data_dir))
+    posix_repo = repo.as_posix()
+    store = GraphStore(data_dir / "graph.db")
+    try:
+        store.upsert_node(NodeInfo(
+            kind="Function", name="parse_file", file_path=f"{posix_repo}/parser.py",
+            line_start=1, line_end=5, language="python",
+        ))
+        rebuild_fts_index(store)
+    finally:
+        store.close()
+
+    assert not (repo / ".gryphon").exists()
+    assert "parse_file" in enrich_search("parse_file", str(repo))
+    assert "parse_file" in enrich_file_read(f"{posix_repo}/parser.py", str(repo))
+
+
+# --- review-aware enrichment ------------------------------------------------
+
+import json  # noqa: E402
+
+import pytest  # noqa: E402
+
+from gryphon import enrich as enrich_mod  # noqa: E402
+from gryphon.enrich import (  # noqa: E402
+    _SessionMemory,
+    build_context,
+    extract_file_reads,
+    extract_search_terms,
+)
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [
+        (r'grep -n "def load_config\|def save_config" a.py',
+         ["load_config", "save_config"]),
+        ('grep -rn "class OrderStatus" -A25 src', ["OrderStatus"]),
+        (r'grep -n "^from\|^import\|ValidationError" views.py', ["ValidationError"]),
+        ("git grep -n price_ladder -- tests", ["price_ladder"]),
+        ("rg -e parse_file src/", ["parse_file"]),
+        ('grep -n "def" a.py', []),
+        ("ls -la", []),
+    ],
+)
+def test_extract_search_terms(command, expected):
+    assert extract_search_terms("Bash", {"command": command}) == expected
+
+
+def test_extract_pattern_respects_quotes():
+    """Regression: `.split()` turned "class Foo" into the pattern `class`."""
+    assert extract_pattern("Bash", {"command": 'grep -rn "class Foo" src'}) == "class Foo"
+
+
+@pytest.mark.parametrize(
+    ("tool", "tool_input", "expected"),
+    [
+        ("Bash", {"command": "sed -n 420,625p a/serializers.py"}, [("a/serializers.py", 420, 625)]),
+        # After `cd x`, relative paths are under x (agents write `cd dir && sed ...`).
+        ("Bash", {"command": "cd x; sed -n '12p' b.py; sed -n 1,5p c.py"},
+         [("x/b.py", 12, 12), ("x/c.py", 1, 5)]),
+        ("Bash", {"command": "cd src/app && cd sub && head -n 5 m.py"},
+         [("src/app/sub/m.py", 1, 5)]),
+        ("Bash", {"command": "cd src && cat /abs/m.py; cd; cat n.py"},
+         [("/abs/m.py", None, None), ("n.py", None, None)]),
+        ("Bash", {"command": "head -n 40 a.py"}, [("a.py", 1, 40)]),
+        ("Bash", {"command": "head -20 a.py"}, [("a.py", 1, 20)]),
+        ("Bash", {"command": "cat a.py b.py"}, [("a.py", None, None), ("b.py", None, None)]),
+        ("Bash", {"command": "sed 's/a/b/' a.py"}, []),
+        ("Read", {"file_path": "/r/a.py", "offset": 100, "limit": 50}, [("/r/a.py", 100, 149)]),
+        ("Read", {"file_path": "/r/a.py"}, [("/r/a.py", None, None)]),
+        ("Grep", {"pattern": "x"}, []),
+    ],
+)
+def test_extract_file_reads(tool, tool_input, expected):
+    assert extract_file_reads(tool, tool_input) == expected
+
+
+def test_session_memory_dedups_and_persists(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CRG_DATA_DIR", str(tmp_path / "data"))
+    first = _SessionMemory(str(tmp_path), "sess-1")
+    assert first.filter(["a", "b"]) == {"a", "b"}
+    assert first.filter(["b", "c"]) == {"c"}
+    again = _SessionMemory(str(tmp_path), "sess-1")
+    assert again.filter(["a", "d"]) == {"d"}
+    assert _SessionMemory(str(tmp_path), "sess-2").filter(["a"]) == {"a"}
+    # No session id: no memory, nothing suppressed.
+    assert _SessionMemory(str(tmp_path), None).filter(["a"]) == {"a"}
+
+
+def test_post_tool_use_git_diff_calls_diff_context_once(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CRG_DATA_DIR", str(tmp_path / "data"))
+    calls = []
+
+    def fake_context(repo_root, args, *, cwd=None, store=None):
+        calls.append((args, cwd))
+        return "[gryphon] diff context"
+
+    monkeypatch.setattr("gryphon.diff_context.build_diff_context", fake_context)
+    payload = {"hook_event_name": "PostToolUse", "session_id": "s", "tool_name": "Bash",
+               "tool_input": {"command": "git diff --stat main...feat"}, "cwd": str(tmp_path)}
+    assert build_context(payload, str(tmp_path)) == ("PostToolUse", "[gryphon] diff context")
+    assert build_context(payload, str(tmp_path)) == ("PostToolUse", "")
+    assert calls == [(["main...feat"], str(tmp_path))]
+    other = {**payload, "tool_input": {"command": "pytest -q"}}
+    assert build_context(other, str(tmp_path)) == ("PostToolUse", "")
+
+
+def test_run_hook_reports_the_event_it_answers(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CRG_DATA_DIR", str(tmp_path / "data"))
+    (tmp_path / "data").mkdir()
+    GraphStore(tmp_path / "data" / "graph.db").close()
+    monkeypatch.setattr(enrich_mod, "build_context", lambda hook, root: ("PostToolUse", "ctx"))
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO(json.dumps(
+        {"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {}},
+    )))
+    enrich_mod.run_hook(repo=str(tmp_path))
+    out = json.loads(capsys.readouterr().out)
+    assert out["hookSpecificOutput"] == {"hookEventName": "PostToolUse", "additionalContext": "ctx"}
+
+
+def test_file_range_only_covers_the_lines_read(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"
+    (repo / ".gryphon").mkdir(parents=True)
+    root = repo.as_posix()
+    store = GraphStore(repo / ".gryphon" / "graph.db")
+    try:
+        for name, lo, hi in (("first", 1, 10), ("second", 20, 30)):
+            store.upsert_node(NodeInfo(kind="Function", name=name, file_path=f"{root}/m.py",
+                                       line_start=lo, line_end=hi, language="python"))
+    finally:
+        store.close()
+    text = enrich_mod.enrich_file_range("m.py", str(repo), 22, 25)
+    assert "second" in text and "first" not in text
+    assert enrich_mod.enrich_file_range("m.py", str(repo), 11, 19) == ""
+
+
+def test_windows_absolute_path_is_not_joined_to_the_cd_directory():
+    # Quoted, as bash needs it: unquoted, bash itself reads the backslash as an escape.
+    reads = extract_file_reads("Bash", {"command": r'cd src && cat "C:\repo\m.py"'})
+    assert reads == [(r"C:\repo\m.py", None, None)]
+
+
+def _range_store(tmp_path, monkeypatch, nodes, edges=()):
+    monkeypatch.setenv("CRG_HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"
+    (repo / ".gryphon").mkdir(parents=True)
+    store = GraphStore(repo / ".gryphon" / "graph.db")
+    try:
+        for n in nodes:
+            store.upsert_node(n)
+        for e in edges:
+            store.upsert_edge(e)
+    finally:
+        store.close()
+    return repo
+
+
+def test_no_static_caller_is_said_not_omitted(tmp_path, monkeypatch):
+    """An empty "Called by" read as dead code for signal receivers."""
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Function", name="on_save", file_path=f"{root}/signals.py",
+                 line_start=1, line_end=4, language="python"),
+        NodeInfo(kind="Type", name="Payload", file_path=f"{root}/signals.py",
+                 line_start=6, line_end=8, language="python"),
+    ])
+    text = enrich_mod.enrich_file_range("signals.py", str(repo), 1, 8)
+    on_save, payload = text.split("Payload", 1)
+    assert "Called by: none found statically" in on_save
+    assert "signals, decorators and dynamic dispatch" in on_save
+    assert "Called by" not in payload  # types are not "called"
+
+
+def test_unique_name_only_edge_counts_as_a_caller(tmp_path, monkeypatch):
+    """Same rule as the diff context: a bare CALLS target with a unique name."""
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(
+        tmp_path, monkeypatch,
+        [NodeInfo(kind="Function", name="helper", file_path=f"{root}/util.py",
+                  line_start=1, line_end=2, language="python"),
+         NodeInfo(kind="Function", name="run", file_path=f"{root}/main.py",
+                  line_start=1, line_end=3, language="python")],
+        [EdgeInfo(kind="CALLS", source=f"{root}/main.py::run", target="helper",
+                  file_path=f"{root}/main.py", line=2)],
+    )
+    text = enrich_mod.enrich_file_range("util.py", str(repo), 1, 2)
+    assert "Called by: run" in text and "none found statically" not in text
+
+
+def test_signal_receiver_shows_its_sender_and_siblings(tmp_path, monkeypatch):
+    from gryphon.django_signal_resolver import resolve_django_signals
+
+    root = (tmp_path / "repo").as_posix()
+    repo = _range_store(tmp_path, monkeypatch, [
+        NodeInfo(kind="Class", name="Document", file_path=f"{root}/models.py",
+                 line_start=1, line_end=9, language="python"),
+        NodeInfo(kind="Function", name="capture", file_path=f"{root}/signals.py",
+                 line_start=1, line_end=3, language="python",
+                 extra={"decorators": ["receiver(pre_save, sender=Document)"]}),
+        NodeInfo(kind="Function", name="on_saved", file_path=f"{root}/signals.py",
+                 line_start=5, line_end=7, language="python",
+                 extra={"decorators": ["receiver(post_save, sender=Document)"]}),
+    ])
+    store = GraphStore(repo / ".gryphon" / "graph.db")
+    try:
+        resolve_django_signals(store)
+    finally:
+        store.close()
+    text = enrich_mod.enrich_file_range("signals.py", str(repo), 5, 7)
+    assert "Called by: Document (via post_save)" in text
+    assert "Other receivers of Document: capture [pre_save]" in text
+    assert "none found statically" not in text

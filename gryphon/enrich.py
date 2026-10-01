@@ -1,8 +1,13 @@
-"""PreToolUse search enrichment for Claude Code hooks.
+"""Graph enrichment for Claude Code hooks.
 
-Intercepts Grep/Glob/Bash/Read tool calls and enriches them with
-structural context from the code knowledge graph: callers, callees,
-execution flows, community membership, and test coverage.
+``PreToolUse`` (Grep, Glob, Read, Bash): the symbols a search or a file read
+touches, with callers, callees, flows and tests. Reads done through Bash
+(``sed -n A,Bp``, ``head``, ``cat``) count as reads, limited to the lines read.
+
+``PostToolUse`` (Bash): after a ``git diff``, the changed symbols called from
+outside the diff and the ones with no direct test (see ``diff_context``).
+
+Context already given in a session is not repeated.
 """
 
 from __future__ import annotations
@@ -14,6 +19,8 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+
+from .diff_context import VENDORED_RE
 
 logger = logging.getLogger(__name__)
 
@@ -46,26 +53,138 @@ def extract_pattern(tool_name: str, tool_input: dict[str, Any]) -> str | None:
         cmd = tool_input.get("command", "")
         if not re.search(r"\brg\b|\bgrep\b", cmd):
             return None
-        tokens = cmd.split()
-        found_cmd = False
+        pattern = _bash_grep_pattern(cmd)
+        return pattern if pattern and len(pattern) >= 3 else None
+
+    return None
+
+
+def _bash_grep_pattern(cmd: str) -> str | None:
+    """The pattern of the first grep/rg/git grep in *cmd*, quotes respected."""
+    from .diff_context import _segments
+
+    for seg in _segments(cmd):
+        names = [Path(t).name for t in seg[:2]]
+        if names[:1] in (["grep"], ["rg"], ["egrep"]):
+            rest = seg[1:]
+        elif names == ["git", "grep"]:
+            rest = seg[2:]
+        else:
+            continue
         skip_next = False
-        for token in tokens:
+        for i, token in enumerate(rest):
             if skip_next:
                 skip_next = False
                 continue
-            if not found_cmd:
-                if re.search(r"\brg$|\bgrep$", token):
-                    found_cmd = True
-                continue
+            if token in ("-e", "--regexp") and i + 1 < len(rest):
+                return rest[i + 1]
             if token.startswith("-"):
                 if token in _RG_FLAGS_WITH_VALUES:
                     skip_next = True
                 continue
-            cleaned = token.strip("'\"")
-            return cleaned if len(cleaned) >= 3 else None
-        return None
-
+            return token
     return None
+
+
+# Words that start a definition or a statement: searching the graph for them
+# returns noise (``grep "def foo"`` is a search for ``foo``).
+_KEYWORDS = frozenset({
+    "def", "class", "function", "const", "let", "var", "async", "await",
+    "export", "import", "from", "return", "public", "private", "protected",
+    "static", "interface", "type", "struct", "enum", "func", "self", "this",
+    "none", "true", "false", "null", "new", "with", "for", "while", "else",
+    "elif", "raise", "throw", "yield", "lambda", "pass", "and", "not",
+})
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}")
+
+
+def extract_search_terms(tool_name: str, tool_input: dict[str, Any]) -> list[str]:
+    """Up to three identifiers worth looking up for a search call.
+
+    Splits regex alternation (``a\\|b``, ``a|b``) and takes the first
+    non-keyword identifier of each alternative.
+    """
+    raw = extract_pattern(tool_name, tool_input)
+    if not raw:
+        return []
+    if tool_name == "Glob":
+        return [raw]
+    terms: list[str] = []
+    for alternative in re.split(r"\\\||\|", raw):
+        for ident in _IDENT_RE.findall(alternative):
+            if ident.lower() in _KEYWORDS:
+                continue
+            if ident not in terms:
+                terms.append(ident)
+            break
+    return terms[:3]
+
+
+_SED_RANGE_RE = re.compile(r"^(\d+)(?:,(\d+))?p$")
+
+
+def _under(directory: str, path: str) -> str:
+    """*path* as seen from the start when the shell was in *directory*."""
+    if not directory or re.match(r"^([A-Za-z]:[\\/]|/)", path):
+        return path
+    return f"{directory.rstrip('/')}/{path}"
+
+
+def extract_file_reads(
+    tool_name: str, tool_input: dict[str, Any],
+) -> list[tuple[str, int | None, int | None]]:
+    """``(path, start, end)`` for file reads, including those done in Bash.
+
+    ``None`` bounds mean the whole file. Handles the Read tool (offset and
+    limit), ``sed -n A,Bp``, ``head -n N`` / ``head -N`` and ``cat``.
+    """
+    if tool_name == "Read":
+        path = tool_input.get("file_path")
+        if not path:
+            return []
+        offset = tool_input.get("offset")
+        limit = tool_input.get("limit")
+        start = int(offset) if isinstance(offset, int) and offset > 0 else None
+        end = (start or 1) + int(limit) - 1 if isinstance(limit, int) and limit > 0 else None
+        return [(path, start, end)]
+    if tool_name != "Bash":
+        return []
+    from .diff_context import segments_with_dir
+
+    reads: list[tuple[str, int | None, int | None]] = []
+    for directory, seg in segments_with_dir(tool_input.get("command", "")):
+        name = Path(seg[0]).name
+        args = seg[1:]
+        files: list[str] = []
+        span: tuple[int | None, int | None] = (None, None)
+        if name == "sed":
+            script = next((a for a in args if _SED_RANGE_RE.match(a)), None)
+            if "-n" not in args or script is None:
+                continue
+            m = _SED_RANGE_RE.match(script)
+            assert m is not None
+            span = (int(m.group(1)), int(m.group(2) or m.group(1)))
+            files = [a for a in args if a != script and not a.startswith("-")]
+        elif name == "head":
+            count = 10
+            skip = False
+            for i, a in enumerate(args):
+                if skip:
+                    skip = False
+                    continue
+                if a == "-n" and i + 1 < len(args) and args[i + 1].isdigit():
+                    count, skip = int(args[i + 1]), True
+                elif re.fullmatch(r"-\d+", a):
+                    count = int(a[1:])
+                elif not a.startswith("-"):
+                    files.append(a)
+            span = (1, count)
+        elif name == "cat":
+            files = [a for a in args if not a.startswith("-")]
+        # After `cd x &&` a relative path is relative to x; keep it relative
+        # to the starting directory so the repo root still resolves it.
+        reads += [(_under(directory, f), *span) for f in files]
+    return reads
 
 
 def _make_relative(file_path: str, repo_root: str) -> str:
@@ -129,17 +248,28 @@ def _format_node_context(
 
     lines = [header]
 
-    # Callers (max 5, deduplicated)
+    # Callers (max 5, deduplicated), with the same edge rules as the diff
+    # context: exact edges, plus name-only edges when the name is unique.
+    from .diff_context import NO_STATIC_CALLERS, _callers, caller_label, sibling_receivers
+
+    found = _callers(store, node)
     callers: list[str] = []
     seen: set[str] = set()
-    for e in store.get_edges_by_target(qn):
-        if e.kind == "CALLS" and len(callers) < 5:
-            c = store.get_node(e.source_qualified)
-            if c and c.name not in seen:
-                seen.add(c.name)
-                callers.append(c.name)
+    for c, _line, signal in found:
+        if len(callers) >= 5:
+            break
+        if c.name not in seen and not VENDORED_RE.search(c.file_path or ""):
+            seen.add(c.name)
+            callers.append(caller_label(c, signal))
     if callers:
         lines.append(f"  Called by: {', '.join(callers)}")
+    elif node.kind in ("Function", "Method", "Class"):
+        # Saying nothing read as "nothing calls this" and led reviewers to
+        # call signal receivers and decorated hooks dead code.
+        lines.append(f"  Called by: {NO_STATIC_CALLERS}")
+    for sender_name, others in sibling_receivers(store, node, found):
+        names = ", ".join(f"{t.name} [{sig}]" for t, sig in others[:4])
+        lines.append(f"  Other receivers of {sender_name}: {names}")
 
     # Callees (max 5, deduplicated)
     callees: list[str] = []
@@ -165,7 +295,7 @@ def _format_node_context(
     for e in store.get_edges_by_source(qn):
         if e.kind == "TESTED_BY" and len(tests) < 3:
             t = store.get_node(e.target_qualified)
-            if t:
+            if t and t.name not in tests:
                 tests.append(t.name)
     if tests:
         lines.append(f"  Tests: {', '.join(tests)}")
@@ -173,12 +303,21 @@ def _format_node_context(
     return lines
 
 
+def _db_path(repo_root: str) -> Path:
+    # Same resolution as the rest of gryphon (registry entry, then
+    # CRG_DATA_DIR, then <repo>/.gryphon): a hard-coded .gryphon path made
+    # the hook silently return nothing for graphs kept outside the repo.
+    from .incremental import get_db_path
+
+    return get_db_path(Path(repo_root), read_only=True)
+
+
 def enrich_search(pattern: str, repo_root: str) -> str:
     """Search the graph for pattern and return enriched context."""
     from .graph import GraphStore
     from .search import _fts_search
 
-    db_path = Path(repo_root) / ".gryphon" / "graph.db"
+    db_path = _db_path(repo_root)
     if not db_path.exists():
         return ""
 
@@ -196,7 +335,7 @@ def enrich_search(pattern: str, repo_root: str) -> str:
             if count >= 5:
                 break
             node = store.get_node_by_id(node_id)
-            if not node or node.is_test:
+            if not node or node.is_test or VENDORED_RE.search(node.file_path or ""):
                 continue
             node_lines = _format_node_context(node, store, conn, repo_root)
             all_lines.extend(node_lines)
@@ -216,7 +355,7 @@ def enrich_file_read(file_path: str, repo_root: str) -> str:
     """Enrich a file read with structural context for functions in that file."""
     from .graph import GraphStore
 
-    db_path = Path(repo_root) / ".gryphon" / "graph.db"
+    db_path = _db_path(repo_root)
     if not db_path.exists():
         return ""
 
@@ -258,48 +397,170 @@ def enrich_file_read(file_path: str, repo_root: str) -> str:
         store.close()
 
 
-def run_hook() -> None:
+def enrich_file_range(
+    file_path: str, repo_root: str, start: int | None, end: int | None,
+    *, seen: "_SessionMemory | None" = None,
+) -> str:
+    """Context for the symbols of *file_path* that overlap ``start..end``.
+
+    Whole-file reads (no bounds) fall back to :func:`enrich_file_read`.
+    """
+    if start is None and end is None:
+        return enrich_file_read(_absolute(file_path, repo_root), repo_root)
+    from .graph import GraphStore
+
+    db_path = _db_path(repo_root)
+    if not db_path.exists():
+        return ""
+    lo, hi = start or 1, end or 10**9
+    store = GraphStore(db_path)
+    try:
+        conn = store._conn
+        path = _absolute(file_path, repo_root)
+        nodes = store.get_nodes_by_file(path) or store.get_nodes_by_file(
+            Path(path).as_posix()
+        )
+        picked = [
+            n for n in nodes
+            if n.kind in ("Function", "Class", "Type", "Method")
+            and n.line_start is not None and n.line_end is not None
+            and n.line_start <= hi and n.line_end >= lo
+        ]
+        if seen is not None:
+            fresh = seen.filter([n.qualified_name for n in picked])
+            picked = [n for n in picked if n.qualified_name in fresh]
+        picked = picked[:5]
+        if not picked:
+            return ""
+        lines = [f"[gryphon] {len(picked)} symbol(s) in {_make_relative(path, repo_root)}"
+                 f":{lo}-{hi if end else 'end'}:"]
+        for node in picked:
+            lines.extend(_format_node_context(node, store, conn, repo_root))
+            lines.append("")
+        return "\n".join(lines)
+    finally:
+        store.close()
+
+
+def _absolute(file_path: str, repo_root: str) -> str:
+    p = Path(file_path)
+    return str(p if p.is_absolute() else Path(repo_root) / p)
+
+
+class _SessionMemory:
+    """Keys of context already injected in one session, kept in the data dir.
+
+    Best-effort: an unwritable data dir only means context may repeat.
+    """
+
+    _MAX_KEYS = 500
+    _MAX_FILES = 50
+
+    def __init__(self, repo_root: str, session_id: str | None):
+        self.path: Path | None = None
+        self.keys: list[str] = []
+        safe = re.sub(r"[^A-Za-z0-9_-]", "", session_id or "")[:64]
+        if not safe:
+            return
+        from .incremental import get_data_dir
+
+        try:
+            folder = get_data_dir(Path(repo_root), create=False) / "hook-sessions"
+            self.path = folder / f"{safe}.json"
+            if self.path.exists():
+                self.keys = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.warning("enrich: session memory unavailable: %s", exc)
+            self.path = None
+
+    def filter(self, keys: list[str]) -> set[str]:
+        """The keys not given before; they are remembered from now on."""
+        fresh = [k for k in keys if k not in self.keys]
+        if fresh:
+            self.keys = (self.keys + fresh)[-self._MAX_KEYS:]
+            self._save()
+        return set(fresh)
+
+    def _save(self) -> None:
+        if self.path is None:
+            return
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.keys), encoding="utf-8")
+            files = sorted(self.path.parent.glob("*.json"), key=lambda p: p.stat().st_mtime)
+            for old in files[:-self._MAX_FILES]:
+                old.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning("enrich: could not save session memory: %s", exc)
+
+
+def build_context(hook_input: dict[str, Any], repo_root: str) -> tuple[str, str]:
+    """``(event, context)`` for one hook call; empty context means nothing to add."""
+    from .diff_context import build_diff_context, extract_git_diffs, join_dir
+
+    event = hook_input.get("hook_event_name") or "PreToolUse"
+    tool_name = hook_input.get("tool_name", "")
+    tool_input = hook_input.get("tool_input") or {}
+    seen = _SessionMemory(repo_root, hook_input.get("session_id"))
+    parts: list[str] = []
+
+    if event == "PostToolUse":
+        if tool_name == "Bash":
+            cwd = hook_input.get("cwd") or repo_root
+            for directory, args in extract_git_diffs(tool_input.get("command", ""))[:2]:
+                git_cwd = join_dir(cwd, directory) if directory else cwd
+                if seen.filter([f"diff:{git_cwd}\x00" + "\x00".join(args)]):
+                    text = build_diff_context(repo_root, args, cwd=git_cwd)
+                    if text:
+                        parts.append(text)
+        return event, "\n\n".join(parts)
+
+    reads = extract_file_reads(tool_name, tool_input)
+    if reads:
+        for path, start, end in reads[:3]:
+            text = enrich_file_range(path, repo_root, start, end, seen=seen)
+            if text:
+                parts.append(text)
+        return event, "\n\n".join(parts)
+
+    terms = extract_search_terms(tool_name, tool_input)
+    fresh_terms = seen.filter([f"term:{t}" for t in terms]) if terms else set()
+    for term in terms:
+        if f"term:{term}" in fresh_terms:
+            text = enrich_search(term, repo_root)
+            if text:
+                parts.append(text)
+    return event, "\n\n".join(parts)
+
+
+def run_hook(repo: str | None = None) -> None:
     """Entry point for the enrich CLI subcommand.
 
-    Reads Claude Code hook JSON from stdin, extracts the search pattern,
-    queries the graph, and outputs hookSpecificOutput JSON to stdout.
+    Reads Claude Code hook JSON from stdin and writes ``hookSpecificOutput``
+    JSON to stdout when there is graph context to add. *repo* overrides the
+    repository root found from the hook's ``cwd``.
     """
     try:
         hook_input = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return
 
-    tool_name = hook_input.get("tool_name", "")
-    tool_input = hook_input.get("tool_input", {})
+    if not isinstance(hook_input, dict):
+        return
     cwd = hook_input.get("cwd", os.getcwd())
 
-    # Find repo root by walking up from cwd
     from .incremental import find_project_root, get_db_path
 
-    repo_path = find_project_root(Path(cwd))
-    repo_root = str(repo_path)
-    db_path = get_db_path(repo_path)
-    if not db_path.exists():
+    repo_path = Path(repo) if repo else find_project_root(Path(cwd))
+    if not get_db_path(repo_path, read_only=True).exists():
         return
-
-    # Dispatch
-    context = ""
-    if tool_name == "Read":
-        fp = tool_input.get("file_path", "")
-        if fp:
-            context = enrich_file_read(fp, repo_root)
-    else:
-        pattern = extract_pattern(tool_name, tool_input)
-        if not pattern or len(pattern) < 3:
-            return
-        context = enrich_search(pattern, repo_root)
-
+    event, context = build_context(hook_input, str(repo_path))
     if not context:
         return
 
     response = {
         "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
+            "hookEventName": event,
             "additionalContext": context,
         }
     }

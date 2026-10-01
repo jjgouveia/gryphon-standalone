@@ -23,7 +23,13 @@ _LOCK = threading.Lock()
 
 
 def _repo_log_path(repo_root: Path) -> Path:
-    return repo_root / ".gryphon" / LOG_NAME
+    # The per-repo log lives next to the graph: registry entry, then
+    # CRG_DATA_DIR, then <repo>/.gryphon. A hard-coded .gryphon wrote into
+    # the working tree of repos whose graph is kept elsewhere, and without
+    # the data dir's .gitignore the folder showed up in `git status`.
+    from .incremental import get_data_dir
+
+    return get_data_dir(repo_root) / LOG_NAME
 
 
 def _global_log_path() -> Path:
