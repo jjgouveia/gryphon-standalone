@@ -1095,6 +1095,11 @@ def main() -> None:
         help="Model for --embed (default: the provider's own default)",
     )
 
+    # review-eval
+    from .eval.review_ab.cli import add_parser as add_review_eval_parser
+
+    review_eval_cmd = add_review_eval_parser(sub)
+
     # detect-changes
     detect_cmd = sub.add_parser(
         "detect-changes",
@@ -1570,6 +1575,12 @@ def main() -> None:
         handler = handlers.get(args.daemon_command)
         if handler:
             handler(args)
+        return
+
+    if args.command == "review-eval":
+        from .eval.review_ab.cli import handle as handle_review_eval
+
+        handle_review_eval(args, review_eval_cmd)
         return
 
     if args.command == "eval":

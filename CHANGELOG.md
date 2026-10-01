@@ -4,6 +4,14 @@
 
 ### Added
 
+- `gryphon review-eval`: an A/B review benchmark. `claude -p` reviews closed
+  pull requests in sanitized clones (history only up to the PR head, agent
+  configuration hidden) with and without the graph; a blind judge merges
+  the findings into issues, verifies them in the code and scores each
+  review; `report` writes precision, pooled recall and rubric scores per
+  arm. `mine` proposes ground truth with SZZ, and `audit` flags tool calls
+  that could have reached the PR's future. Runs stop at the first usage
+  limit.
 - `install` populates the vendor-neutral skill store at
   `~/.agents/skills/<name>/SKILL.md` when that directory already exists, so
   the workflows reach every tool that reads `.agents` instead of only the

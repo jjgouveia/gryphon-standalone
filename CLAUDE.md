@@ -85,7 +85,7 @@ uv run gryphon --help             # full command list
 `tests/` holds over 100 pytest modules. The main groups:
 
 - Core: `test_parser.py`, `test_graph.py`, `test_incremental.py`, `test_tools.py`, `test_main.py`, `test_cli*.py`.
-- Features: `test_flows.py`, `test_communities.py`, `test_changes.py`, `test_refactor.py`, `test_search.py`, `test_hints.py`, `test_prompts.py`, `test_wiki.py`, `test_embeddings.py`, `test_eval.py`, `test_registry.py`, `test_migrations.py`, `test_uncertainty.py`, `test_context_savings.py`, `test_token_budget.py` (per-tool token budgets).
+- Features: `test_flows.py`, `test_communities.py`, `test_changes.py`, `test_refactor.py`, `test_search.py`, `test_hints.py`, `test_prompts.py`, `test_wiki.py`, `test_embeddings.py`, `test_eval.py`, `test_registry.py`, `test_migrations.py`, `test_uncertainty.py`, `test_context_savings.py`, `test_token_budget.py` (per-tool token budgets), `test_review_ab.py` (the `review-eval` A/B review benchmark in `eval/review_ab/`).
 - Languages: `test_multilang.py`, `test_custom_languages.py`, `test_notebook.py`, plus per-language files such as `test_php_*.py`, `test_spring_*.py`, `test_kotlin_imports.py`, `test_go_embeddings.py`, `test_cpp_*.py`, `test_typescript_node_extensions.py`, `test_tsconfig_resolver.py`, `test_hcl_parser.py`, `test_dbt_parser.py`, `test_ansible_parser.py`.
 - Regressions by pull request: `test_pr*_edges.py` and similar.
 - Watch and daemon: `test_watch_*.py`, `test_daemon*.py`.
