@@ -633,3 +633,63 @@ def test_dotted_lookup_survives_batched_file_replacement(tmp_path):
             assert len(matches) == 1
             assert matches[0].line_end == end
             assert store.count_nodes_by_qualified_tail("Handler.process") == 1
+
+
+class TestBareNameExactMatch:
+    """Regression: `callers_of f` was ambiguous whenever a test named test_f_... existed."""
+
+    def _seed(self, tmp_path, nodes):
+        root, store = _make_repo(tmp_path)
+        try:
+            for n in nodes:
+                store.upsert_node(n)
+            store.commit()
+        finally:
+            store.close()
+        return root
+
+    def test_test_whose_name_contains_the_target_does_not_make_it_ambiguous(self, tmp_path):
+        root = self._seed(tmp_path, [
+            NodeInfo(kind="Function", name="load_orders", file_path=str(tmp_path / "ops.py"),
+                     line_start=1, line_end=5, language="python"),
+            NodeInfo(kind="Test", name="test_load_orders_skips_archived",
+                     file_path=str(tmp_path / "tests" / "test_ops.py"), line_start=1,
+                     line_end=5, language="python", is_test=True),
+        ])
+        result = query_graph("callers_of", "load_orders", str(root))
+        assert result["status"] == "ok", result.get("summary")
+        assert result["target"].endswith("ops.py::load_orders")
+
+    def test_longer_identifiers_containing_the_target_are_dropped(self, tmp_path):
+        root = self._seed(tmp_path, [
+            NodeInfo(kind="Function", name="total", file_path=str(tmp_path / "a.py"),
+                     line_start=1, line_end=2, language="python"),
+            NodeInfo(kind="Function", name="total_with_tax", file_path=str(tmp_path / "b.py"),
+                     line_start=1, line_end=2, language="python"),
+        ])
+        result = query_graph("callers_of", "total", str(root))
+        assert result["status"] == "ok"
+
+    def test_exact_function_and_same_named_test_prefers_the_function(self, tmp_path):
+        root = self._seed(tmp_path, [
+            NodeInfo(kind="Function", name="run", file_path=str(tmp_path / "a.py"),
+                     line_start=1, line_end=2, language="python"),
+            NodeInfo(kind="Test", name="run", file_path=str(tmp_path / "tests" / "test_a.py"),
+                     line_start=1, line_end=2, language="python", is_test=True),
+        ])
+        result = query_graph("callers_of", "run", str(root))
+        assert result["status"] == "ok" and result["target"].endswith("a.py::run")
+
+    def test_ambiguity_report_counts_only_exact_matches(self, tmp_path):
+        root = self._seed(tmp_path, [
+            NodeInfo(kind="Function", name="process", file_path=str(tmp_path / f"{d}.py"),
+                     line_start=1, line_end=2, language="python")
+            for d in ("a", "b")
+        ] + [
+            NodeInfo(kind="Test", name="test_process_works",
+                     file_path=str(tmp_path / "tests" / "test_p.py"), line_start=1,
+                     line_end=2, language="python", is_test=True),
+        ])
+        result = query_graph("callers_of", "process", str(root))
+        assert result["status"] == "ambiguous"
+        assert result["candidate_count"] == 2 and result["candidates_truncated"] is False

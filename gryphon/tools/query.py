@@ -441,6 +441,23 @@ def query_graph(
                     ]
                     if exact_type_candidates:
                         candidates = exact_type_candidates
+                narrowed = False
+                if "::" not in target and len(candidates) > 1:
+                    # A bare name is a search, so it also matches longer
+                    # names that contain it: `test_<name>_...` tests above
+                    # all, which made `callers_of <name>` ambiguous for most
+                    # functions that have a test. Keep the exact-name
+                    # matches when there are any; among those, a single
+                    # non-test is the symbol asked for. Two exact matches in
+                    # different files stay ambiguous.
+                    exact = [c for c in candidates if c.name == target]
+                    if len(exact) > 1:
+                        non_test = [c for c in exact if not c.is_test]
+                        if len(non_test) == 1:
+                            exact = non_test
+                    if exact and len(exact) < len(candidates):
+                        candidates = exact
+                        narrowed = True
                 if len(candidates) == 1:
                     node = candidates[0]
                     target = node.qualified_name
@@ -448,7 +465,7 @@ def query_graph(
                     # Count the population the candidates were drawn from, not
                     # the truncated slice, so candidates_truncated stays honest
                     # when more than _MAX_DOTTED_TARGET_CANDIDATES nodes match.
-                    if java_candidates:
+                    if java_candidates or narrowed:
                         candidate_count = len(candidates)
                     elif qualified_tail_candidates:
                         candidate_count = store.count_nodes_by_qualified_tail(target)

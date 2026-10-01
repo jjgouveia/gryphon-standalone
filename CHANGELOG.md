@@ -49,6 +49,11 @@
 
 ### Fixed
 
+- `query_graph_tool` with a bare name no longer answers `ambiguous` because a
+  longer name contains it: `callers_of total` matched `test_total_works` and
+  `total_with_tax` too, so most functions with a test were unreachable by
+  name. Exact-name matches win, and among them a single non-test; two
+  exact matches in different files stay ambiguous.
 - An explicit `changed_files` list now defines the change set. It used to be
   discarded whenever a working-tree diff was computable, so reviewing a PR
   whose branch is not checked out analysed whatever the local checkout was
