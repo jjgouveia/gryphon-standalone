@@ -172,7 +172,8 @@ def paired_deltas(
     95% percentile bootstrap interval over cases, and how many cases went
     each way. Cases are the unit: reviews of one case are not independent.
     """
-    rng = random.Random(seed)  # nosec B311 - bootstrap resampling, not security
+    # Bootstrap resampling, not security: a seeded PRNG keeps reports reproducible.
+    rng = random.Random(seed)  # nosec B311
     out: dict[str, dict] = {}
     for metric in PAIRED_METRICS:
         diffs = []
