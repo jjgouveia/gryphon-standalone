@@ -384,3 +384,26 @@ def test_lines_past_the_budget_are_counted_not_cut_mid_line(tmp_path, repo, monk
     assert lines[0].startswith("[gryphon] Graph context")
     assert lines[-2].startswith("(") and lines[-2].endswith("more line(s) cut to keep this short.)")
     assert lines[-1] == dc.FOOTER
+
+
+def test_review_diff_tool_returns_the_hook_text(tmp_path, repo, monkeypatch):
+    """Platforms without hooks get the same text as a tool."""
+    from gryphon.tools.review import review_diff_func
+
+    monkeypatch.setenv("CRG_DATA_DIR", str(tmp_path / "data"))
+    (tmp_path / "data").mkdir()
+    store = _store(tmp_path / "data", repo)
+    store.close()
+    result = review_diff_func(base="main", repo_root=str(repo))
+    assert result["status"] == "ok"
+    assert "- total (lib.py:1) [return] <- report (app.py:5)" in result["context"]
+    assert result["summary"].startswith("[gryphon] Graph context for `git diff ")
+
+
+@pytest.mark.parametrize("base", ["--output=/tmp/x", "a;b", "$(id)"])
+def test_review_diff_tool_rejects_options_and_shell(tmp_path, repo, base):
+    from gryphon.tools.review import review_diff_func
+
+    assert review_diff_func(base=base, repo_root=str(repo))["status"] == "error"
+    result = review_diff_func(base="main", paths=["-p"], repo_root=str(repo))
+    assert result["status"] == "error"

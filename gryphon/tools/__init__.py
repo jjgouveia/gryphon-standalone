@@ -1,6 +1,6 @@
 """MCP tool definitions for the Code Review Graph server.
 
-Exposes 30 tools (each registered in main.py with a ``_tool`` suffix):
+Exposes 31 tools (each registered in main.py with a ``_tool`` suffix):
 1. build_or_update_graph  - full or incremental build
 2. get_impact_radius      - blast radius from changed files
 3. query_graph            - predefined graph queries
@@ -31,6 +31,7 @@ Exposes 30 tools (each registered in main.py with a ``_tool`` suffix):
 28. traverse_graph        - BFS/DFS traversal from best-matching node
 29. run_postprocess       - flows, communities and FTS for an existing graph
 30. get_minimal_context   - compact task-scoped entry point (call this first)
+31. review_diff           - callers outside a diff and untested changes (the hook's text)
 """
 
 from __future__ import annotations
@@ -103,6 +104,7 @@ from .review import (
     detect_changes_func,
     get_affected_flows_func,
     get_review_context,
+    review_diff_func,
 )
 
 __all__ = [
@@ -143,6 +145,7 @@ __all__ = [
     "list_repos_func",
     # review
     "detect_changes_func",
+    "review_diff_func",
     "get_affected_flows_func",
     "get_review_context",
     # analysis_tools

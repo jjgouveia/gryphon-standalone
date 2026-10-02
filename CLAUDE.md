@@ -14,13 +14,13 @@ When using gryphon MCP tools:
 4. Follow the `next_tool_suggestions` field in each response.
 5. Target: at most 5 tool calls and 800 tokens of graph context per task.
 
-All registered tool names end in `_tool`. The 30 tools are defined in `main.py`.
+All registered tool names end in `_tool`. The 31 tools are defined in `main.py`.
 
 ## Architecture
 
 Core package `gryphon/` (Python 3.10+):
 
-- `main.py`: FastMCP server entry point. Registers 30 tools and 5 prompts.
+- `main.py`: FastMCP server entry point. Registers 31 tools and 5 prompts.
 - `tools/`: tool implementations by domain: `build.py`, `query.py`, `review.py`, `context.py`, `flows_tools.py`, `community_tools.py`, `refactor_tools.py`, `docs.py`, `registry_tools.py`, `analysis_tools.py`; shared helpers in `_common.py`.
 - `prompts.py`: 5 MCP prompts (review_changes, architecture_map, debug_issue, onboard_developer, pre_merge_check).
 - `cli.py`: the `gryphon` command. `daemon.py` and `daemon_cli.py`: the `gryphon-daemon` multi-repo watch daemon.
@@ -168,7 +168,7 @@ functions, classes, calls, imports and tests built with Tree-sitter. It answers 
 questions (who calls this, which tests reach it, what a change can affect) that a text search
 answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
 "callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
-`detect_changes_tool` for a diff.
+`review_diff_tool(base=<ref>)` for the callers and test gaps of a diff.
 
 In Claude Code, gryphon's hooks add graph facts to some tool results: after a `git diff`, the
 changed code called from outside the diff and the changes no test reaches; on a file read or an

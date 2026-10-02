@@ -14,10 +14,11 @@ from ..context_savings import (
     estimate_file_tokens,
 )
 from ..flows import get_affected_flows as _get_affected_flows
-from ..graph import edge_to_dict, node_to_dict
+from ..graph import GraphStore, edge_to_dict, node_to_dict
 from ..hints import generate_hints, get_session
 from ..incremental import (
     get_changed_files,
+    get_db_path,
     get_staged_and_unstaged,
     resolve_review_base,
 )
@@ -27,6 +28,7 @@ from ._common import (
     _bounded,
     _get_store,
     _resolve_graph_file_paths,
+    _resolve_root,
     _shown_of,
     _validate_positive_int,
     ensure_graph_current,
@@ -919,3 +921,49 @@ def detect_changes_func(
         return {"status": "error", "error": str(exc)}
     finally:
         store.close()
+
+
+def review_diff_func(
+    base: str = "HEAD~1",
+    paths: list[str] | None = None,
+    repo_root: str | None = None,
+) -> dict[str, Any]:
+    """The graph facts a reviewer needs next to ``git diff <base>``.
+
+    The same text the Claude Code ``PostToolUse`` hook adds after a ``git
+    diff``: changed symbols called from outside the diff (contract changes
+    first, most-called callers first), changes with no direct test, and
+    signal receivers sharing a model. It is the one graph answer the A/B
+    review benchmark found to add real defects, so platforms without hooks
+    get it as a tool. Bounded to about 1,000 tokens.
+
+    A branch *base* resolves to its merge base with ``HEAD``, like the other
+    review tools; *paths* limit the diff the way a git pathspec does.
+    """
+    from ..diff_context import _SAFE_ARG, build_diff_context
+
+    root = _resolve_root(repo_root)
+    for word in [base, *(paths or [])]:
+        if word and (word.startswith("-") or not _SAFE_ARG.match(word)):
+            return {"status": "error", "error": f"Not a revision or path: {word!r}"}
+    db_path = get_db_path(root)
+    if not db_path.exists():
+        return {
+            "status": "not_ready",
+            "summary": "No graph yet. Run build_or_update_graph_tool first.",
+        }
+    args = [resolve_review_base(root, base)] if base else []
+    if paths:
+        args += ["--", *paths]
+    store = GraphStore(db_path)
+    try:
+        text = build_diff_context(str(root), args, store=store)
+    finally:
+        store.close()
+    if not text:
+        return {
+            "status": "ok",
+            "summary": f"No changed function or class in `git diff {base}` is in the graph.",
+            "context": "",
+        }
+    return {"status": "ok", "summary": text.splitlines()[0], "context": text}

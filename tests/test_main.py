@@ -461,6 +461,25 @@ class TestApplyToolFilter:
         remaining = await self._tool_names()
         assert remaining == {"query_graph_tool", "semantic_search_nodes_tool"}
 
+    @pytest.mark.asyncio
+    async def test_review_profile_keeps_the_review_set(self):
+        crg_main._apply_tool_filter("review")
+        remaining = await self._tool_names()
+        assert remaining == set(crg_main.TOOL_PROFILES["review"])
+        assert "review_diff_tool" in remaining
+
+    @pytest.mark.asyncio
+    async def test_profile_and_tool_names_mix(self):
+        crg_main._apply_tool_filter("review,list_repos_tool")
+        remaining = await self._tool_names()
+        assert remaining == {*crg_main.TOOL_PROFILES["review"], "list_repos_tool"}
+
+    @pytest.mark.asyncio
+    async def test_every_profile_tool_is_registered(self):
+        names = await self._tool_names()
+        for profile, tools in crg_main.TOOL_PROFILES.items():
+            assert set(tools) <= names, profile
+
 
 # --- embed_graph_tool() guard tests ---
 

@@ -362,6 +362,15 @@ BUDGETS: dict[str, dict[str, Any]] = {
         "default_max": 12_000,
         "worst_max": 50_000,
     },
+    # The fixture is not a git repository, so this pins the shape only; the
+    # text itself is capped at diff_context.MAX_CHARS (~1,000 tokens), which
+    # test_diff_context checks on a real diff.
+    "review_diff_tool": {
+        "default": {},
+        "worst": {"paths": ["pkg0"]},
+        "default_max": 1_500,
+        "worst_max": 1_500,
+    },
     "refactor_tool:dead_code": {
         "tool": "refactor_tool",
         "default": {"mode": "dead_code"},
