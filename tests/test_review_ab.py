@@ -1073,3 +1073,171 @@ def test_reference_calls_do_not_import_the_checkout_they_run_from(tmp_path, monk
     monkeypatch.chdir(Path(runner.__file__).parents[3])
     out = runner._ref_call(sys.executable, "import sys; print(repr(sys.path[0]))")
     assert out.strip() not in ("''", repr(str(Path.cwd())))
+
+
+# --- merge stage ----------------------------------------------------------------
+
+from gryphon.eval.review_ab import merge as merge_mod  # noqa: E402
+
+
+def _merged_finding(claim="soma 1 a mais", check="verified", reported_by="both", **kw):
+    return {**_finding(claim=claim), "reported_by": reported_by, "check": check,
+            "check_note": "n", **kw}
+
+
+def _source_run(tmp_path: Path, case_id: str = "demo-1", reps=(0, 1)) -> Path:
+    run = tmp_path / "src-run"
+    (run / "streams").mkdir(parents=True, exist_ok=True)
+    records = []
+    for rep in reps:
+        rec = _record("baseline", rep, [_finding(claim=f"achado {rep}")])
+        rec["case_id"] = case_id
+        rec["stream"] = f"streams/{case_id}__baseline__r{rep}.jsonl"
+        (run / rec["stream"]).write_text("{}", encoding="utf-8")
+        records.append(rec)
+    (run / "records.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in records), encoding="utf-8")
+    return run
+
+
+def test_merge_prompt_carries_both_reviews_and_the_right_checks(case):
+    sources = [_record("baseline", 0, [_finding(claim="um")]),
+               _record("baseline", 1, [_finding(claim="dois")])]
+    files = [{"path": "app.py", "added": 1, "deleted": 1}]
+    plain = merge_mod.build_merge_prompt("merge", case, files, sources)
+    graph = merge_mod.build_merge_prompt("merge_graph", case, files, sources)
+    for prompt in (plain, graph):
+        assert "### Reviewer A" in prompt and "A0. [major/bug] app.py:2 — um" in prompt
+        assert "### Reviewer B" in prompt and "B0. [major/bug] app.py:2 — dois" in prompt
+        assert "Do not drop a finding because only one" in prompt
+    assert "query_graph_tool" not in plain and "grep the repository" in plain
+    assert 'pattern="callers_of"' in graph and "The graph is static" in graph
+    with pytest.raises(ValueError, match="unknown variant"):
+        merge_mod.build_merge_prompt("other", case, files, sources)
+
+
+def test_contradicted_findings_leave_the_final_list_but_are_kept():
+    merged = [_merged_finding("um"), _merged_finding("dois", check="contradicted"),
+              _merged_finding("tres", check="not_verified", reported_by="A")]
+    final, demoted = merge_mod.split_findings(merged)
+    assert [f["claim"] for f in final] == ["um", "tres"]
+    assert [f["claim"] for f in demoted] == ["dois"]
+    assert set(final[0]) == {"file", "line", "severity", "category", "claim", "evidence"}
+
+
+def test_sources_need_two_usable_baseline_reviews(tmp_path):
+    run = _source_run(tmp_path)
+    found = merge_mod.find_sources([run], "demo-1")
+    assert found and [r["rep"] for r in found[1]] == [0, 1]
+    assert merge_mod.find_sources([run], "other-case") is None
+    assert merge_mod.find_sources([_source_run(tmp_path / "x", reps=(0,))], "demo-1") is None
+
+
+def _fake_merge_run(calls, findings, **result):
+    def fake_run(cmd, *, stdout, **kwargs):
+        calls.append(cmd)
+        stdout.write("\n".join(_stream(findings, **result)))
+        return subprocess.CompletedProcess(cmd, 0)
+    return fake_run
+
+
+def test_run_merge_stores_the_final_list_and_the_demoted_ones(tmp_path, case, monkeypatch):
+    monkeypatch.setattr(sandbox, "_build_graph", lambda sb, timeout: None)
+    calls: list = []
+    monkeypatch.setattr(merge_mod, "_run_claude", _fake_merge_run(calls, [
+        _merged_finding("fica"), _merged_finding("cai", check="contradicted")]))
+    sources = merge_mod.find_sources([_source_run(tmp_path)], case.id)[1]
+    records = merge_mod.run_merge(case, "merge_graph", sources, RunSettings(),
+                                  workdir=tmp_path / "work", run_dir=tmp_path / "out")
+    final, demoted = records
+    assert final["arm"] == "merge_graph" and [f["claim"] for f in final["findings"]] == ["fica"]
+    assert final["checks"] == {"verified": 1, "contradicted": 1, "not_verified": 0}
+    assert demoted["arm"] == "merge_graph_demoted"
+    assert [f["claim"] for f in demoted["findings"]] == ["cai"]
+    assert demoted["total_cost_usd"] == 0  # the cost is counted once, on the final record
+    # The graph variant runs in the graph sandbox with the MCP server; the plain one does not.
+    mcp = json.loads(calls[0][calls[0].index("--mcp-config") + 1])
+    assert "gryphon" in mcp["mcpServers"]
+
+
+def test_run_merge_without_graph_has_no_mcp_server(tmp_path, case, monkeypatch):
+    calls: list = []
+    monkeypatch.setattr(merge_mod, "_run_claude", _fake_merge_run(calls, []))
+    sources = merge_mod.find_sources([_source_run(tmp_path)], case.id)[1]
+    records = merge_mod.run_merge(case, "merge", sources, RunSettings(),
+                                  workdir=tmp_path / "work", run_dir=tmp_path / "out")
+    assert len(records) == 1 and records[0]["findings"] == []
+    mcp = json.loads(calls[0][calls[0].index("--mcp-config") + 1])
+    assert mcp["mcpServers"] == {}
+
+
+def test_merge_run_copies_the_sources_and_resumes_without_repeating(tmp_path, case, monkeypatch):
+    calls: list = []
+    monkeypatch.setattr(merge_mod, "_run_claude", _fake_merge_run(calls, [_merged_finding()]))
+    src = _source_run(tmp_path, case.id)
+    kwargs = dict(variants=("merge",), settings=RunSettings(), out_dir=tmp_path / "out",
+                  workdir=tmp_path / "work")
+    run_dir = merge_mod.run_merge_cases([case], [src], **kwargs)
+    records = [json.loads(x) for x in (run_dir / "records.jsonl").read_text().splitlines()]
+    assert sorted(r["arm"] for r in records) == ["baseline", "baseline", "merge"]
+    assert (run_dir / records[0]["stream"]).exists()  # the transcript came along
+    assert len(calls) == 1
+    merge_mod.run_merge_cases([case], [src], resume=run_dir, **kwargs)
+    assert len(calls) == 1  # nothing left to do
+    assert len((run_dir / "records.jsonl").read_text().splitlines()) == 3
+
+
+def test_merge_run_stops_at_a_usage_limit_and_resumes(tmp_path, case, monkeypatch):
+    limited = json.dumps({"type": "result", "subtype": "success", "is_error": True,
+                          "num_turns": 1, "api_error_status": 429,
+                          "terminal_reason": "api_error", "total_cost_usd": 0,
+                          "result": "session limit"})
+
+    def fake_run(cmd, *, stdout, **kwargs):
+        stdout.write(limited)
+        return subprocess.CompletedProcess(cmd, 1)
+
+    monkeypatch.setattr(merge_mod, "_run_claude", fake_run)
+    src = _source_run(tmp_path, case.id)
+    kwargs = dict(variants=("merge",), settings=RunSettings(), out_dir=tmp_path / "out",
+                  workdir=tmp_path / "work")
+    with pytest.raises(runner.RunAbortedError, match="api_error:429"):
+        merge_mod.run_merge_cases([case], [src], **kwargs)
+    run_dir = next((tmp_path / "out").iterdir())
+    calls: list = []
+    monkeypatch.setattr(merge_mod, "_run_claude", _fake_merge_run(calls, [_merged_finding()]))
+    merge_mod.run_merge_cases([case], [src], resume=run_dir, **kwargs)
+    assert len(calls) == 1
+    arms = [json.loads(x)["arm"] for x in (run_dir / "records.jsonl").read_text().splitlines()]
+    assert arms.count("baseline") == 2 and arms.count("merge") == 2  # failed + ok
+
+
+def test_top3_serious_counts_real_major_findings_among_the_first_three():
+    payload, labels, records = _judged()
+    scored = score_case(payload, labels, records, known_ids=[])
+    rows = {r["arm"]: r for r in scored["rows"]}
+    # baseline: F0 real major, F1 false. graph_required: F0 real major, F1 real minor.
+    assert rows["baseline"]["top3_serious"] == 1
+    assert rows["graph_required"]["top3_serious"] == 1
+
+
+def test_report_compares_the_merge_arms_with_the_pooled_baseline():
+    from gryphon.eval.review_ab.score import ARM_ORDER, render_paired
+
+    assert ARM_ORDER[-4:] == ("merge", "merge_demoted", "merge_graph", "merge_graph_demoted")
+    payload, labels, records = _judged_two_baselines()
+    labels["R4"] = {"arm": "merge", "rep": 0, "stream": "s/m"}
+    labels["R5"] = {"arm": "merge_graph", "rep": 0, "stream": "s/mg"}
+    records += [_record("merge", 0, [_finding()], stream="s/m"),
+                _record("merge_graph", 0, [_finding()], stream="s/mg")]
+    payload["judgment"]["reviews"] += [
+        {"review": r, "scores": {k: 4 for k in judge_mod.RUBRIC}, "comment": ""}
+        for r in ("R4", "R5")]
+    payload["judgment"]["issues"][0]["reported_by"] += [
+        {"review": "R4", "finding": 0}, {"review": "R5", "finding": 0}]
+    case_scored = score_case(payload, labels, records, known_ids=[])
+    text = "\n".join(render_paired({"cases": {"api-1": case_scored}}))
+    assert "### merge − baseline_x2 (todos os casos)" in text
+    assert "### merge_graph − baseline_x2 (todos os casos)" in text
+    assert "### merge_graph − merge (todos os casos)" in text
+    assert "demoted" not in text
