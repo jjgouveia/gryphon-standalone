@@ -195,7 +195,7 @@ def get_impact_radius(
         # `_resolve_graph_file_paths` dedups/merges across a whole batch, so
         # each `rel_path` is resolved on its own to keep the range keyed by
         # the same path string `_impact_seed_qns` sees in `abs_files`.
-        changed_ranges = parse_git_diff_ranges(root, base)
+        changed_ranges = parse_git_diff_ranges(str(root), base)
         ranges_by_abs_path: dict[str, list[tuple[int, int]]] = {}
         for rel_path, ranges in changed_ranges.items():
             for resolved in _resolve_graph_file_paths(store, root, [rel_path]):

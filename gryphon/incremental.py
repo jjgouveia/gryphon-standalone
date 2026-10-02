@@ -211,7 +211,7 @@ def _run_scoped_resolver(store: GraphStore) -> Optional[dict]:
         return None
 
 
-_ResolverFn = type(_run_python_resolver)  # Callable[[GraphStore], Optional[dict]]
+_ResolverFn = Callable[[GraphStore], Optional[dict]]
 
 
 def _run_resolvers(
