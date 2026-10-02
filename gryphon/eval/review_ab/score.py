@@ -10,11 +10,16 @@ Metrics per review:
 - ``known_recall``: known issues it found / known issues of the case, when
   the case has any.
 - the five rubric scores, 1 to 5.
+
+``baseline_x2`` is not run: it pools two baseline reviews of a case into one
+row (union of the real issues, sum of the findings and the cost). It answers
+whether a graph arm beats simply reviewing twice.
 """
 
 from __future__ import annotations
 
 import json
+import random
 import statistics
 from pathlib import Path
 
@@ -22,9 +27,10 @@ from .judge import RUBRIC
 from .sandbox import ARMS
 
 SEVERITY_WEIGHT = {"blocker": 3, "major": 2, "minor": 1, "none": 0}
+POOLED_ARM = "baseline_x2"
 # Every arm the harness knows, in declaration order: a hard-coded list here
 # silently dropped arms added later from the summary and the issue matrix.
-ARM_ORDER = ARMS
+ARM_ORDER = (*ARMS, POOLED_ARM)
 
 
 def _ratio(num: float, den: float) -> float | None:
@@ -65,6 +71,8 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
         found_known = {real[i]["known_issue"] for i in found_real if real[i]["known_issue"]}
         weight = sum(SEVERITY_WEIGHT[real[i]["severity"]] for i in found_real)
         row = {
+            "_found_real": sorted(found_real),
+            "_found_known": sorted(found_known),
             "case_id": payload["case_id"],
             "label": label,
             "arm": meta["arm"],
@@ -105,6 +113,7 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
             "rationale": issue["rationale"],
             "found_by": {arm: len(reps) for arm, reps in found_by.items()},
         })
+    rows += _pooled_baseline(rows, real, total_weight, known_ids)
     reps_per_arm: dict[str, int] = {}
     for meta in labels.values():
         reps_per_arm[meta["arm"]] = reps_per_arm.get(meta["arm"], 0) + 1
@@ -113,6 +122,82 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
         "known_ids": known_ids, "judge_confirmed": sorted(judge_confirmed),
         "known_verdicts": judgment.get("known_verdicts", []),
     }
+
+
+def _pooled_baseline(
+    rows: list[dict], real: dict, total_weight: int, known_ids: list[str],
+) -> list[dict]:
+    """The ``baseline_x2`` row: the first two baseline reviews of the case, pooled."""
+    base = sorted((r for r in rows if r["arm"] == "baseline"), key=lambda r: r["rep"])[:2]
+    if len(base) < 2:
+        return []
+    found = set(base[0]["_found_real"]) | set(base[1]["_found_real"])
+    known = set(base[0]["_found_known"]) | set(base[1]["_found_known"])
+    n_real = sum(r["real"] for r in base)
+    n_false = sum(r["false"] for r in base)
+
+    def total(key: str):
+        values = [r[key] for r in base]
+        return round(sum(values), 4) if all(isinstance(v, (int, float)) for v in values) else None
+
+    weight = sum(SEVERITY_WEIGHT[real[i]["severity"]] for i in found)
+    return [{
+        "_found_real": sorted(found), "_found_known": sorted(known),
+        "case_id": base[0]["case_id"], "label": "+".join(r["label"] for r in base),
+        "arm": POOLED_ARM, "rep": 0,
+        "findings": sum(r["findings"] for r in base), "real": n_real, "false": n_false,
+        "unverifiable": sum(r["unverifiable"] for r in base),
+        "unassigned": sum(r["unassigned"] for r in base),
+        "precision": _ratio(n_real, n_real + n_false),
+        "pooled_recall": _ratio(len(found), len(real)),
+        "weighted_recall": _ratio(weight, total_weight),
+        "known_recall": _ratio(len(known), len(known_ids)) if known_ids else None,
+        "cost_usd": total("cost_usd"), "turns": total("turns"),
+        "wall_seconds": total("wall_seconds"), "graph_tool_calls": 0, "protocol_ok": None,
+        **{k: None for k in RUBRIC}, "judge_comment": None,
+    }]
+
+
+PAIRED_METRICS = (
+    "real", "false", "precision", "pooled_recall", "weighted_recall", "known_recall",
+    *RUBRIC, "cost_usd",
+)
+
+
+def paired_deltas(
+    cases: dict[str, dict], arm: str, ref: str = "baseline", *, seed: int = 7,
+    resamples: int = 10_000,
+) -> dict[str, dict]:
+    """Per metric: mean over cases of (mean of *arm* − mean of *ref*), with a
+    95% percentile bootstrap interval over cases, and how many cases went
+    each way. Cases are the unit: reviews of one case are not independent.
+    """
+    # Bootstrap resampling, not security: a seeded PRNG keeps reports reproducible.
+    rng = random.Random(seed)  # nosec B311
+    out: dict[str, dict] = {}
+    for metric in PAIRED_METRICS:
+        diffs = []
+        for case in cases.values():
+            a = [r[metric] for r in case["rows"]
+                 if r["arm"] == arm and isinstance(r.get(metric), (int, float))]
+            b = [r[metric] for r in case["rows"]
+                 if r["arm"] == ref and isinstance(r.get(metric), (int, float))]
+            if a and b:
+                diffs.append(statistics.mean(a) - statistics.mean(b))
+        if not diffs:
+            continue
+        boots = sorted(
+            statistics.mean(rng.choices(diffs, k=len(diffs))) for _ in range(resamples)
+        )
+        out[metric] = {
+            "n": len(diffs),
+            "mean": round(statistics.mean(diffs), 3),
+            "ci": (round(boots[int(0.025 * resamples)], 3),
+                   round(boots[int(0.975 * resamples) - 1], 3)),
+            "better": sum(d > 0 for d in diffs),
+            "worse": sum(d < 0 for d in diffs),
+        }
+    return out
 
 
 _MEAN_FIELDS = (
@@ -222,6 +307,41 @@ def _usd(value) -> str:
     return "—" if value is None else f"US$ {value:.2f}"
 
 
+def _group_of(case_id: str) -> str:
+    """Cases are named ``<repo>-<pr>``; the repo stands for its language here."""
+    return case_id.split(" (", 1)[0].rsplit("-", 1)[0]
+
+
+def render_paired(scored: dict) -> list[str]:
+    """Paired comparisons against baseline, overall and per repository."""
+    cases = scored["cases"]
+    arms = [a for a in ARM_ORDER if a != "baseline" and any(
+        r["arm"] == a for c in cases.values() for r in c["rows"])]
+    if not arms or not any(r["arm"] == "baseline" for c in cases.values() for r in c["rows"]):
+        return []
+    groups = sorted({_group_of(cid) for cid in cases})
+    scopes = [("todos os casos", cases)]
+    if len(groups) > 1:
+        scopes += [(g, {k: v for k, v in cases.items() if _group_of(k) == g}) for g in groups]
+    lines = ["", "## Comparação pareada com baseline", "",
+             "Diferença média por caso (braço − baseline), IC 95% bootstrap sobre os casos; "
+             "melhor/pior conta os casos em que o braço ficou acima/abaixo."]
+    for arm in arms:
+        for title, subset in scopes:
+            deltas = paired_deltas(subset, arm)
+            if not deltas:
+                continue
+            lines += ["", f"### {arm} − baseline ({title})", "",
+                      "| Métrica | Casos | Diferença | IC 95% | Melhor | Pior |",
+                      "|---|---|---|---|---|---|"]
+            for metric, d in deltas.items():
+                lines.append(
+                    f"| {metric} | {d['n']} | {d['mean']:+.3f} "
+                    f"| [{d['ci'][0]:+.3f}, {d['ci'][1]:+.3f}] | {d['better']} | {d['worse']} |"
+                )
+    return lines
+
+
 def render_markdown(scored: dict) -> str:
     """The report: arm summary, then per case the reviews and the issue matrix."""
     run = scored["run"]
@@ -264,6 +384,8 @@ def render_markdown(scored: dict) -> str:
             + f" | {_usd(a['cost_usd'])} | {_fmt(a['turns'])} | {_fmt(a['wall_seconds'])} "
             f"| {_fmt(a['graph_tool_calls'])} |"
         )
+
+    lines += render_paired(scored)
 
     for case_id, case in scored["cases"].items():
         lines += ["", f"## {case_id}", "", "### Revisões", ""]

@@ -947,3 +947,129 @@ def test_case_without_merge_base_is_skipped_with_a_clear_error(tmp_path, monkeyp
     runner.run_cases([orphan], arms=("baseline",), out_dir=tmp_path / "out",
                      workdir=tmp_path / "work")
     assert calls == []
+
+
+# --- round 2: reference install, pooled baseline, paired report, jobs --------
+
+
+def _judged_two_baselines():
+    """Two baseline reviews that each find one of two real issues."""
+    labels = {
+        "R1": {"arm": "baseline", "rep": 0, "stream": "s/b0"},
+        "R2": {"arm": "baseline", "rep": 1, "stream": "s/b1"},
+        "R3": {"arm": "graph_install", "rep": 0, "stream": "s/g0"},
+    }
+    records = [
+        _record("baseline", 0, [_finding(), _finding(claim="falso")], stream="s/b0"),
+        _record("baseline", 1, [_finding(claim="outro")], stream="s/b1"),
+        _record("graph_install", 0, [_finding()], stream="s/g0"),
+    ]
+    scores = {k: 4 for k in judge_mod.RUBRIC}
+    judgment = {
+        "issues": [
+            {"id": "I1", "title": "off by one", "file": "app.py", "verdict": "real",
+             "severity": "major", "rationale": "r", "known_issue": "K1",
+             "reported_by": [{"review": "R1", "finding": 0}, {"review": "R3", "finding": 0}]},
+            {"id": "I2", "title": "falso", "file": "app.py", "verdict": "false",
+             "severity": "none", "rationale": "r", "known_issue": None,
+             "reported_by": [{"review": "R1", "finding": 1}]},
+            {"id": "I3", "title": "outro", "file": "app.py", "verdict": "real",
+             "severity": "minor", "rationale": "r", "known_issue": None,
+             "reported_by": [{"review": "R2", "finding": 0}]},
+        ],
+        "reviews": [{"review": r, "scores": scores, "comment": ""} for r in labels],
+    }
+    return {"case_id": "demo-1", "judgment": judgment}, labels, records
+
+
+def test_pooled_baseline_unions_two_reviews():
+    payload, labels, records = _judged_two_baselines()
+    scored = score_case(payload, labels, records, known_ids=["K1"])
+    pooled = [r for r in scored["rows"] if r["arm"] == "baseline_x2"]
+    assert len(pooled) == 1
+    row = pooled[0]
+    assert (row["findings"], row["real"], row["false"]) == (3, 2, 1)
+    assert row["pooled_recall"] == 1.0 and row["known_recall"] == 1.0
+    assert row["cost_usd"] == 0.8 and row["label"] == "R1+R2"
+    assert row["correctness"] is None  # the judge never scored a pooled review
+    assert "baseline_x2" not in scored["reps_per_arm"]
+
+
+def test_paired_deltas_compare_case_means():
+    from gryphon.eval.review_ab.score import paired_deltas
+
+    payload, labels, records = _judged_two_baselines()
+    case = score_case(payload, labels, records, known_ids=[])
+    deltas = paired_deltas({"demo-1": case, "demo-2": case}, "graph_install")
+    # graph: 1 real; baseline mean (1 + 1) / 2 = 1.
+    assert deltas["real"] == {"n": 2, "mean": 0.0, "ci": (0.0, 0.0), "better": 0, "worse": 0}
+    assert deltas["pooled_recall"]["mean"] == 0.0
+    assert paired_deltas({"demo-1": case}, "baseline_x2")["pooled_recall"]["mean"] == 0.5
+
+
+def test_report_has_paired_section_per_repository():
+    from gryphon.eval.review_ab.score import render_paired
+
+    payload, labels, records = _judged_two_baselines()
+    case = score_case(payload, labels, records, known_ids=[])
+    text = "\n".join(render_paired({"cases": {"api-1": case, "front-2": case}}))
+    assert "### graph_install − baseline (todos os casos)" in text
+    assert "### graph_install − baseline (api)" in text
+    assert "### baseline_x2 − baseline (front)" in text
+
+
+def test_reference_install_comes_from_the_reference_interpreter(tmp_path, monkeypatch):
+    """graph_install_ref takes hooks, MCP server and PATH from --ref-python."""
+    sb = _sb(tmp_path, "graph")
+    ref = str(tmp_path / "ref" / "Scripts" / "python.exe")
+    seen = []
+
+    def fake_ref_call(python, code, *args):
+        seen.append((python, args))
+        return json.dumps({"hooks": {"SessionStart": []}})
+
+    monkeypatch.setattr(runner, "_ref_call", fake_ref_call)
+    settings = RunSettings(isolation="project", ref_python=ref)
+    cmd = build_command(sb, settings, arm="graph_install_ref")
+    assert json.loads(cmd[cmd.index("--settings") + 1]) == {"hooks": {"SessionStart": []}}
+    assert seen == [(ref, (str(sb.repo),))]
+    mcp = json.loads(cmd[cmd.index("--mcp-config") + 1])
+    assert mcp["mcpServers"]["gryphon"]["command"] == ref
+    env = runner._child_env(sb, ref)
+    assert env["PATH"].split(os.pathsep)[0] == str(Path(ref).parent)
+    with pytest.raises(ValueError, match="--ref-python"):
+        build_command(sb, RunSettings(isolation="project"), arm="graph_install_ref")
+
+
+def test_jobs_run_cases_in_parallel_and_still_stop_at_a_limit(tmp_path, case, monkeypatch):
+    import threading
+
+    second = ReviewCase(**{**case.__dict__, "id": "demo-2"})
+    ok = "\n".join(_stream([]))
+    active, peak = [0], [0]
+    lock = threading.Lock()
+    release = threading.Barrier(2, timeout=10)
+
+    def fake_run(cmd, *, stdout, **kwargs):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        release.wait()  # both cases must be in flight at once
+        with lock:
+            active[0] -= 1
+        stdout.write(ok)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(runner, "_run_claude", fake_run)
+    run_dir = runner.run_cases([case, second], arms=("baseline",), reps=1,
+                               out_dir=tmp_path / "out", workdir=tmp_path / "work", jobs=2)
+    assert peak[0] == 2
+    lines = (run_dir / "records.jsonl").read_text(encoding="utf-8").splitlines()
+    assert sorted(json.loads(x)["case_id"] for x in lines) == ["demo-1", "demo-2"]
+
+
+def test_reference_calls_do_not_import_the_checkout_they_run_from(tmp_path, monkeypatch):
+    """``python -c`` from this checkout imported this gryphon, not the reference one."""
+    monkeypatch.chdir(Path(runner.__file__).parents[3])
+    out = runner._ref_call(sys.executable, "import sys; print(repr(sys.path[0]))")
+    assert out.strip() not in ("''", repr(str(Path.cwd())))
