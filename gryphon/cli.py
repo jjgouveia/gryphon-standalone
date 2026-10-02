@@ -715,6 +715,27 @@ def _warn_failed_files(result: dict) -> None:
     )
 
 
+def _brief_status(
+    files: int, branch: str | None, sha: str | None,
+    current_branch: str | None, current_sha: str | None,
+) -> str:
+    """The SessionStart line: what the graph covers and whether it is current.
+
+    Node counts and the language list told an agent nothing it could use, at
+    the start of every session.
+    """
+    where = f" at {sha[:8]}" if sha else ""
+    if branch:
+        where += f" ({branch})"
+    line = f"[gryphon] Code graph of {files} files{where}."
+    if branch and current_branch and branch != current_branch:
+        line += (f" It was built on '{branch}' and this checkout is on '{current_branch}':"
+                 " its callers and tests may not match this code.")
+    elif sha and current_sha and sha != current_sha:
+        line += f" HEAD is now {current_sha[:8]}; hooks update it as files change."
+    return line
+
+
 def main() -> None:
     """Main CLI entry point."""
     _configure_utf8_stdio()
@@ -972,6 +993,12 @@ def main() -> None:
         action="store_true",
         dest="json_output",
         help="Output one machine-readable JSON object",
+    )
+    status_cmd.add_argument(
+        "--brief",
+        action="store_true",
+        help="One line: file count, build commit, and a warning when the graph is stale "
+             "(what the SessionStart hook shows)",
     )
     status_cmd.add_argument(
         "--data-dir",
@@ -2044,6 +2071,10 @@ def main() -> None:
                     "svn_branch": stored_svn_branch,
                     "svn_revision": stored_rev,
                 }))
+            elif getattr(args, "brief", False):
+                print(_brief_status(
+                    stats.files_count, stored_branch, stored_sha, current_branch, current_sha,
+                ))
             elif not args.quiet:
                 print(f"Nodes: {stats.total_nodes}")
                 print(f"Edges: {stats.total_edges}")

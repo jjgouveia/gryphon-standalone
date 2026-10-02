@@ -163,17 +163,16 @@ CONTRIBUTING.md "Branching and promotion".
 <!-- gryphon MCP tools -->
 ## MCP Tools: gryphon
 
-**This project has a knowledge graph. Start with the gryphon
-MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
-gives you structural context (callers, dependents, test coverage) that file search cannot.
+This repository has a gryphon code graph: a static index of
+functions, classes, calls, imports and tests built with Tree-sitter. It answers structural
+questions (who calls this, which tests reach it, what a change can affect) that a text search
+answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
+"callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
+`detect_changes_tool` for a diff.
 
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
-- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
-- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
-- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+In Claude Code, gryphon's hooks add graph facts to some tool results: after a `git diff`, the
+changed code called from outside the diff and the changes no test reaches; on a file read or an
+exact-name search, the callers and tests of that code.
 
 ### Verify in the source
 
@@ -184,27 +183,9 @@ gives you structural context (callers, dependents, test coverage) that file sear
 - When the graph and the source disagree, the source wins. The graph may be stale or may not
   model that relationship.
 - An empty graph result can mean "not indexed" or "not statically visible", not "does not exist".
+<!-- /gryphon MCP tools -->
 
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context_tool` | Need source snippets for review — token-efficient |
-| `get_impact_radius_tool` | Understanding blast radius of a change |
-| `get_affected_flows_tool` | Finding which execution paths are impacted |
-| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
-| `get_architecture_overview_tool` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes_tool` for code review.
-3. Use `get_affected_flows_tool` to understand impact.
-4. Use `query_graph_tool` pattern="tests_for" to check coverage.
-5. **Stale graph guard**: before `detect_changes_tool`, check
+**Stale graph guard**: before `detect_changes_tool`, check
    `_graph.built_on_branch` from the `get_minimal_context_tool` envelope.
    If it differs from the branch you are reviewing, the graph nodes belong
    to a different domain and risk scores will be wrong. Rebuild:
@@ -216,4 +197,3 @@ gives you structural context (callers, dependents, test coverage) that file sear
    git worktree add .wt-pr<n> origin/<headRefName>
    gryphon build --repo .wt-pr<n>
    ```
-<!-- /gryphon MCP tools -->

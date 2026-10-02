@@ -8,6 +8,8 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from gryphon import cli
 
 
@@ -648,3 +650,23 @@ class TestGraphToolExplicitRepoResolution:
                 cli.main()
 
         assert mock_run.call_args.args[1] == module.resolve()
+
+
+@pytest.mark.parametrize(
+    ("built", "current", "expected"),
+    [
+        (("main", "a" * 40), ("main", "a" * 40),
+         "[gryphon] Code graph of 3 files at aaaaaaaa (main)."),
+        (("main", "a" * 40), ("main", "b" * 40),
+         "[gryphon] Code graph of 3 files at aaaaaaaa (main). HEAD is now bbbbbbbb; "
+         "hooks update it as files change."),
+        (("main", "a" * 40), ("feat", "b" * 40),
+         "[gryphon] Code graph of 3 files at aaaaaaaa (main). It was built on 'main' and this "
+         "checkout is on 'feat': its callers and tests may not match this code."),
+        ((None, None), (None, None), "[gryphon] Code graph of 3 files."),
+    ],
+)
+def test_brief_status_is_one_line_about_freshness(built, current, expected):
+    from gryphon.cli import _brief_status
+
+    assert _brief_status(3, *built, *current) == expected

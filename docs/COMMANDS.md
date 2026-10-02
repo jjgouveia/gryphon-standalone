@@ -428,6 +428,7 @@ gryphon update --embedding-provider local --embedding-model all-MiniLM-L6-v2
 # Monitor and inspect
 gryphon status                       # Graph statistics (no graph: exit 1, no DB created)
 gryphon status --json                # One JSON object
+gryphon status --brief               # One line: files, build commit, stale warning (SessionStart)
 gryphon watch                        # Auto-update on file changes (needs an existing graph)
 gryphon visualize                    # Interactive HTML graph (needs an existing graph)
 gryphon visualize --format graphml   # Formats: html, json, graphml, cypher, obsidian, svg

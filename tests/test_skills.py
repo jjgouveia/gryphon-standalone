@@ -275,9 +275,24 @@ class TestGenerateHooksConfig:
         assert "matcher" in entry
         inner = entry["hooks"][0]
         assert inner["type"] == "command"
-        assert "status" in inner["command"]
+        assert "status --brief" in inner["command"]
         assert inner["command"].startswith("cat >/dev/null || true; ")
         assert 0 < inner["timeout"] <= 600
+
+    def test_instruction_block_states_facts_instead_of_a_mandate(self):
+        """Agents ignored "use graph tools FIRST"; overviews cost tokens every session."""
+        section = skills_module._CLAUDE_MD_SECTION
+        assert "FIRST" not in section and "instead of Grep" not in section
+        assert "query_graph_tool" in section and "git diff" in section
+        assert section.count("\n") <= 24
+
+    def test_previous_instruction_block_upgrades_in_place(self, tmp_path):
+        previous = skills_module.LEGACY_INSTRUCTION_SECTIONS[0]
+        assert "When to use graph tools FIRST" in previous
+        (tmp_path / "CLAUDE.md").write_text("# Mine\n\n" + previous, encoding="utf-8")
+        assert skills_module.inject_claude_md(tmp_path) == "updated"
+        content = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        assert content == "# Mine\n\n" + skills_module._CLAUDE_MD_SECTION
 
     def test_does_not_emit_invalid_pre_commit_hook(self):
         config = generate_hooks_config(Path("/repo"))

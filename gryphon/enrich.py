@@ -1,8 +1,9 @@
 """Graph enrichment for Claude Code hooks.
 
-``PreToolUse`` (Grep, Glob, Read, Bash): the symbols a search or a file read
-touches, with callers, callees, flows and tests. Reads done through Bash
-(``sed -n A,Bp``, ``head``, ``cat``) count as reads, limited to the lines read.
+``PreToolUse`` (Grep, Glob, Read, Bash): for a file read, the callers and
+tests of the symbols read; for a search, the same for the symbols named
+exactly by the search term. Reads done through Bash (``sed -n A,Bp``,
+``head``, ``cat``) count as reads, limited to the lines read.
 
 ``PostToolUse`` (Bash): after a ``git diff``, the changed symbols called from
 outside the diff and the ones with no direct test (see ``diff_context``).
@@ -195,104 +196,51 @@ def _make_relative(file_path: str, repo_root: str) -> str:
         return file_path
 
 
-def _get_community_name(conn: Any, community_id: int) -> str:
-    """Fetch a community name by ID."""
-    row = conn.execute(
-        "SELECT name FROM communities WHERE id = ?", (community_id,)
-    ).fetchone()
-    return row["name"] if row else ""
+def _format_node_context(node: Any, store: Any, repo_root: str) -> list[str]:
+    """What the code being read cannot show about *node*: who calls it, its tests.
 
+    Callees, flows and communities are left out: the callees are in the code
+    the agent is reading, and the rest did not help a review.
+    """
+    from .diff_context import (
+        NO_STATIC_CALLERS,
+        _callers,
+        caller_label,
+        dynamic_entry,
+        sibling_receivers,
+    )
 
-def _get_flow_names_for_node(conn: Any, node_id: int) -> list[str]:
-    """Fetch execution flow names that a node participates in (max 3)."""
-    rows = conn.execute(
-        "SELECT f.name FROM flow_memberships fm "
-        "JOIN flows f ON fm.flow_id = f.id "
-        "WHERE fm.node_id = ? LIMIT 3",
-        (node_id,),
-    ).fetchall()
-    return [r["name"] for r in rows]
-
-
-def _format_node_context(
-    node: Any,
-    store: Any,
-    conn: Any,
-    repo_root: str,
-) -> list[str]:
-    """Format a single node's structural context as plain text lines."""
-    from .graph import GraphNode
-    assert isinstance(node, GraphNode)
-
-    qn = node.qualified_name
     loc = _make_relative(node.file_path, repo_root)
     if node.line_start:
         loc = f"{loc}:{node.line_start}"
-
-    header = f"{node.name} ({loc})"
-
-    # Community
-    if node.extra.get("community_id"):
-        cname = _get_community_name(conn, node.extra["community_id"])
-        if cname:
-            header += f" [{cname}]"
-    else:
-        # Check via direct query
-        row = conn.execute(
-            "SELECT community_id FROM nodes WHERE id = ?", (node.id,)
-        ).fetchone()
-        if row and row["community_id"]:
-            cname = _get_community_name(conn, row["community_id"])
-            if cname:
-                header += f" [{cname}]"
-
-    lines = [header]
+    lines = [f"{node.name} ({loc})"]
 
     # Callers (max 5, deduplicated), with the same edge rules as the diff
     # context: exact edges, plus name-only edges when the name is unique.
-    from .diff_context import NO_STATIC_CALLERS, _callers, caller_label, sibling_receivers
-
     found = _callers(store, node)
     callers: list[str] = []
     seen: set[str] = set()
-    for c, _line, signal in found:
+    for c in found:
         if len(callers) >= 5:
             break
-        if c.name not in seen and not VENDORED_RE.search(c.file_path or ""):
-            seen.add(c.name)
-            callers.append(caller_label(c, signal))
+        if c.node.name not in seen and not VENDORED_RE.search(c.node.file_path or ""):
+            seen.add(c.node.name)
+            callers.append(caller_label(c.node, c.signal, c.how))
     if callers:
         lines.append(f"  Called by: {', '.join(callers)}")
     elif node.kind in ("Function", "Method", "Class"):
         # Saying nothing read as "nothing calls this" and led reviewers to
         # call signal receivers and decorated hooks dead code.
-        lines.append(f"  Called by: {NO_STATIC_CALLERS}")
+        why = dynamic_entry(store, node)
+        lines.append(f"  Called by: {NO_STATIC_CALLERS}" + (f"; {why}" if why else ""))
     for sender_name, others in sibling_receivers(store, node, found):
         names = ", ".join(f"{t.name} [{sig}]" for t, sig in others[:4])
         lines.append(f"  Other receivers of {sender_name}: {names}")
 
-    # Callees (max 5, deduplicated)
-    callees: list[str] = []
-    seen.clear()
-    for e in store.get_edges_by_source(qn):
-        if e.kind == "CALLS" and len(callees) < 5:
-            c = store.get_node(e.target_qualified)
-            if c and c.name not in seen:
-                seen.add(c.name)
-                callees.append(c.name)
-    if callees:
-        lines.append(f"  Calls: {', '.join(callees)}")
-
-    # Execution flows
-    flow_names = _get_flow_names_for_node(conn, node.id)
-    if flow_names:
-        lines.append(f"  Flows: {', '.join(flow_names)}")
-
-    # Tests
     # TESTED_BY edges are stored as source=production, target=test by the
     # parser, so look them up by source. See: #515
     tests: list[str] = []
-    for e in store.get_edges_by_source(qn):
+    for e in store.get_edges_by_source(node.qualified_name):
         if e.kind == "TESTED_BY" and len(tests) < 3:
             t = store.get_node(e.target_qualified)
             if t and t.name not in tests:
@@ -312,10 +260,19 @@ def _db_path(repo_root: str) -> Path:
     return get_db_path(Path(repo_root), read_only=True)
 
 
+# A name defined more often than this (``save``, ``get``) says nothing about
+# which definition the search is after.
+_MAX_DEFINITIONS = 3
+
+
 def enrich_search(pattern: str, repo_root: str) -> str:
-    """Search the graph for pattern and return enriched context."""
+    """Context for the symbols named exactly *pattern*.
+
+    A term that is not a symbol name (a log message, a config key, half a
+    name) gets nothing. Keyword matching injected unrelated symbols there,
+    and noise in the context costs a review more than a missing hint.
+    """
     from .graph import GraphStore
-    from .search import _fts_search
 
     db_path = _db_path(repo_root)
     if not db_path.exists():
@@ -323,36 +280,31 @@ def enrich_search(pattern: str, repo_root: str) -> str:
 
     store = GraphStore(db_path)
     try:
-        conn = store._conn
-
-        fts_results = _fts_search(conn, pattern, limit=8)
-        if not fts_results:
+        rows = store._conn.execute(
+            "SELECT id FROM nodes WHERE name = ? AND is_test = 0 "
+            "AND kind IN ('Function', 'Method', 'Class', 'Type') LIMIT 20",
+            (pattern,),
+        ).fetchall()
+        nodes = [
+            n for n in (store.get_node_by_id(r[0]) for r in rows)
+            if n is not None and not VENDORED_RE.search(n.file_path or "")
+        ]
+        if not nodes or len(nodes) > _MAX_DEFINITIONS:
             return ""
-
         all_lines: list[str] = []
-        count = 0
-        for node_id, _score in fts_results:
-            if count >= 5:
-                break
-            node = store.get_node_by_id(node_id)
-            if not node or node.is_test or VENDORED_RE.search(node.file_path or ""):
-                continue
-            node_lines = _format_node_context(node, store, conn, repo_root)
-            all_lines.extend(node_lines)
+        for node in nodes:
+            all_lines.extend(_format_node_context(node, store, repo_root))
             all_lines.append("")
-            count += 1
-
-        if not all_lines:
-            return ""
-
-        header = f'[gryphon] {count} symbol(s) matching "{pattern}":\n'
+        header = f'[gryphon] {len(nodes)} symbol(s) named "{pattern}":\n'
         return header + "\n".join(all_lines)
     finally:
         store.close()
 
 
-def enrich_file_read(file_path: str, repo_root: str) -> str:
-    """Enrich a file read with structural context for functions in that file."""
+def enrich_file_read(
+    file_path: str, repo_root: str, *, seen: "_SessionMemory | None" = None,
+) -> str:
+    """Context for the functions and classes of a file read whole."""
     from .graph import GraphStore
 
     db_path = _db_path(repo_root)
@@ -361,7 +313,6 @@ def enrich_file_read(file_path: str, repo_root: str) -> str:
 
     store = GraphStore(db_path)
     try:
-        conn = store._conn
         nodes = store.get_nodes_by_file(file_path)
         if not nodes:
             # Try with resolved path
@@ -370,29 +321,24 @@ def enrich_file_read(file_path: str, repo_root: str) -> str:
                 nodes = store.get_nodes_by_file(resolved)
             except (OSError, ValueError):
                 pass
-        if not nodes:
-            return ""
-
-        # Filter to functions/classes/types (skip File nodes), limit to 10
         interesting = [
             n for n in nodes
-            if n.kind in ("Function", "Class", "Type", "Test")
-        ][:10]
-
+            if n.kind in ("Function", "Method", "Class", "Type") and not n.is_test
+        ]
+        if seen is not None:
+            fresh = seen.filter([n.qualified_name for n in interesting[:8]])
+            interesting = [n for n in interesting if n.qualified_name in fresh]
+        interesting = interesting[:8]
         if not interesting:
             return ""
 
         all_lines: list[str] = []
         for node in interesting:
-            node_lines = _format_node_context(node, store, conn, repo_root)
-            all_lines.extend(node_lines)
+            all_lines.extend(_format_node_context(node, store, repo_root))
             all_lines.append("")
 
         rel_path = _make_relative(file_path, repo_root)
-        header = (
-            f"[gryphon] {len(interesting)} symbol(s) in {rel_path}:\n"
-        )
-        return header + "\n".join(all_lines)
+        return f"[gryphon] {len(interesting)} symbol(s) in {rel_path}:\n" + "\n".join(all_lines)
     finally:
         store.close()
 
@@ -406,7 +352,7 @@ def enrich_file_range(
     Whole-file reads (no bounds) fall back to :func:`enrich_file_read`.
     """
     if start is None and end is None:
-        return enrich_file_read(_absolute(file_path, repo_root), repo_root)
+        return enrich_file_read(_absolute(file_path, repo_root), repo_root, seen=seen)
     from .graph import GraphStore
 
     db_path = _db_path(repo_root)
@@ -415,7 +361,6 @@ def enrich_file_range(
     lo, hi = start or 1, end or 10**9
     store = GraphStore(db_path)
     try:
-        conn = store._conn
         path = _absolute(file_path, repo_root)
         nodes = store.get_nodes_by_file(path) or store.get_nodes_by_file(
             Path(path).as_posix()
@@ -423,6 +368,7 @@ def enrich_file_range(
         picked = [
             n for n in nodes
             if n.kind in ("Function", "Class", "Type", "Method")
+            and not n.is_test
             and n.line_start is not None and n.line_end is not None
             and n.line_start <= hi and n.line_end >= lo
         ]
@@ -435,7 +381,7 @@ def enrich_file_range(
         lines = [f"[gryphon] {len(picked)} symbol(s) in {_make_relative(path, repo_root)}"
                  f":{lo}-{hi if end else 'end'}:"]
         for node in picked:
-            lines.extend(_format_node_context(node, store, conn, repo_root))
+            lines.extend(_format_node_context(node, store, repo_root))
             lines.append("")
         return "\n".join(lines)
     finally:

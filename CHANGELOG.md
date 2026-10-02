@@ -51,6 +51,37 @@
 
 ### Changed
 
+- The hook context aims for precision over volume.
+  - **After a `git diff`, changes are ranked by what they do to callers.**
+    A changed signature, `return`/`raise` or class field is tagged
+    `[signature]`, `[return]`, `[raise]` or `[fields]` and listed first.
+    Every changed symbol keeps its outside callers, the most-called first,
+    and the symbols beyond the first eight are named.
+    - Body-only changes keep their callers because the benchmark's
+      hook-only defect was a JSX change inside a `return (...)`, found
+      through a caller the list named.
+  - **Callers say how they were found:** `(by name)` for a name-only edge,
+    `(inferred)` for one a resolver added.
+  - **Symbols with no static caller give the likely reason:** decorated, a
+    dunder method, or a method of a class that extends a base class.
+  - **The header names the commit the graph was built at.** It warns when
+    `HEAD` has moved since then.
+  - **The text stays under 4,000 characters,** cut at a line boundary, and
+    says how many lines it cut.
+  - **Search hooks only answer exact symbol names,** defined at most three
+    times, instead of keyword matches.
+  - **File-read context lists callers and tests only.** It no longer
+    includes callees, flows or communities (the callees are in the code
+    being read), and it is not repeated within a session.
+- The generated instruction block (CLAUDE.md, AGENTS.md and the other
+  platform files) is a short statement of what the graph is, where its facts
+  appear, the few tool calls worth knowing and the guardrails. It replaces
+  the "use graph tools FIRST" tables: agents did not follow them, and studies
+  of AGENTS.md-style files found that repository overviews add cost without
+  improving results. Reinstall upgrades the previous block in place.
+- The `SessionStart` hook runs the new `gryphon status --brief`: one line
+  with the file count, the build commit and a warning when the graph is
+  stale, instead of node counts and the language list.
 - `query_graph_tool` returns 10 results by default instead of 100. With bare
   names now resolving instead of answering `ambiguous`, a `callers_of` on a
   widely called function returned about 16,000 tokens, four times the tool's
