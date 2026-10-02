@@ -21,10 +21,16 @@ Review a PR or branch diff.
 - Covers every commit in the PR
 - Output is a structured review with a risk assessment
 
+### `/review-multi`
+Review a PR or branch diff with two independent reviewers.
+- Two subagents review in parallel; their findings are merged
+- Each finding is checked with the graph (callers, tests) and never dropped
+- Output is a ranked list with who reported what; costs about twice a single review
+
 `install` also writes four workflow skills alongside them: `explore-codebase`,
 `review-changes`, `debug-issue` and `refactor-safely`.
 
-All seven land in the same place on every platform that discovers skills from
+All eight land in the same place on every platform that discovers skills from
 files — `.claude/skills/` (Claude Code), `.gemini/skills/`, `.codebuddy/skills/`,
 `.qoder/skills/` and Hermes' skills directory — copied byte-for-byte from the
 files shipped with the package.
@@ -34,7 +40,7 @@ files shipped with the package.
 into, whenever that directory already exists. `AGENTS_HOME` overrides its
 location. There is no `--platform agents`: the store holds no MCP config, so
 there is nothing to register. Machines without one are left untouched, and
-`uninstall` removes only the seven slugs this package ships, never the skills
+`uninstall` removes only the eight slugs this package ships, never the skills
 that sit beside them.
 
 The skills carry no `gryphon:` prefix. A namespace like `/gryphon:review-pr`
