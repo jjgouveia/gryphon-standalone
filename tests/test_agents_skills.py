@@ -24,6 +24,7 @@ SHIPPED_SKILLS = {
     "refactor-safely",
     "review-changes",
     "review-delta",
+    "review-multi",
     "review-pr",
 }
 

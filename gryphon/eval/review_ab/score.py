@@ -9,6 +9,8 @@ Metrics per review:
   (blocker 3, major 2, minor 1).
 - ``known_recall``: known issues it found / known issues of the case, when
   the case has any.
+- ``top3_serious``: how many of its first three findings are real and judged
+  major or blocker; the order of a review is its ranking.
 - the five rubric scores, 1 to 5.
 
 ``baseline_x2`` is not run: it pools two baseline reviews of a case into one
@@ -28,9 +30,12 @@ from .sandbox import ARMS
 
 SEVERITY_WEIGHT = {"blocker": 3, "major": 2, "minor": 1, "none": 0}
 POOLED_ARM = "baseline_x2"
+# Arms made by the merge stage (merge.py): the final list and, per variant,
+# the findings the merge step marked contradicted.
+MERGE_ARMS = ("merge", "merge_demoted", "merge_graph", "merge_graph_demoted")
 # Every arm the harness knows, in declaration order: a hard-coded list here
 # silently dropped arms added later from the summary and the issue matrix.
-ARM_ORDER = (*ARMS, POOLED_ARM)
+ARM_ORDER = (*ARMS, POOLED_ARM, *MERGE_ARMS)
 
 
 def _ratio(num: float, den: float) -> float | None:
@@ -63,6 +68,11 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
         verdicts = [by_ref.get(f"{label}:F{i}", {}).get("verdict") for i in range(len(findings))]
         n_real = verdicts.count("real")
         n_false = verdicts.count("false")
+        top3_serious = sum(
+            by_ref.get(f"{label}:F{i}", {}).get("verdict") == "real"
+            and by_ref[f"{label}:F{i}"]["severity"] in ("major", "blocker")
+            for i in range(min(3, len(findings)))
+        )
         found_real = {
             by_ref[f"{label}:F{i}"]["id"]
             for i in range(len(findings))
@@ -86,6 +96,7 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
             "pooled_recall": _ratio(len(found_real), len(real)),
             "weighted_recall": _ratio(weight, total_weight),
             "known_recall": _ratio(len(found_known), len(known_ids)) if known_ids else None,
+            "top3_serious": top3_serious,
             "cost_usd": rec.get("total_cost_usd"),
             "turns": rec.get("num_turns"),
             "wall_seconds": rec.get("wall_seconds"),
@@ -152,6 +163,7 @@ def _pooled_baseline(
         "pooled_recall": _ratio(len(found), len(real)),
         "weighted_recall": _ratio(weight, total_weight),
         "known_recall": _ratio(len(known), len(known_ids)) if known_ids else None,
+        "top3_serious": None,
         "cost_usd": total("cost_usd"), "turns": total("turns"),
         "wall_seconds": total("wall_seconds"), "graph_tool_calls": 0, "protocol_ok": None,
         **{k: None for k in RUBRIC}, "judge_comment": None,
@@ -160,7 +172,7 @@ def _pooled_baseline(
 
 PAIRED_METRICS = (
     "real", "false", "precision", "pooled_recall", "weighted_recall", "known_recall",
-    *RUBRIC, "cost_usd",
+    "top3_serious", *RUBRIC, "cost_usd",
 )
 
 
@@ -202,8 +214,8 @@ def paired_deltas(
 
 _MEAN_FIELDS = (
     "findings", "real", "false", "unverifiable", "precision", "pooled_recall",
-    "weighted_recall", "known_recall", *RUBRIC, "cost_usd", "turns", "wall_seconds",
-    "graph_tool_calls",
+    "weighted_recall", "known_recall", "top3_serious", *RUBRIC, "cost_usd", "turns",
+    "wall_seconds", "graph_tool_calls",
 )
 
 
@@ -315,9 +327,16 @@ def _group_of(case_id: str) -> str:
 def render_paired(scored: dict) -> list[str]:
     """Paired comparisons against baseline, overall and per repository."""
     cases = scored["cases"]
-    arms = [a for a in ARM_ORDER if a != "baseline" and any(
-        r["arm"] == a for c in cases.values() for r in c["rows"])]
-    if not arms or not any(r["arm"] == "baseline" for c in cases.values() for r in c["rows"]):
+    present = {r["arm"] for c in cases.values() for r in c["rows"]}
+    if "baseline" not in present:
+        return []
+    pairs = [(a, "baseline") for a in ARM_ORDER if a != "baseline" and a in present
+             and not a.endswith("_demoted")]
+    pairs += [(a, POOLED_ARM) for a in ("merge", "merge_graph")
+              if a in present and POOLED_ARM in present]
+    if "merge" in present and "merge_graph" in present:
+        pairs.append(("merge_graph", "merge"))
+    if not pairs:
         return []
     groups = sorted({_group_of(cid) for cid in cases})
     scopes = [("todos os casos", cases)]
@@ -326,12 +345,12 @@ def render_paired(scored: dict) -> list[str]:
     lines = ["", "## Comparação pareada com baseline", "",
              "Diferença média por caso (braço − baseline), IC 95% bootstrap sobre os casos; "
              "melhor/pior conta os casos em que o braço ficou acima/abaixo."]
-    for arm in arms:
+    for arm, ref in pairs:
         for title, subset in scopes:
-            deltas = paired_deltas(subset, arm)
+            deltas = paired_deltas(subset, arm, ref)
             if not deltas:
                 continue
-            lines += ["", f"### {arm} − baseline ({title})", "",
+            lines += ["", f"### {arm} − {ref} ({title})", "",
                       "| Métrica | Casos | Diferença | IC 95% | Melhor | Pior |",
                       "|---|---|---|---|---|---|"]
             for metric, d in deltas.items():
@@ -371,9 +390,9 @@ def render_markdown(scored: dict) -> str:
     header = (
         "| Braço | Revisões | Achados | Reais | Falsos | Precisão | Recall combinado "
         "| Recall ponderado | Recall gabarito | Corretude | Impacto | Testes | Sinal "
-        "| Acionável | Custo | Turnos | Tempo (s) | Chamadas ao grafo |"
+        "| Acionável | Custo | Turnos | Tempo (s) | Chamadas ao grafo | Graves no top 3 |"
     )
-    lines += [header, "|" + "---|" * 18]
+    lines += [header, "|" + "---|" * 19]
     for arm, a in scored["by_arm"].items():
         lines.append(
             f"| {arm} | {a['reviews']} | {_fmt(a['findings'])} | {_fmt(a['real'])} "
@@ -382,7 +401,7 @@ def render_markdown(scored: dict) -> str:
             f"| {_fmt(a['known_recall'], True)} "
             + " ".join(f"| {_fmt(a[k])}" for k in RUBRIC)
             + f" | {_usd(a['cost_usd'])} | {_fmt(a['turns'])} | {_fmt(a['wall_seconds'])} "
-            f"| {_fmt(a['graph_tool_calls'])} |"
+            f"| {_fmt(a['graph_tool_calls'])} | {_fmt(a['top3_serious'])} |"
         )
 
     lines += render_paired(scored)

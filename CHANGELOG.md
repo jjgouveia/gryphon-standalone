@@ -4,6 +4,20 @@
 
 ### Added
 
+- `review-multi` skill (`/review-multi`): two independent reviewers run in
+  parallel, their findings are merged and ranked, and each is checked
+  against the code (never dropped). In the benchmark's 19 closed PRs, two
+  reviews covered 22 points more of the real defects than one, the merge
+  kept all of that coverage while cutting findings from 7.6 to 5.1 per
+  case, and the first three findings held 0.34 more serious defects.
+  Checking with the graph tools gave the same result as checking in the
+  source, so the skill treats the graph as optional.
+- `review-eval merge`: evaluates the merge step on reviews that already
+  exist, with and without the graph, and judges the final lists blind next
+  to the originals. Contradicted findings go to a separate record so real
+  defects demoted by mistake are counted. The report adds `top3_serious`
+  and compares the merge arms with the pooled baseline.
+
 - `gryphon review-eval`: an A/B review benchmark. `claude -p` reviews closed
   pull requests in sanitized clones (history only up to the PR head, agent
   configuration hidden) with and without the graph; a blind judge merges

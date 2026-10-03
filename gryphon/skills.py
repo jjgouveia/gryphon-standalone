@@ -900,6 +900,7 @@ _SKILL_SLUGS: tuple[str, ...] = (
     "refactor-safely",
     "review-changes",
     "review-delta",
+    "review-multi",
     "review-pr",
 )
 

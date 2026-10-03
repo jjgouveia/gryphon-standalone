@@ -67,6 +67,37 @@ def add_parser(sub) -> argparse.ArgumentParser:
         help="Cases reviewed at once (the arms of one case stay sequential)",
     )
 
+    merge = rsub.add_parser(
+        "merge",
+        help="Merge the two baseline reviews of each case, with and without the graph",
+    )
+    merge.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
+    merge.add_argument("--case", nargs="+", default=None, help="Only these case ids")
+    merge.add_argument(
+        "--from-run", nargs="+", default=[],
+        help="Runs holding the baseline reviews (two usable repetitions per case)",
+    )
+    merge.add_argument(
+        "--variants", default="merge,merge_graph",
+        help="Comma-separated variants (merge, merge_graph)",
+    )
+    merge.add_argument("--model", default=DEFAULT_MODEL, help="Merger model")
+    merge.add_argument("--effort", default=DEFAULT_EFFORT, help="Merger effort level")
+    merge.add_argument(
+        "--max-budget-usd", type=float, default=DEFAULT_BUDGET_USD,
+        help="Spend cap per merge step",
+    )
+    merge.add_argument(
+        "--timeout", type=int, default=DEFAULT_TIMEOUT_S, help="Seconds per merge step",
+    )
+    merge.add_argument("--out", default=str(DEFAULT_OUT), help="Directory for run output")
+    merge.add_argument("--workdir", default=None, help="Directory for sanitized clones")
+    merge.add_argument("--jobs", type=int, default=1, help="Cases merged at once")
+    merge.add_argument(
+        "--resume", default=None, help="A merge run directory to continue after a stop",
+    )
+    merge.add_argument("--claude-bin", default="claude", help="claude executable")
+
     judge = rsub.add_parser("judge", help="Blind-judge the reviews of a run")
     judge.add_argument("--run", required=True, help="Run directory (holds records.jsonl)")
     judge.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
@@ -169,6 +200,33 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
                 workdir=Path(args.workdir) if args.workdir else default_workdir(),
                 fresh=args.fresh,
                 jobs=args.jobs,
+            )
+        except RunAbortedError as exc:
+            raise SystemExit(f"stopped: {exc}") from exc
+        print(f"records: {run_dir / 'records.jsonl'}")
+        return
+
+    if args.review_eval_command == "merge":
+        from .cases import load_cases
+        from .merge import run_merge_cases
+        from .runner import RunAbortedError, RunSettings
+        from .sandbox import default_workdir
+
+        cases = _select(load_cases(Path(args.cases)), args.case)
+        settings = RunSettings(
+            model=args.model, effort=args.effort, max_budget_usd=args.max_budget_usd,
+            timeout_s=args.timeout, claude_bin=args.claude_bin,
+        )
+        try:
+            run_dir = run_merge_cases(
+                cases,
+                [Path(p) for p in args.from_run],
+                variants=tuple(v.strip() for v in args.variants.split(",") if v.strip()),
+                settings=settings,
+                out_dir=Path(args.out),
+                workdir=Path(args.workdir) if args.workdir else default_workdir(),
+                jobs=args.jobs,
+                resume=Path(args.resume) if args.resume else None,
             )
         except RunAbortedError as exc:
             raise SystemExit(f"stopped: {exc}") from exc
