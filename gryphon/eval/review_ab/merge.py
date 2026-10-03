@@ -280,7 +280,10 @@ def run_merge(
     records = [record]
     if flat["status"] == "ok" and demoted:
         records.append({
+            # Same transcript, its own key: score.py finds a review's record by
+            # its stream, and a shared key made this record replace the final one.
             **base, "arm": f"{variant}_demoted", **flat, "findings": demoted,
+            "stream": f"{base['stream']}#demoted",
             "summary": "Findings the merge step marked contradicted.",
             "total_cost_usd": 0, "num_turns": 0, "graph_tool_calls": 0,
         })

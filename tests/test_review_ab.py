@@ -1155,6 +1155,8 @@ def test_run_merge_stores_the_final_list_and_the_demoted_ones(tmp_path, case, mo
     assert demoted["arm"] == "merge_graph_demoted"
     assert [f["claim"] for f in demoted["findings"]] == ["cai"]
     assert demoted["total_cost_usd"] == 0  # the cost is counted once, on the final record
+    # score.py keys a review's record by its stream: sharing it lost the final record.
+    assert demoted["stream"] != final["stream"] and demoted["stream"].startswith(final["stream"])
     # The graph variant runs in the graph sandbox with the MCP server; the plain one does not.
     mcp = json.loads(calls[0][calls[0].index("--mcp-config") + 1])
     assert "gryphon" in mcp["mcpServers"]

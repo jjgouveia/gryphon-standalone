@@ -24,7 +24,7 @@ Review a PR or branch diff.
 ### `/review-multi`
 Review a PR or branch diff with two independent reviewers.
 - Two subagents review in parallel; their findings are merged
-- Each finding is checked with the graph (callers, tests) and never dropped
+- Each finding is checked against the code (the graph tools do it faster) and never dropped
 - Output is a ranked list with who reported what; costs about twice a single review
 
 `install` also writes four workflow skills alongside them: `explore-codebase`,
