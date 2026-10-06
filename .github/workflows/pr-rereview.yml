@@ -1,0 +1,167 @@
+# Re-review round on a PR that already has one. This job is unprivileged on
+# purpose: the agent reads PR-authored text and produces prose, so it must
+# not hold write permissions or be able to post. It renders a review body
+# into an artifact; pr-rereview-comment.yml validates and publishes that.
+#
+# The decision of whether a round is needed at all is `scripts/pr_watch.py`,
+# which costs nothing. A head already reviewed, a delta that touches no open
+# finding's file, and a PR past its round cap all exit before the agent runs.
+name: PR Re-review
+
+on:
+  pull_request:
+    branches: [main, testing, staging]
+    types: [synchronize]
+
+permissions:
+  # pull-requests: read is load-bearing, not a convenience. pr_watch.py
+  # reads the review thread to find the ledger, and `contents: read` alone
+  # grants no pull-requests scope at all: every lookup would come back
+  # empty, every PR would look like round 1, and the loop would report
+  # itself healthy while reviewing nothing. Still read-only, so the
+  # privilege boundary against agent output is intact.
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-rereview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  ROUND_DIR: ${{ runner.temp }}/crg-round
+
+jobs:
+  round:
+    # A fork PR gets a read-only token and cannot be reviewed into a post,
+    # so the round would be computed and discarded.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Decide whether this PR needs a round
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          status=0
+          python scripts/pr_watch.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --max-rounds 6 \
+            --json > "${RUNNER_TEMP}/candidates.json" || status=$?
+          case "${status}" in
+            0) echo "needs-round=false" >> "${GITHUB_OUTPUT}" ;;
+            1) echo "needs-round=true"  >> "${GITHUB_OUTPUT}" ;;
+            *) echo "::error::pr_watch.py exited ${status}"; exit "${status}" ;;
+          esac
+          cat "${RUNNER_TEMP}/candidates.json"
+
+      - name: Stage the skill where the agent looks for it
+        if: steps.decide.outputs.needs-round == 'true'
+        run: |
+          set -euo pipefail
+          # The skill is tracked at skills/, but the agent discovers skills
+          # under .claude/, which is gitignored and absent in a fresh
+          # checkout. Pointing the prompt at .claude/ directly would have
+          # the agent find no skill at all.
+          mkdir -p .claude/skills
+          cp -R skills/review-pr .claude/skills/review-pr
+
+      - name: Write the round prompt
+        if: steps.decide.outputs.needs-round == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/prompt.md" <<PROMPT
+          Run one re-review round on PR #${PR_NUMBER} in this repository.
+
+          Invoke the review-pr skill from .claude/skills/review-pr/SKILL.md with
+          --resume. You are not alone in the checkout: the worktree is clean and
+          the branch is already checked out at ${HEAD_SHA}, based on ${BASE_REF}.
+
+          This round is unattended. Follow the "Unattended rounds" section of the
+          skill for which review flag you may publish. You may never approve, and
+          you may never publish anything yourself.
+
+          Write two files and nothing else:
+
+          1. ${RUNNER_TEMP}/prose.md — the review prose. Title the round, list
+             every carried finding with its verdict keyed to its existing id, then
+             the new findings. Plain markdown, no ledger, no front matter.
+          2. ${RUNNER_TEMP}/verdicts.json — an object with:
+
+                 {"flag": "comment" | "request-changes",
+                  "round": <the round number>,
+                  "findings": [{"id": 1, "status": "open" | "resolved" | "obsolete",
+                                "sev": "high" | "medium" | "low",
+                                "title": "<one line>",
+                                "files": ["<path>"]}]}
+
+             Every id from the previous ledger must appear exactly once, carrying
+             its verdict. New findings continue from max(id) + 1. Do not edit the
+             ledger itself; it is rebuilt from these findings.
+          PROMPT
+
+      - name: Run the round
+        id: agent
+        if: steps.decide.outputs.needs-round == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          npx --yes @anthropic-ai/claude-code@latest \
+            -p "$(cat "${RUNNER_TEMP}/prompt.md")" \
+            --output-format text \
+            --max-turns 40 \
+            --permission-mode acceptEdits \
+            > "${RUNNER_TEMP}/prose.md" \
+            2> "${RUNNER_TEMP}/agent.log" \
+            || {
+              echo "::error::the re-review agent failed"
+              tail -n 40 "${RUNNER_TEMP}/agent.log"
+              exit 1
+            }
+
+      - name: Compose the round body
+        id: compose
+        if: steps.decide.outputs.needs-round == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          rm -rf -- "${ROUND_DIR}"
+          mkdir -p -- "${ROUND_DIR}"
+          python scripts/round_artifact.py \
+            --prose "${RUNNER_TEMP}/prose.md" \
+            --verdicts "${RUNNER_TEMP}/verdicts.json" \
+            --pr "${PR_NUMBER}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --head "${HEAD_SHA}" \
+            --base "${BASE_REF}" \
+            --out "${ROUND_DIR}"
+          {
+            echo "flag=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["flag"])' "${ROUND_DIR}/meta.json")"
+            echo "pr-number=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["pr_number"])' "${ROUND_DIR}/meta.json")"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Upload the round
+        if: steps.decide.outputs.needs-round == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: crg-round
+          path: ${{ runner.temp }}/crg-round/
+          if-no-files-found: error
+          retention-days: 1
