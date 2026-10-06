@@ -693,3 +693,158 @@ class TestBareNameExactMatch:
         result = query_graph("callers_of", "process", str(root))
         assert result["status"] == "ambiguous"
         assert result["candidate_count"] == 2 and result["candidates_truncated"] is False
+
+
+def _posix(root: Path, name: str) -> str:
+    """A path in the spelling the graph keys on, on every platform."""
+    return (root / name).as_posix()
+
+
+def _seed_posix_callers(store: GraphStore, root: Path, *, count: int) -> str:
+    """``count`` functions that each call ``target`` once, on line 2."""
+    target = _posix(root, "target.py") + "::target"
+    store.upsert_node(NodeInfo(kind="Function", name="target",
+                               file_path=_posix(root, "target.py"), line_start=1, line_end=3,
+                               language="python"))
+    for index in range(count):
+        path = _posix(root, f"caller_{index}.py")
+        store.upsert_node(NodeInfo(kind="Function", name=f"caller_{index}", file_path=path,
+                                   line_start=1, line_end=3, language="python"))
+        store.upsert_edge(EdgeInfo(kind="CALLS", source=f"{path}::caller_{index}",
+                                   target=target, file_path=path, line=2))
+    store.commit()
+    return target
+
+
+class TestCallersOfCallLines:
+    """A signature change must touch every call site, not one per calling function."""
+
+    @staticmethod
+    def _repo_with_repeated_calls(tmp_path):
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=2)
+            # caller_0 calls the target twice more, on lines 5 and 9.
+            for line in (5, 9):
+                store.upsert_edge(EdgeInfo(
+                    kind="CALLS",
+                    source=_posix(root, "caller_0.py") + "::caller_0",
+                    target=target,
+                    file_path=_posix(root, "caller_0.py"),
+                    line=line,
+                ))
+            store.commit()
+        finally:
+            store.close()
+        return root, target
+
+    @pytest.mark.parametrize("detail_level", ["standard", "minimal"])
+    def test_each_caller_lists_every_line_it_calls_on(self, tmp_path, detail_level):
+        root, target = self._repo_with_repeated_calls(tmp_path)
+
+        result = query_graph("callers_of", target, str(root), detail_level=detail_level)
+
+        by_name = {r["name"]: r for r in result["results"]}
+        assert result["result_count"] == 2  # still one result per calling function
+        assert by_name["caller_0"]["call_lines"] == [2, 5, 9]
+        assert by_name["caller_0"]["call_count"] == 3
+        assert by_name["caller_1"]["call_lines"] == [2]
+        assert by_name["caller_1"]["call_count"] == 1
+
+    def test_lines_listed_per_caller_are_capped_but_counted(self, tmp_path):
+        from gryphon.tools import query as query_mod
+
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=1)
+            for line in range(3, 3 + query_mod._MAX_CALL_LINES + 10):
+                store.upsert_edge(EdgeInfo(
+                    kind="CALLS",
+                    source=_posix(root, "caller_0.py") + "::caller_0",
+                    target=target,
+                    file_path=_posix(root, "caller_0.py"),
+                    line=line,
+                ))
+            store.commit()
+        finally:
+            store.close()
+
+        result = query_graph("callers_of", target, str(root))
+
+        caller = result["results"][0]
+        assert len(caller["call_lines"]) == query_mod._MAX_CALL_LINES
+        assert caller["call_count"] == query_mod._MAX_CALL_LINES + 11
+
+    def test_minimal_marks_callers_found_only_by_name(self, tmp_path):
+        """A bare-name match may be a different function that shares the name."""
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=1)
+            store.upsert_node(NodeInfo(
+                kind="Function", name="by_name", file_path=_posix(root, "by_name.py"),
+                line_start=1, line_end=3, language="python",
+            ))
+            store.upsert_edge(EdgeInfo(
+                kind="CALLS", source=_posix(root, "by_name.py") + "::by_name", target="target",
+                file_path=_posix(root, "by_name.py"), line=2,
+            ))
+            store.commit()
+        finally:
+            store.close()
+
+        result = query_graph("callers_of", target, str(root), detail_level="minimal")
+
+        resolution = {r["name"]: r.get("target_resolution") for r in result["results"]}
+        assert resolution == {"caller_0": None, "by_name": "unresolved"}
+        by_name = next(r for r in result["results"] if r["name"] == "by_name")
+        assert by_name["call_lines"] == [2]
+
+    def test_bare_name_lines_do_not_leak_into_an_exactly_resolved_caller(self, tmp_path):
+        """caller_0 calls the target exactly; its bare `target(...)` call is another function's."""
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=1)
+            store.upsert_edge(EdgeInfo(
+                kind="CALLS", source=_posix(root, "caller_0.py") + "::caller_0", target="target",
+                file_path=_posix(root, "caller_0.py"), line=7,
+            ))
+            store.commit()
+        finally:
+            store.close()
+
+        result = query_graph("callers_of", target, str(root))
+
+        assert result["results"][0]["call_lines"] == [2]
+
+    def test_minimal_callers_of_shows_up_to_25_and_says_how_to_list_the_rest(self, tmp_path):
+        from gryphon.tools import query as query_mod
+
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=query_mod._MINIMAL_CALLERS_CAP + 5)
+        finally:
+            store.close()
+
+        minimal = query_graph("callers_of", target, str(root), detail_level="minimal",
+                              max_results=100)
+        assert len(minimal["results"]) == query_mod._MINIMAL_CALLERS_CAP
+        assert minimal["results_omitted"] == 5
+        assert 'for all 30 use detail_level="standard" with max_results=30' in minimal["summary"]
+
+    def test_omission_hint_when_the_caller_limit_cut_the_list(self, tmp_path):
+        root, store = _make_repo(tmp_path)
+        try:
+            target = _seed_posix_callers(store, root, count=8)
+        finally:
+            store.close()
+
+        capped = query_graph("callers_of", target, str(root), max_results=3)
+        assert capped["results_omitted"] == 5
+        assert "pass max_results=8 for all" in capped["summary"]
+
+        # Minimal mode with a small max_results: the limit is the caller's, so say max_results.
+        small = query_graph("callers_of", target, str(root), detail_level="minimal", max_results=3)
+        assert "pass max_results=8 for all" in small["summary"]
+
+        complete = query_graph("callers_of", target, str(root), max_results=8)
+        assert "pass max_results" not in complete["summary"]
