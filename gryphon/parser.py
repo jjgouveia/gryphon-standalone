@@ -1,4 +1,4 @@
-"""Tree-sitter based multi-language code parser.
+﻿"""Tree-sitter based multi-language code parser.
 
 Extracts structural nodes (classes, functions, imports, types) and edges
 (calls, inheritance, contains) from source files.
@@ -60,7 +60,7 @@ _SQL_TABLE_RE = re.compile(
 )
 
 # dbt model dependencies: {{ ref('model') }}, {{ ref('package', 'model') }}
-# and {{ source('source_name', 'table') }}. String-literal arguments only —
+# and {{ source('source_name', 'table') }}. String-literal arguments only â€”
 # dynamic ref() calls cannot be resolved statically.
 _DBT_REF_RE = re.compile(
     r"\{\{-?\s*(ref|source)\s*\(\s*"
@@ -723,7 +723,7 @@ def normalize_file_path(path: "str | PurePath") -> str:
     Linux/macOS, and so consumers that reconstruct identifiers from ``Path``
     objects always agree with the parser. See issue #774.
 
-    Only apply this to file *paths* — never to symbol names: PHP namespace
+    Only apply this to file *paths* â€” never to symbol names: PHP namespace
     identifiers (``App\\Domain\\Job``) legitimately contain backslashes.
     """
     if isinstance(path, PurePath):
@@ -768,7 +768,7 @@ class EdgeInfo:
 
     def __post_init__(self) -> None:
         # Identity invariant (#774): file paths always use POSIX separators.
-        # ``source``/``target`` are left alone — they may contain qualified
+        # ``source``/``target`` are left alone â€” they may contain qualified
         # names whose symbol part legitimately embeds backslashes (PHP FQNs).
         self.file_path = normalize_file_path(self.file_path)
 
@@ -804,7 +804,7 @@ EXTENSION_TO_LANGUAGE: dict[str, str] = {
     ".sol": "solidity",
     ".vue": "vue",
     ".dart": "dart",
-    ".r": "r",  # .lower() in detect_language handles .R → .r
+    ".r": "r",  # .lower() in detect_language handles .R â†’ .r
     ".mjs": "javascript",
     ".astro": "typescript",
     ".pl": "perl",
@@ -817,7 +817,7 @@ EXTENSION_TO_LANGUAGE: dict[str, str] = {
     ".sh": "bash",
     ".bash": "bash",
     ".zsh": "bash",
-    ".ksh": "bash",  # Korn shell — close enough to bash for tree-sitter-bash (#235)
+    ".ksh": "bash",  # Korn shell â€” close enough to bash for tree-sitter-bash (#235)
     ".ex": "elixir",
     ".exs": "elixir",
     ".ipynb": "notebook",
@@ -880,13 +880,13 @@ _CPP_QT_STRUCTURAL_MACRO_REPLACEMENTS = {
     b"Q_EMIT": b" " * len(b"Q_EMIT"),
 }
 
-# Shebang interpreter → language mapping for extension-less Unix scripts.
+# Shebang interpreter â†’ language mapping for extension-less Unix scripts.
 # Each key is the **basename** of the interpreter path as it appears after
 # ``#!`` (or after ``#!/usr/bin/env``).  Only languages already registered
-# above are listed — this file strictly routes extension-less scripts, it
+# above are listed â€” this file strictly routes extension-less scripts, it
 # does NOT introduce new languages on its own.  See issue #237.
 SHEBANG_INTERPRETER_TO_LANGUAGE: dict[str, str] = {
-    # POSIX / bash-compatible shells — all routed through tree-sitter-bash
+    # POSIX / bash-compatible shells â€” all routed through tree-sitter-bash
     "bash": "bash",
     "sh": "bash",
     "zsh": "bash",
@@ -931,7 +931,7 @@ _ANSIBLE_PLAYBOOK_NAMES: frozenset[str] = frozenset({
 })
 
 # Play-level keys that are ONLY valid in Ansible plays.
-# `hosts:` alone is not sufficient to identify a play — require at least one of these.
+# `hosts:` alone is not sufficient to identify a play â€” require at least one of these.
 _ANSIBLE_PLAY_KEYS: frozenset[str] = frozenset({
     "tasks", "handlers", "pre_tasks", "post_tasks", "roles",
     "gather_facts", "become", "become_user", "become_method",
@@ -1078,7 +1078,7 @@ _FUNCTION_TYPES: dict[str, list[str]] = {
     "perl": ["subroutine_declaration_statement", "method_declaration_statement"],
     "kotlin": ["function_declaration"],
     # Swift: initializers, deinitializers and subscripts are separate node
-    # types, not `function_declaration`s, so they need listing alongside it —
+    # types, not `function_declaration`s, so they need listing alongside it â€”
     # the same way java/csharp list `constructor_declaration`. Their names come
     # from the `_get_name` Swift branch (the grammar has no usable name field).
     "swift": [
@@ -1113,7 +1113,7 @@ _FUNCTION_TYPES: dict[str, list[str]] = {
     # Elixir: def/defp/defmacro are all ``call`` nodes whose first
     # identifier matches. Dispatched via _extract_elixir_constructs.
     "elixir": [],
-    # Nix: `attrpath = expr;` bindings become Function nodes —
+    # Nix: `attrpath = expr;` bindings become Function nodes â€”
     # handled in _extract_nix_constructs.
     "nix": [],
     # Zig: FnProto+Block pairs sit inside a Decl node; the standard generic
@@ -1129,7 +1129,7 @@ _FUNCTION_TYPES: dict[str, list[str]] = {
         "macro_definition",
     ],
     "verilog": ["task_declaration", "function_declaration", "always_construct"],
-    # GDScript: ``func name(args) -> ReturnType:`` — includes ``static func``.
+    # GDScript: ``func name(args) -> ReturnType:`` â€” includes ``static func``.
     "gdscript": ["function_definition"],
     # SQL: CREATE FUNCTION / CREATE PROCEDURE handled via _parse_sql dispatch.
     "sql": [],
@@ -1149,7 +1149,7 @@ _IMPORT_TYPES: dict[str, list[str]] = {
     "cpp": ["preproc_include"],
     "csharp": ["using_directive"],
     "ruby": ["call"],  # require/require_relative
-    "r": ["call"],  # library(), require(), source() — filtered downstream
+    "r": ["call"],  # library(), require(), source() â€” filtered downstream
     "perl": ["use_statement", "require_expression"],
     "kotlin": ["import_header"],
     "swift": ["import_declaration"],
@@ -1170,13 +1170,13 @@ _IMPORT_TYPES: dict[str, list[str]] = {
     # Objective-C: #import "..." and #include "..." both arrive as preproc_include
     # (tree-sitter-objc doesn't distinguish via a separate preproc_import node).
     "objc": ["preproc_include"],
-    # Bash: source / . <file> is a command — handled in _extract_bash_source below.
+    # Bash: source / . <file> is a command â€” handled in _extract_bash_source below.
     "bash": [],
-    # Elixir: alias/import/require/use are all ``call`` nodes —
+    # Elixir: alias/import/require/use are all ``call`` nodes â€”
     # handled in _extract_elixir_constructs.
     "elixir": [],
     # Nix: `import ./x.nix`, `callPackage ./y.nix {}`, and flake
-    # `inputs.*.url` strings become IMPORTS_FROM edges —
+    # `inputs.*.url` strings become IMPORTS_FROM edges â€”
     # handled in _extract_nix_constructs.
     "nix": [],
     # Zig: @import("path") is a SuffixExpr containing a BUILTINIDENTIFIER
@@ -1234,7 +1234,7 @@ _CALL_TYPES: dict[str, list[str]] = {
     "objc": ["message_expression", "call_expression"],
     # Bash: every command invocation is a "command" node.
     "bash": ["command"],
-    # Elixir: everything is a ``call`` node — dispatched via
+    # Elixir: everything is a ``call`` node â€” dispatched via
     # _extract_elixir_constructs which filters out def/defmodule/alias/etc.
     # before treating what's left as a real call.
     "elixir": [],
@@ -1273,7 +1273,7 @@ def _builtin_language_names() -> frozenset[str]:
     """All built-in language identifiers.
 
     Used to stop config-driven custom languages (languages.toml) from
-    shadowing a built-in language name — built-ins always win.
+    shadowing a built-in language name â€” built-ins always win.
     """
     return (
         frozenset(EXTENSION_TO_LANGUAGE.values())
@@ -1658,7 +1658,7 @@ _RESCRIPT_MODULE_RE = re.compile(
 # Optional leading decorator block on the same line, e.g. `@deriving(foo)`.
 _RESCRIPT_DECORATOR_PREFIX = r"(?:@[A-Za-z_][A-Za-z0-9_']*(?:\([^)]*\))?\s+)*"
 
-# `let [rec] name` / `and name` — captures binding name. Multi-line decorators
+# `let [rec] name` / `and name` â€” captures binding name. Multi-line decorators
 # on prior lines don't interfere (they end with a newline and the anchor
 # restarts on the next line); same-line decorators are tolerated.
 _RESCRIPT_LET_RE = re.compile(
@@ -1685,7 +1685,7 @@ _RESCRIPT_OPEN_RE = re.compile(
     re.MULTILINE,
 )
 
-# `module X = Foo.Bar` with no `{` body — a module alias/re-export. Distinct
+# `module X = Foo.Bar` with no `{` body â€” a module alias/re-export. Distinct
 # from `module X = { ... }` (handled by _RESCRIPT_MODULE_RE + brace scan).
 _RESCRIPT_MODULE_ALIAS_RE = re.compile(
     r"^\s*module\s+([A-Z][A-Za-z0-9_']*)\s*=\s*"
@@ -1704,12 +1704,12 @@ _RESCRIPT_JSX_RE = re.compile(
     re.MULTILINE,
 )
 
-# `@module("path")` — source module for an external binding
+# `@module("path")` â€” source module for an external binding
 _RESCRIPT_MODULE_ATTR_RE = re.compile(
     r'@module\(\s*"([^"]+)"\s*\)',
 )
 
-# `Ident(`, `Mod.fn(` — anything that looks like a call site. Preceded by a
+# `Ident(`, `Mod.fn(` â€” anything that looks like a call site. Preceded by a
 # non-identifier char to avoid matching suffixes of identifiers.
 _RESCRIPT_CALL_RE = re.compile(
     rf"(?<![A-Za-z0-9_']){_RESCRIPT_IDENT}(?:\.{_RESCRIPT_IDENT})*\s*\(",
@@ -1770,7 +1770,7 @@ def _strip_rescript_noise(text: str) -> str:
                     out.append("\n" if text[i] == "\n" else " ")
                     i += 1
             continue
-        # Double-quoted string — blank content, keep quotes + newlines.
+        # Double-quoted string â€” blank content, keep quotes + newlines.
         if c == '"':
             out.append('"')
             i += 1
@@ -1785,7 +1785,7 @@ def _strip_rescript_noise(text: str) -> str:
                 out.append('"')
                 i += 1
             continue
-        # Backtick template string — blank content, preserve newlines.
+        # Backtick template string â€” blank content, preserve newlines.
         if c == "`":
             out.append("`")
             i += 1
@@ -1828,7 +1828,7 @@ def _scan_rescript_modules(cleaned: str, offset_to_line) -> list[dict]:
     modules: list[dict] = []
     n = len(cleaned)
     # Module aliases (`module X = Foo.Bar`) also match _RESCRIPT_MODULE_RE but
-    # have no brace body — skip them here to avoid the greedy `{`-scanner
+    # have no brace body â€” skip them here to avoid the greedy `{`-scanner
     # swallowing the next unrelated block (e.g. a `let` body).
     alias_starts = {
         m.start() for m in _RESCRIPT_MODULE_ALIAS_RE.finditer(cleaned)
@@ -2023,7 +2023,7 @@ def _detect_django_router_registrations(source: bytes) -> list[dict[str, Optiona
     ``resolve_django_routes``, which closes DRF's routed test-gap blind
     spot: a test hitting a ViewSet action via ``client.post(url)`` leaves
     no direct CALLS edge to the handler, since Django's router resolves
-    the URL at runtime — invisible to static analysis.
+    the URL at runtime â€” invisible to static analysis.
     """
     text = source.decode("utf-8", errors="replace")
     registrations: list[dict[str, Optional[str]]] = []
@@ -2057,7 +2057,7 @@ def _drf_action_metadata(
     Covers the two ways a DRF ViewSet method becomes routable: an
     ``@action(...)`` decorator (custom route) or one of the six
     router-generated default action names (conventional route). Both
-    require the enclosing class to look like a ViewSet — a name heuristic,
+    require the enclosing class to look like a ViewSet â€” a name heuristic,
     since confirming inheritance from ``ViewSet``/``ModelViewSet`` would
     need resolving imports across the whole class hierarchy for a check
     this narrow.
@@ -2090,7 +2090,7 @@ def _drf_test_client_calls(body_text: str) -> list[dict[str, str]]:
 
     A regex over the method's own source slice, not a call-graph walk: the
     receiver is left unconstrained (could be ``self.client``, ``api_client``,
-    a plain dict with a same-named ``.get`` — a false match there just
+    a plain dict with a same-named ``.get`` â€” a false match there just
     never matches a real route later and is silently dropped, so being
     loose here costs nothing). F-string interpolations (``{due_id}``) are
     kept as literal ``{...}`` markers; ``resolve_django_routes`` treats a
@@ -2449,7 +2449,7 @@ def _hcl_dynamic_iterator_name(block_node) -> Optional[str]:
     return default_name
 
 
-# Dispatch table: block_type → (graph_kind, name_prefix, n_labels, emit_refs)
+# Dispatch table: block_type â†’ (graph_kind, name_prefix, n_labels, emit_refs)
 # "terraform" and unknown types are absent so they are silently skipped.
 _HCL_BLOCK_CFG: dict[str, tuple[str, str, int, bool]] = {
     "resource": ("Class",    "resource", 2, True),
@@ -2525,7 +2525,7 @@ def _ansible_file_type(path: Path) -> str:
 
 
 def _ansible_fqcn_short(key: str) -> str:
-    """Strip FQCN prefix: 'ansible.builtin.include_tasks' → 'include_tasks'."""
+    """Strip FQCN prefix: 'ansible.builtin.include_tasks' â†’ 'include_tasks'."""
     return key.rsplit(".", 1)[-1]
 
 
@@ -2661,7 +2661,7 @@ class CodeParser:
         Extension-based lookup is tried first.  For extension-less files
         (typical for Unix scripts like ``bin/myapp`` or ``.git/hooks/pre-commit``)
         we fall back to reading the first line for a shebang.  Files that
-        already have a known extension are never re-read — shebang probing
+        already have a known extension are never re-read â€” shebang probing
         only runs when the extension lookup returns ``None`` **and** the path
         has no suffix at all.  See issue #237.
 
@@ -2683,7 +2683,7 @@ class CodeParser:
             return None
         if lang is not None:
             return lang
-        # Only probe shebang for files without any extension — "README", "LICENSE",
+        # Only probe shebang for files without any extension â€” "README", "LICENSE",
         # and other extension-less text files also fall here, but the probe is a
         # cheap 256-byte read that returns None when no shebang is found.
         if suffix == "":
@@ -2743,7 +2743,7 @@ class CodeParser:
 
         first = tokens[0]
         # `/usr/bin/env` indirection: the interpreter is the next token.
-        # `/usr/bin/env -S node --flag` is also valid — skip any leading
+        # `/usr/bin/env -S node --flag` is also valid â€” skip any leading
         # ``-`` options after env.
         if first.endswith("/env") or first == "env":
             interpreter_token: Optional[str] = None
@@ -2806,7 +2806,7 @@ class CodeParser:
         if language == "vue":
             return self._parse_vue(path, source)
 
-        # Svelte SFCs: same approach as Vue — extract <script> blocks
+        # Svelte SFCs: same approach as Vue â€” extract <script> blocks
         if language == "svelte":
             return self._parse_svelte(path, source)
 
@@ -2838,7 +2838,7 @@ class CodeParser:
         if language == "rescript":
             return self._parse_rescript(path, source)
 
-        # SQL: dedicated parser — tree-sitter for tables/views/functions +
+        # SQL: dedicated parser â€” tree-sitter for tables/views/functions +
         # regex fallback for CREATE PROCEDURE (unsupported by the grammar).
         if language == "sql":
             return self._parse_sql(path, source)
@@ -4152,10 +4152,10 @@ class CodeParser:
 
         # Strip comments and string/backtick literal content so downstream
         # regex matches are not fooled by code-looking text inside strings.
-        # Newlines are preserved so offset→line mapping stays accurate.
+        # Newlines are preserved so offsetâ†’line mapping stays accurate.
         cleaned = _strip_rescript_noise(text)
 
-        # Build offset → line index (1-based).
+        # Build offset â†’ line index (1-based).
         line_starts = [0]
         for i, ch in enumerate(cleaned):
             if ch == "\n":
@@ -4227,7 +4227,7 @@ class CodeParser:
                     innermost_start = m["start_off"]
             return innermost_name
 
-        # First: let/and bindings — collect offsets so we can later compute
+        # First: let/and bindings â€” collect offsets so we can later compute
         # end offsets for call attribution.
         let_entries: list[dict] = []
         for match in _RESCRIPT_LET_RE.finditer(cleaned):
@@ -4237,7 +4237,7 @@ class CodeParser:
             off = match.start(1)
             parent = enclosing_module(off)
             if not is_top_level(off, parent):
-                continue  # nested local `let` — not a structural node
+                continue  # nested local `let` â€” not a structural node
             line_start = offset_to_line(off)
             is_test_fn = _is_test_function(name, file_path_str)
             let_entries.append({
@@ -4416,7 +4416,7 @@ class CodeParser:
                         extra={"rescript_call_kind": "jsx"},
                     ))
 
-        # Calls — interface files have no call sites, skip.
+        # Calls â€” interface files have no call sites, skip.
         if not is_interface and let_entries:
             for match in _RESCRIPT_CALL_RE.finditer(cleaned):
                 target = match.group(1)
@@ -4517,7 +4517,7 @@ class CodeParser:
     # SQL parser
     # ------------------------------------------------------------------
 
-    # Regex for CREATE PROCEDURE — tree-sitter SQL grammar emits an ERROR node
+    # Regex for CREATE PROCEDURE â€” tree-sitter SQL grammar emits an ERROR node
     # for this statement, so we fall back to a regex scan.
     _SQL_PROC_RE = re.compile(
         r"CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+(?:\.\w+)*)",
@@ -4537,10 +4537,10 @@ class CodeParser:
         """Parse a `.sql` file.
 
         Extracts:
-        - Tables (CREATE TABLE) → Class nodes with extra["sql_kind"]="table"
-        - Views  (CREATE VIEW)  → Class nodes with extra["sql_kind"]="view"
-        - Functions (CREATE FUNCTION) → Function nodes with extra["sql_kind"]="function"
-        - Procedures (CREATE PROCEDURE, regex fallback) → Function nodes with
+        - Tables (CREATE TABLE) â†’ Class nodes with extra["sql_kind"]="table"
+        - Views  (CREATE VIEW)  â†’ Class nodes with extra["sql_kind"]="view"
+        - Functions (CREATE FUNCTION) â†’ Function nodes with extra["sql_kind"]="function"
+        - Procedures (CREATE PROCEDURE, regex fallback) â†’ Function nodes with
           extra["sql_kind"]="procedure"
 
         Data dependencies (FROM/JOIN table references) are recorded as
@@ -4704,9 +4704,9 @@ class CodeParser:
         dbt materializes each model file as a table or view named after the
         file stem, so the stem is the node name.
 
-        - `{{ ref('m') }}` → IMPORTS_FROM target `m`
-        - `{{ ref('pkg', 'm') }}` → IMPORTS_FROM target `pkg.m`
-        - `{{ source('src', 'tbl') }}` → IMPORTS_FROM target `src.tbl`
+        - `{{ ref('m') }}` â†’ IMPORTS_FROM target `m`
+        - `{{ ref('pkg', 'm') }}` â†’ IMPORTS_FROM target `pkg.m`
+        - `{{ source('src', 'tbl') }}` â†’ IMPORTS_FROM target `src.tbl`
           (kept qualified: sources are external tables, not project models,
           so the target must not collide with a model node of the same name)
         """
@@ -4762,7 +4762,7 @@ class CodeParser:
         """Recursively walk a tree-sitter SQL AST and extract DDL entities."""
         if node.type in self._SQL_DDL_NODE_TYPES:
             self._extract_sql_ddl(node, source, file_path_str, nodes, edges)
-            return  # don't recurse into the DDL body — no nested DDL expected
+            return  # don't recurse into the DDL body â€” no nested DDL expected
         for child in node.children:
             self._walk_sql_tree(child, source, file_path_str, nodes, edges)
 
@@ -4784,7 +4784,7 @@ class CodeParser:
         for child in node.children:
             if child.type in ("identifier", "object_reference", "dotted_name"):
                 raw = source[child.start_byte: child.end_byte].decode("utf-8", errors="replace")
-                # Strip schema prefix (schema.name → name)
+                # Strip schema prefix (schema.name â†’ name)
                 name = raw.strip("`\"").split(".")[-1]
                 break
             # Some grammars nest: relation > object_reference > identifier
@@ -5543,7 +5543,7 @@ class CodeParser:
                     continue
                 declared_type = type_node
                 if declared_type is None:
-                    # ``var x = new Service();`` — use the constructed type.
+                    # ``var x = new Service();`` â€” use the constructed type.
                     creation = next(
                         (
                             sub for sub in child.children
@@ -5988,7 +5988,7 @@ class CodeParser:
             return nodes, edges
 
         # Content-based override: require strong evidence for "playbook" vs "tasks".
-        # hosts: alone is not sufficient — require at least one _ANSIBLE_PLAY_KEYS member
+        # hosts: alone is not sufficient â€” require at least one _ANSIBLE_PLAY_KEYS member
         # or an import_playbook: key (which is unambiguously Ansible).
         if file_type in ("unknown", "playbook"):
             if isinstance(root, _YamlSequence) and root.value:
@@ -6150,7 +6150,7 @@ class CodeParser:
                 line=play_line_start,
             ))
 
-            # vars_files: → IMPORTS_FROM
+            # vars_files: â†’ IMPORTS_FROM
             vars_files_node = _yaml_get_key(item, "vars_files")
             if isinstance(vars_files_node, _YamlSequence):
                 for vf in vars_files_node.value:
@@ -6165,7 +6165,7 @@ class CodeParser:
                             extra={"ansible_kind": "vars_files"},
                         ))
 
-            # roles: list → IMPORTS_FROM (roles are not tasks)
+            # roles: list â†’ IMPORTS_FROM (roles are not tasks)
             roles_node = _yaml_get_key(item, "roles")
             if isinstance(roles_node, _YamlSequence):
                 for role_item in roles_node.value:
@@ -6180,7 +6180,7 @@ class CodeParser:
                             extra={"ansible_kind": "role_reference"},
                         ))
 
-            # pre_tasks, tasks, post_tasks, handlers → task extraction
+            # pre_tasks, tasks, post_tasks, handlers â†’ task extraction
             for section_key, is_handler in (
                 ("pre_tasks", False),
                 ("tasks", False),
@@ -6270,7 +6270,7 @@ class CodeParser:
                 extra=task_extra,
             ))
 
-            # CONTAINS edge: parent play → task, or file → task for standalone files
+            # CONTAINS edge: parent play â†’ task, or file â†’ task for standalone files
             edges.append(EdgeInfo(
                 kind="CONTAINS",
                 source=(
@@ -6283,7 +6283,7 @@ class CodeParser:
                 line=_yaml_line(task_node),
             ))
 
-            # notify: → CALLS
+            # notify: â†’ CALLS
             notify_node = _yaml_get_key(task_node, "notify")
             if notify_node is not None:
                 for handler_name in self._ansible_extract_notify_targets(notify_node):
@@ -6296,7 +6296,7 @@ class CodeParser:
                         extra={"ansible_kind": "notify"},
                     ))
 
-            # include_tasks / import_tasks → IMPORTS_FROM (filename)
+            # include_tasks / import_tasks â†’ IMPORTS_FROM (filename)
             if module_short in ("include_tasks", "import_tasks"):
                 target_file = self._ansible_module_arg_str(module_args_node)
                 if target_file:
@@ -6309,7 +6309,7 @@ class CodeParser:
                         extra={"ansible_kind": module_short},
                     ))
 
-            # include_role / import_role → IMPORTS_FROM (role name)
+            # include_role / import_role â†’ IMPORTS_FROM (role name)
             if module_short in ("include_role", "import_role"):
                 role_name = self._ansible_role_from_module_args(module_args_node)
                 if role_name:
@@ -6322,7 +6322,7 @@ class CodeParser:
                         extra={"ansible_kind": module_short},
                     ))
 
-            # include_vars → IMPORTS_FROM (file or dir)
+            # include_vars â†’ IMPORTS_FROM (file or dir)
             if module_short == "include_vars":
                 var_target = self._ansible_module_arg_str(module_args_node)
                 if var_target:
@@ -6335,7 +6335,7 @@ class CodeParser:
                         extra={"ansible_kind": "include_vars"},
                     ))
 
-            # block / rescue / always → recurse with same parent
+            # block / rescue / always â†’ recurse with same parent
             for block_key in ("block", "rescue", "always"):
                 block_node = _yaml_get_key(task_node, block_key)
                 if block_node is not None:
@@ -6789,7 +6789,7 @@ class CodeParser:
 
         Returns True if the node was fully handled (and the main loop
         should skip generic recursion); False to let the default dispatch
-        continue (never used here — Elixir has no other node types).
+        continue (never used here â€” Elixir has no other node types).
         """
         ident = self._elixir_call_identifier(node)
         if ident is None:
@@ -6946,8 +6946,8 @@ class CodeParser:
     def _nix_attrpath_parts(self, attrpath_node) -> list[str]:
         """Flatten a Nix ``attrpath`` node into a list of identifier parts.
 
-        ``packages.default`` → ``["packages", "default"]``;
-        ``inputs.nixpkgs.url`` → ``["inputs", "nixpkgs", "url"]``. Dotted
+        ``packages.default`` â†’ ``["packages", "default"]``;
+        ``inputs.nixpkgs.url`` â†’ ``["inputs", "nixpkgs", "url"]``. Dotted
         attrpaths have ``identifier`` children separated by ``.`` tokens.
         """
         parts: list[str] = []
@@ -6995,7 +6995,7 @@ class CodeParser:
                                 url = c.text.decode("utf-8", errors="replace")
                                 results.append((url, n.start_point[0] + 1))
                                 break
-                        return  # leaf binding — no children to recurse into
+                        return  # leaf binding â€” no children to recurse into
                     # Non-url binding: still recurse so a deeper url survives
                     if inner_rhs.type == "attrset_expression":
                         visit(inner_rhs)
@@ -7021,8 +7021,8 @@ class CodeParser:
 
         def head_call_name(apply) -> Optional[str]:
             """Drill down the left-most side of nested apply_expressions to
-            the callee identifier. ``import ./x`` → ``"import"``;
-            ``pkgs.callPackage ./y { }`` → ``"callPackage"`` (last dotted
+            the callee identifier. ``import ./x`` â†’ ``"import"``;
+            ``pkgs.callPackage ./y { }`` â†’ ``"callPackage"`` (last dotted
             segment of the select_expression)."""
             cur = apply
             while cur is not None and cur.type == "apply_expression":
@@ -7052,7 +7052,7 @@ class CodeParser:
             """For nested apply_expressions like ``import ./x.nix { }``, walk
             down collecting arguments; return the first ``path_expression``
             we find."""
-            # Descend left spine collecting right-hand args in outer→inner order
+            # Descend left spine collecting right-hand args in outerâ†’inner order
             stack: list = []
             cur = apply
             while cur is not None and cur.type == "apply_expression":
@@ -7135,7 +7135,7 @@ class CodeParser:
         line = node.start_point[0] + 1
 
         # --- Flake input URL: inputs.<name>.url = "..." ------------------
-        # Flat form: ``inputs.nixpkgs.url = "github:...";`` — emit one edge,
+        # Flat form: ``inputs.nixpkgs.url = "github:...";`` â€” emit one edge,
         # skip node creation (this is metadata, not a graph "thing").
         if (
             self._is_nix_flake_file(file_path)
@@ -7159,7 +7159,7 @@ class CodeParser:
                 ))
                 return True
 
-        # Nested form: ``inputs = { nixpkgs.url = "..."; ... };`` — emit an
+        # Nested form: ``inputs = { nixpkgs.url = "..."; ... };`` â€” emit an
         # edge per inner url string. Still fall through so the ``inputs``
         # binding itself becomes a Function node and the default recursion
         # continues (the recursion won't re-emit these urls as separate
@@ -7178,7 +7178,7 @@ class CodeParser:
                     line=uline,
                 ))
 
-        # --- Regular binding → Function node -----------------------------
+        # --- Regular binding â†’ Function node -----------------------------
         qualified = self._qualify(name, file_path, enclosing_class)
         nodes.append(NodeInfo(
             kind="Function",
@@ -7238,11 +7238,11 @@ class CodeParser:
         """Handle an HCL ``block`` node and emit Class/Function/edge data.
 
         Mapping (see ``_HCL_BLOCK_CFG`` for the dispatch table):
-        - ``resource/data``        → Class  ``resource.type.name`` / ``data.type.name``
-        - ``module``               → Class  ``module.name`` + IMPORTS_FROM (source attr)
-        - ``variable/output/provider`` → Function  ``var|output|provider.name``
-        - ``locals``               → Function ``local.<key>`` per attribute
-        - ``terraform`` / unknown  → skipped
+        - ``resource/data``        â†’ Class  ``resource.type.name`` / ``data.type.name``
+        - ``module``               â†’ Class  ``module.name`` + IMPORTS_FROM (source attr)
+        - ``variable/output/provider`` â†’ Function  ``var|output|provider.name``
+        - ``locals``               â†’ Function ``local.<key>`` per attribute
+        - ``terraform`` / unknown  â†’ skipped
 
         Returns True unconditionally so the main walker skips the subtree.
         """
@@ -7957,7 +7957,7 @@ class CodeParser:
                     return False
 
         # --- export_statement / public_statement -> REFERENCES edges ---
-        # ``public`` (1.11+) is a softer variant of ``export`` — symbols
+        # ``public`` (1.11+) is a softer variant of ``export`` â€” symbols
         # are part of the public API but not brought into scope by
         # ``using``. Track both so review tools can answer "what's the
         # public surface of this module?".
@@ -8660,7 +8660,7 @@ class CodeParser:
             )
             return True
 
-        # Plain ``const x = expr;`` — still scan RHS for call sites so
+        # Plain ``const x = expr;`` â€” still scan RHS for call sites so
         # call edges aren't lost when calls appear at module scope.
         self._extract_zig_calls_in_subtree(
             rhs_suffix, file_path, edges,
@@ -8886,7 +8886,7 @@ class CodeParser:
             handled = True
 
         if not handled:
-            # Not a function assignment — let generic recursion handle it
+            # Not a function assignment â€” let generic recursion handle it
             return False
         return True
 
@@ -10004,7 +10004,7 @@ class CodeParser:
     ) -> None:
         """Emit TEMPORAL_STUB edges for Temporal activity/workflow stub fields.
 
-        Detects fields whose type name ends with 'Activity' or 'Workflow' —
+        Detects fields whose type name ends with 'Activity' or 'Workflow' â€”
         the universal naming convention for Temporal interfaces. The temporal
         resolver validates these against nodes that have temporal_role in extra.
         Static fields are skipped (e.g. logger, constants).
@@ -10093,8 +10093,8 @@ class CodeParser:
         """Emit CONSUMES/PRODUCES edges for Kafka field declarations.
 
         Handles:
-        - KafkaReceiver / ReactiveKafkaConsumerTemplate → CONSUMES
-        - KafkaTemplate / KafkaOperations / ReactiveKafkaProducerTemplate → PRODUCES
+        - KafkaReceiver / ReactiveKafkaConsumerTemplate â†’ CONSUMES
+        - KafkaTemplate / KafkaOperations / ReactiveKafkaProducerTemplate â†’ PRODUCES
         Generic value type (e.g. KafkaReceiver<String, EquipmentMove>) is
         stored in extra.message_type for traceability.
         """
@@ -10718,13 +10718,13 @@ class CodeParser:
         # Persist annotations/decorators so consumers can filter on them
         # (e.g. "show me all @Composable functions").  Stored in BOTH
         # ``modifiers`` (comma-joined string) and ``extra["decorators"]``
-        # (list) — merged into the existing method_extra dict rather than a
+        # (list) â€” merged into the existing method_extra dict rather than a
         # separate one.  See: #295
         modifiers_str: Optional[str] = ",".join(deco_list) if deco_list else None
         if deco_list:
             method_extra["decorators"] = list(deco_list)
 
-        # Django REST Framework routing metadata — see
+        # Django REST Framework routing metadata â€” see
         # _drf_action_metadata / _drf_test_client_calls / _detect_django_-
         # router_registrations and resolve_django_routes for the full
         # picture of how these three pieces join back into a TESTED_BY edge.
@@ -12111,7 +12111,7 @@ class CodeParser:
                 break
             if ch.type == "." :
                 continue
-            # Chained call or complex expression as receiver — no simple receiver
+            # Chained call or complex expression as receiver â€” no simple receiver
             break
 
         # Receiver is the first child if it's a plain identifier
@@ -12266,7 +12266,7 @@ class CodeParser:
                 ancestor = ancestor.parent
 
         # Attribute to the enclosing function, else the enclosing type, else the
-        # file — so `interface Wrapper { nested: Verdict }` names Wrapper as the
+        # file â€” so `interface Wrapper { nested: Verdict }` names Wrapper as the
         # dependent rather than collapsing to the whole module.
         if enclosing_func:
             caller = self._qualify(enclosing_func, file_path, enclosing_class)
@@ -12298,7 +12298,7 @@ class CodeParser:
         """Emit ``REFERENCES`` edges for function-as-value patterns.
 
         Detects identifiers in value positions that likely refer to
-        functions — object literal values, map property assignments,
+        functions â€” object literal values, map property assignments,
         array elements, and callback arguments.  This reduces false
         positives in dead-code detection for dispatch-map patterns
         like ``Record<string, Handler>``.
@@ -12397,7 +12397,7 @@ class CodeParser:
         """Extract a REFERENCES edge from an object/dict literal pair value."""
         # pair children: key, ":", value
         children = pair_node.children
-        # Find the value — it's the last meaningful child.
+        # Find the value â€” it's the last meaningful child.
         value_node = None
         for ch in reversed(children):
             if ch.type not in (":", ",", "comment"):
@@ -13244,7 +13244,7 @@ class CodeParser:
             ):
                 self._collect_js_exported_local_names(child, defined_names)
 
-            # Collect import mappings: imported_name → module_path
+            # Collect import mappings: imported_name â†’ module_path
             if node_type in import_types:
                 self._collect_import_names(child, language, source, import_map)
 
@@ -13607,7 +13607,7 @@ class CodeParser:
         """Extract imported names and their source modules into import_map."""
         if language == "python":
             if node.type == "import_from_statement":
-                # from X.Y import A, B → {A: X.Y, B: X.Y}
+                # from X.Y import A, B â†’ {A: X.Y, B: X.Y}
                 module = None
                 seen_import_keyword = False
                 for child in node.children:
@@ -13620,7 +13620,7 @@ class CodeParser:
                             name = child.text.decode("utf-8", errors="replace")
                             import_map[name] = module
                         elif child.type == "aliased_import":
-                            # from X import A as B → {B: X}
+                            # from X import A as B â†’ {B: X}
                             names = [
                                 sub.text.decode("utf-8", errors="replace")
                                 for sub in child.children
@@ -13631,7 +13631,7 @@ class CodeParser:
                                 import_map[names[-1]] = module
 
         elif language in ("javascript", "typescript", "tsx"):
-            # import { A, B } from './path' → {A: ./path, B: ./path}
+            # import { A, B } from './path' â†’ {A: ./path, B: ./path}
             module = None
             for child in node.children:
                 if child.type == "string":
@@ -13832,7 +13832,7 @@ class CodeParser:
         caller_dir = Path(file_path).parent
 
         if language == "bash":
-            # ``source ./lib.sh`` or ``source lib.sh`` — resolve relative
+            # ``source ./lib.sh`` or ``source lib.sh`` â€” resolve relative
             # to the caller's directory. See: #197
             try:
                 target = (caller_dir / module).resolve()
@@ -13843,7 +13843,7 @@ class CodeParser:
             return None
 
         if language == "nix":
-            # ``import ./x.nix`` / ``callPackage ./x.nix { }`` — relative to
+            # ``import ./x.nix`` / ``callPackage ./x.nix { }`` â€” relative to
             # the caller's directory. Non-relative targets (URLs, bare
             # identifiers like ``nixpkgs``) are left unresolved.
             try:
@@ -13884,7 +13884,7 @@ class CodeParser:
 
         elif language in ("javascript", "typescript", "tsx", "vue"):
             if module.startswith("."):
-                # Relative import — resolve from caller's directory
+                # Relative import â€” resolve from caller's directory
                 base = caller_dir / module
                 extensions = [
                     ".ts", ".tsx", ".js", ".jsx", ".vue", ".mts", ".cts",
@@ -13892,12 +13892,12 @@ class CodeParser:
                 # Try exact path first (might already have extension)
                 if base.is_file():
                     return str(base.resolve())
-                # APPEND the extension — never `with_suffix`, which REPLACES the
+                # APPEND the extension â€” never `with_suffix`, which REPLACES the
                 # final suffix and so resolves `./outlet.entity` to `outlet.ts`
                 # instead of `outlet.entity.ts`. Dotted stems are the dominant
                 # NestJS convention (*.entity.ts, *.service.ts, *.controller.ts,
                 # *.guard.ts, *.module.ts), so the replace form silently dropped
-                # every relative import between them — a confident, wrong `0`
+                # every relative import between them â€” a confident, wrong `0`
                 # from importers_of. Mirrors `_probe_path` in tsconfig_resolver.py,
                 # which already had this right for alias imports.
                 for ext in extensions:
@@ -13924,7 +13924,7 @@ class CodeParser:
                         if target.is_file():
                             return str(target.resolve())
             else:
-                # Non-relative import — try tsconfig path alias resolution
+                # Non-relative import â€” try tsconfig path alias resolution
                 resolved = self._tsconfig_resolver.resolve_alias(module, file_path)
                 if resolved:
                     return resolved
@@ -13936,7 +13936,7 @@ class CodeParser:
                 if base.is_file():
                     return str(base.resolve())
                 # Fallback: try appending .dart. APPEND, never `with_suffix`,
-                # which REPLACES the final suffix — same bug class as the
+                # which REPLACES the final suffix â€” same bug class as the
                 # JS/TS resolver above. Imports normally already carry the
                 # `.dart` extension (caught by `base.is_file()` above), so
                 # this only bites an omitted extension on a dotted stem
@@ -13945,7 +13945,7 @@ class CodeParser:
                 if target.is_file():
                     return str(target.resolve())
             elif module.startswith("package:"):
-                # ``package:<name>/<sub_path>`` — resolve to the current repo's
+                # ``package:<name>/<sub_path>`` â€” resolve to the current repo's
                 # ``lib/<sub_path>`` iff a ``pubspec.yaml`` declaring that
                 # package name is found in an ancestor directory. See: #87
                 try:
@@ -13969,14 +13969,14 @@ class CodeParser:
             return self._resolve_rust_module_file(module, file_path)
 
         elif language == "java":
-            # ``import com.example.pkg.ClassName;`` — convert dot-notation
+            # ``import com.example.pkg.ClassName;`` â€” convert dot-notation
             # to a relative path and walk up from the caller's directory to
             # find the source root.  Wildcards (``import pkg.*``) and static
             # member imports (``import static pkg.Class.member``) that don't
             # resolve as-is are retried after dropping the last segment
             # (the member name).
             if module.endswith(".*"):
-                return None  # wildcard import — can't resolve to one file
+                return None  # wildcard import â€” can't resolve to one file
             rel_path = module.replace(".", "/") + ".java"
             current = caller_dir
             while True:
@@ -13986,7 +13986,7 @@ class CodeParser:
                 if current == current.parent:
                     break
                 current = current.parent
-            # Static import: ``pkg.Class.member`` — strip member, try again
+            # Static import: ``pkg.Class.member`` â€” strip member, try again
             dot = module.rfind(".")
             if dot > 0:
                 class_module = module[:dot]
@@ -14033,7 +14033,7 @@ class CodeParser:
             if composer_resolved:
                 return composer_resolved
 
-            # ``use App\Domain\Entity\Job;`` — convert namespace separators to
+            # ``use App\Domain\Entity\Job;`` â€” convert namespace separators to
             # a relative path and walk up from the caller's directory to find
             # the file, mirroring the Java resolver. PSR-4 layouts where a
             # namespace segment maps to a real directory (e.g. ``App\Foo`` ->
@@ -14637,7 +14637,7 @@ class CodeParser:
 
         The path component is normalized to POSIX separators so identities
         are stable across operating systems (#774). ``name`` and
-        ``enclosing_class`` are never touched — PHP namespace identifiers
+        ``enclosing_class`` are never touched â€” PHP namespace identifiers
         legitimately contain backslashes.
         """
         file_path = normalize_file_path(file_path)
@@ -14719,7 +14719,7 @@ class CodeParser:
         Two passes so grammar *fields* are always preferred over a broader
         *type* search: this avoids matching an unrelated same-typed node in a
         different field (e.g. LaTeX ``\\newcommand`` whose ``implementation``
-        body contains a ``text`` node — the ``declaration`` field must win).
+        body contains a ``text`` node â€” the ``declaration`` field must win).
         Returns None when no candidate resolves (caller then applies the legacy
         ``name`` field fallback).
         """
@@ -14830,7 +14830,7 @@ class CodeParser:
             # so scoped method definitions would otherwise fall through and
             # match the outer return-type type_identifier as the function name.
             # Nested scopes (Outer::Inner::method) produce nested
-            # qualified_identifier nodes — peel until we find the leaf name.
+            # qualified_identifier nodes â€” peel until we find the leaf name.
             if language == "cpp" and node.type == "function_declarator":
                 def _leaf_name(qi):
                     # Walk right-to-left: the rightmost identifier/
@@ -14872,7 +14872,7 @@ class CodeParser:
                 if child.type == "identifier":
                     return child.text.decode("utf-8", errors="replace")
 
-        # Bash function_definition: ``foo() { ... }`` — tree-sitter-bash
+        # Bash function_definition: ``foo() { ... }`` â€” tree-sitter-bash
         # stores the function name as a ``word`` child, which the generic
         # loop below doesn't recognize.
         if language == "bash" and node.type == "function_definition":
@@ -15644,7 +15644,7 @@ class CodeParser:
                     if sub.type in ("identifier", "type_identifier", "nested_identifier"):
                         bases.append(sub.text.decode("utf-8", errors="replace"))
                     elif sub.type == "generic_type":
-                        # `extends Base<T>` — the base is the generic's head.
+                        # `extends Base<T>` â€” the base is the generic's head.
                         for ident in sub.children:
                             if ident.type in ("type_identifier", "nested_type_identifier"):
                                 bases.append(ident.text.decode("utf-8", errors="replace"))
@@ -15917,7 +15917,7 @@ class CodeParser:
             # using/import statements. Children can be:
             # - identifier (simple: `using Foo`)
             # - import_path (dotted: `using Foo.Bar`)
-            # - selected_import (`using Foo: bar, baz` — first child is the
+            # - selected_import (`using Foo: bar, baz` â€” first child is the
             #   module as identifier/import_path, remaining identifiers after
             #   the ':' are imported names to record as ``Module.name``)
             def _import_path_text(n) -> str:
@@ -15982,9 +15982,9 @@ class CodeParser:
                                         f"{module_name}.{real_name}",
                                     )
         elif language == "gdscript":
-            # ``extends Node`` → type > identifier("Node")
-            # ``extends "res://path.gd"`` → string literal
-            # ``extends SomeClass.Nested`` → type node (keep full text)
+            # ``extends Node`` â†’ type > identifier("Node")
+            # ``extends "res://path.gd"`` â†’ string literal
+            # ``extends SomeClass.Nested`` â†’ type node (keep full text)
             for child in node.children:
                 if child.type == "type":
                     txt = child.text.decode("utf-8", errors="replace").strip()
@@ -16026,7 +16026,7 @@ class CodeParser:
             #   use A\B\C;            use A\B\C as D;
             #   use function A\b;     use const A\B;
             #   use A\B, C\D;         (comma-separated clauses)
-            #   use A\B\{C, D as E};  (grouped — clause names are relative to A\B)
+            #   use A\B\{C, D as E};  (grouped â€” clause names are relative to A\B)
             # Record the fully-qualified name of each imported symbol, ignoring
             # any ``as`` alias and stripping a leading ``\``, so IMPORTS_FROM
             # targets are clean FQNs that _do_resolve_module can map to files.
@@ -16065,8 +16065,8 @@ class CodeParser:
         elif language in self._custom_languages:
             # Custom languages (languages.toml): prefer the grammar's
             # module-ish field over the raw statement text (e.g. Erlang
-            # ``-import(lists, [map/2]).`` → ``lists``; Haskell
-            # ``import Data.List`` → ``Data.List``).
+            # ``-import(lists, [map/2]).`` â†’ ``lists``; Haskell
+            # ``import Data.List`` â†’ ``Data.List``).
             for field_name in ("module", "name", "path", "source"):
                 target = node.child_by_field_name(field_name)
                 if target is None:
@@ -16112,7 +16112,7 @@ class CodeParser:
             if node.type == "object_creation_expression":
                 return self._java_type_name(node)
 
-        # Julia macrocall: ``@test expr`` — name is inside
+        # Julia macrocall: ``@test expr`` â€” name is inside
         # ``macro_identifier > identifier``. Prefix with ``@`` to distinguish
         # from ordinary calls.
         if language == "julia" and node.type == "macrocall_expression":
@@ -16125,7 +16125,7 @@ class CodeParser:
                     return None
             return None
 
-        # Julia broadcast call: ``sin.(x)`` — same structure as
+        # Julia broadcast call: ``sin.(x)`` â€” same structure as
         # call_expression (first child is identifier or field_expression)
         # so the generic paths below handle it.
         if language == "php":
@@ -16162,14 +16162,14 @@ class CodeParser:
                         return _normalize_php_name(raw)
                 return None
 
-        # Scala: instance_expression (new Foo(...)) – extract the type name
+        # Scala: instance_expression (new Foo(...)) â€“ extract the type name
         if node.type == "instance_expression":
             for child in node.children:
                 if child.type in ("type_identifier", "identifier"):
                     return child.text.decode("utf-8", errors="replace")
             return None
 
-        # Objective-C: [receiver method:arg] — the method name is the
+        # Objective-C: [receiver method:arg] â€” the method name is the
         # SECOND identifier-like child (the first is the receiver). For
         # multi-part selectors like `[obj add:a to:b]` we keep the first
         # part (`add`) as the call name; later parts are keyword arguments.
@@ -16201,7 +16201,7 @@ class CodeParser:
         if language == "bash" and node.type == "command":
             for child in node.children:
                 if child.type == "command_name":
-                    # command_name wraps a word — get its text
+                    # command_name wraps a word â€” get its text
                     txt = child.text.decode("utf-8", errors="replace").strip()
                     return txt or None
             return None
@@ -16214,11 +16214,11 @@ class CodeParser:
                 return first.text.decode("utf-8", errors="replace")
             return None
 
-        # Solidity wraps call targets in an 'expression' node – unwrap it
+        # Solidity wraps call targets in an 'expression' node â€“ unwrap it
         if language == "solidity" and first.type == "expression" and first.children:
             first = first.children[0]
 
-        # Perl method_call_expression: $obj->method() — find the 'method' child
+        # Perl method_call_expression: $obj->method() â€” find the 'method' child
         if language == "perl" and node.type == "method_call_expression":
             for child in node.children:
                 if child.type == "method":
@@ -16235,7 +16235,7 @@ class CodeParser:
             return first.text.decode("utf-8", errors="replace")
 
         # Lua/Luau: dot_index_expression (obj.method) and method_index_expression
-        # (obj:method) — extract the rightmost identifier as the call name.
+        # (obj:method) â€” extract the rightmost identifier as the call name.
         if language in ("lua", "luau") and first.type in (
             "dot_index_expression", "method_index_expression",
         ):
@@ -16667,3 +16667,4 @@ class CodeParser:
                 import_map=import_map,
                 defined_names=defined_names,
             )
+
