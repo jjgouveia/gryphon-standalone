@@ -8,10 +8,24 @@
 # finding's file, and a PR past its round cap all exit before the agent runs.
 name: PR Re-review
 
+# Paused. The unattended CI round is not in use: the round runs in the
+# session the reviewer already has open (the review-pr skill registers the
+# hook), and a headless round here needs an agent key this repository does
+# not carry.
+#
+# Nothing below has been removed, so resuming is restoring the trigger that
+# used to be here:
+#
+#   on:
+#     pull_request:
+#       branches: [main, testing, staging]
+#       types: [synchronize]
+#
+# `workflow_dispatch` is the placeholder. Do not dispatch it: the job reads
+# `github.event.pull_request`, which only exists on a pull_request event,
+# so a manual run would fail on the first step. Restore the trigger first.
 on:
-  pull_request:
-    branches: [main, testing, staging]
-    types: [synchronize]
+  workflow_dispatch:
 
 permissions:
   # pull-requests: read is load-bearing, not a convenience. pr_watch.py
