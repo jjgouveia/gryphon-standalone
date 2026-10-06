@@ -72,6 +72,11 @@ _QUERY_PATTERNS = {
 
 _JAVA_FQN_PART = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*$")
 _MAX_DOTTED_TARGET_CANDIDATES = 100
+# Call lines listed per caller in callers_of; call_count still reports the total.
+_MAX_CALL_LINES = 25
+# Visible results in minimal mode: five for most patterns, 25 for callers_of.
+_MINIMAL_CAP = 5
+_MINIMAL_CALLERS_CAP = 25
 
 
 def _looks_like_java_method_fqn(target: str) -> bool:
@@ -338,7 +343,9 @@ def query_graph(
         repo_root: Repository root path. Auto-detected if omitted.
         detail_level: "standard" (full output) or "minimal" (summary only).
         max_results: Maximum results to return. Minimal mode additionally caps
-            visible results at five and reports the exact omitted count.
+            visible results at five (callers_of: 25) and reports the exact
+            omitted count. callers_of lists, per caller, every line it calls
+            the target on (call_lines, call_count).
 
     Returns:
         Matching nodes and their aligned edges, with total and omitted counts.
@@ -357,7 +364,11 @@ def query_graph(
                 ),
             }
 
-        response_limit = min(max_results, 5) if detail_level == "minimal" else max_results
+        # Minimal mode shows a short prefix. "Who calls this" is the exception:
+        # the answer is the whole list (a signature change touches every caller),
+        # and a minimal entry is a name, a file and a few line numbers.
+        minimal_cap = _MINIMAL_CALLERS_CAP if pattern == "callers_of" else _MINIMAL_CAP
+        response_limit = min(max_results, minimal_cap) if detail_level == "minimal" else max_results
         results: list[dict[str, Any]] = []
         edges_out: list[dict[str, Any]] = []
         total_results = 0
@@ -508,14 +519,22 @@ def query_graph(
         qn = node.qualified_name if node else target
 
         if pattern == "callers_of":
+            # One result per calling function, with every line it calls the
+            # target on: a signature change must touch each call site, and
+            # one line per function hid the second and third call.
             seen_sources: set[str] = set()
+            pending: list[tuple[dict[str, Any], Any]] = []
+            lines_by_source: dict[str, set[int]] = {}
             for e in store.iter_edges_by_target(qn):
                 if e.kind == "CALLS":
+                    if e.line:
+                        lines_by_source.setdefault(e.source_qualified, set()).add(e.line)
                     if e.source_qualified not in seen_sources:
                         seen_sources.add(e.source_qualified)
                         caller = store.get_node(e.source_qualified)
                         if caller:
-                            add_result(node_to_dict(caller), e)
+                            pending.append((node_to_dict(caller), e))
+            exact_sources = set(seen_sources)
             # Fallback: CALLS edges store unqualified target names
             # (e.g. "generateTestCode") while qn is fully qualified
             # (e.g. "file.ts::generateTestCode"). Search by plain name too.
@@ -544,13 +563,24 @@ def query_graph(
                         continue
                     if cpp_overload_count > 1:
                         continue
+                    # A caller already listed through an exact edge keeps only
+                    # the lines of that edge: its bare-name calls may be to
+                    # another function that shares the name.
+                    if e.source_qualified not in exact_sources and e.line:
+                        lines_by_source.setdefault(e.source_qualified, set()).add(e.line)
                     if e.source_qualified not in seen_sources:
                         seen_sources.add(e.source_qualified)
                         caller = store.get_node(e.source_qualified)
                         if caller:
                             caller_result = node_to_dict(caller)
                             caller_result["target_resolution"] = "unresolved"
-                            add_result(caller_result, e)
+                            pending.append((caller_result, e))
+            for caller_result, e in pending:
+                call_lines = sorted(lines_by_source.get(e.source_qualified, ()))
+                if call_lines:
+                    caller_result["call_lines"] = call_lines[:_MAX_CALL_LINES]
+                    caller_result["call_count"] = len(call_lines)
+                add_result(caller_result, e)
 
         elif pattern == "references_to":
             seen_reference_sources: set[str] = set()
@@ -840,6 +870,13 @@ def query_graph(
         )
         if results_omitted:
             summary += f" — showing {len(results)}, {results_omitted} omitted"
+            if detail_level == "minimal" and max_results >= minimal_cap:
+                summary += (
+                    f"; for all {total_results} use detail_level=\"standard\" "
+                    f"with max_results={total_results}"
+                )
+            elif max_results < total_results and len(results) >= max_results:
+                summary += f"; pass max_results={total_results} for all"
 
         # A zero here is the dangerous direction: agents read it as "none
         # exist" and either conclude wrongly or fall back to grepping the
@@ -853,6 +890,8 @@ def query_graph(
 
         if detail_level == "minimal":
             result_fields: tuple[str, ...] = ("name", "kind", "file_path", "indirect")
+            if pattern == "callers_of":
+                result_fields += ("call_lines", "call_count", "target_resolution")
             if pattern == "inheritors_of":
                 result_fields += ("inferred_by",)
             if pattern == "references_to":

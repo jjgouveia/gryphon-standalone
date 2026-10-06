@@ -72,6 +72,17 @@
 
 ### Changed
 
+- `query_graph_tool callers_of` lists every call site. Each caller carries
+  `call_lines` (every line it calls the target on, up to 25) and
+  `call_count`; before, a function that called the target three times
+  showed one line, and an agent changing a signature stopped there. The
+  minimal view shows up to 25 callers instead of five (other patterns keep
+  five) and marks callers found only by name (`target_resolution:
+  "unresolved"`); when results are omitted the summary says how to list
+  the rest. In an impact benchmark on a 5.7k-file TypeScript repo, the
+  line-level recall of `callers_of` alone went from 63% to 100% on the
+  hardest targets in the standard view.
+
 - The hook context aims for precision over volume.
   - **After a `git diff`, changes are ranked by what they do to callers.**
     A changed signature, `return`/`raise` or class field is tagged

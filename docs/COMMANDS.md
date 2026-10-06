@@ -110,8 +110,13 @@ pattern: str    # callers_of, references_to, callees_of, imports_of, importers_o
 target: str     # Node name, qualified name, or file path
 repo_root: str | None
 detail_level: str = "standard"   # "standard" or "minimal"
-max_results: int = 10            # More exist? results_omitted says so. Minimal caps at 5
+max_results: int = 10            # More exist? results_omitted says so. Minimal caps at 5 (callers_of: 25)
 ```
+`callers_of` returns one result per calling function with `call_lines` (every line it calls
+the target on, up to 25) and `call_count`, so a signature change can touch each call site.
+A caller matched only by name carries `target_resolution: "unresolved"`, in minimal mode too: the
+bare name may be another function that shares it. When results are omitted the summary says how
+to list the rest.
 
 #### `get_review_context_tool`
 ```
