@@ -131,6 +131,7 @@ class TestGenerateSkills:
             "refactor-safely",
             "review-changes",
             "review-delta",
+            "review-multi",
             "review-pr",
         ]
         for d in skills_dir.iterdir():
@@ -162,6 +163,7 @@ class TestGenerateSkills:
             "refactor-safely",
             "review-changes",
             "review-delta",
+            "review-multi",
             "review-pr",
         ):
             for skill_file in (
@@ -176,7 +178,7 @@ class TestGenerateSkills:
         result = generate_skills(tmp_path, skills_dir=custom)
         assert result == custom
         assert result.is_dir()
-        assert len(list(result.iterdir())) == 7
+        assert len(list(result.iterdir())) == 8
 
     def test_skill_content_includes_get_minimal_context(self, tmp_path):
         """Every workflow skill must reference get_minimal_context_tool.
@@ -249,7 +251,7 @@ class TestGenerateSkills:
         generate_skills(tmp_path)
         generate_skills(tmp_path)
         skills_dir = tmp_path / ".claude" / "skills"
-        assert len(list(skills_dir.iterdir())) == 7
+        assert len(list(skills_dir.iterdir())) == 8
 
 
 class TestGenerateHooksConfig:
@@ -1167,6 +1169,7 @@ class TestCodeBuddyPlatform:
             "refactor-safely",
             "review-changes",
             "review-delta",
+            "review-multi",
             "review-pr",
         }
         for skill_dir in skills_root.iterdir():
