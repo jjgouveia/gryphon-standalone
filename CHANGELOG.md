@@ -140,6 +140,16 @@
 
 ### Fixed
 
+- `from pkg import submodule [as alias]` now records an import of the
+  submodule's file, not only of `pkg/__init__.py`. A call such as
+  `alias.func()` therefore resolves to `submodule.func`, and a test that
+  calls it counts as covering it. Before, the call stayed a bare name,
+  `detect-changes` (and the PR comment built on it) listed the function as
+  an untested change, and `tests_for` returned nothing. On this repository,
+  functions with a test that calls them but no coverage edge fell from 41
+  to 8. An edge is added only when `pkg.name` resolves to a repository
+  file, so importing a function or a class adds nothing.
+
 - `enrich` found no graph kept outside the repository (`--data-dir`,
   `CRG_DATA_DIR`): search and file-read enrichment read a hard-coded
   `.gryphon/graph.db` and silently returned nothing.

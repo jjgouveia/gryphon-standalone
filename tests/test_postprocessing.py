@@ -465,6 +465,112 @@ class TestToolBuildUsesSharedPipeline:
             store.close()
 
 
+class TestPythonSubmoduleImports:
+    """``from pkg import submodule [as alias]`` imports the submodule's file.
+
+    A test calling ``alias.func()`` must count as covering ``func``; before, the
+    edge stopped at ``pkg/__init__.py`` and the call stayed a bare name, so the
+    PR report listed a covered function as a test gap.
+    """
+
+    @staticmethod
+    def _build(tmp_path, test_source: str):
+        merge = tmp_path / "pkg" / "merge.py"
+        helpers = tmp_path / "pkg" / "helpers.py"
+        test_file = tmp_path / "tests" / "test_merge.py"
+        merge.parent.mkdir(parents=True)
+        test_file.parent.mkdir()
+        (merge.parent / "__init__.py").write_text("")
+        merge.write_text("def split_findings(items):\n    return list(items)\n")
+        helpers.write_text("def helper():\n    return 1\n")
+        test_file.write_text(test_source)
+        (tmp_path / ".git").mkdir()
+        (tmp_path / ".gryphon").mkdir()
+        store = GraphStore(tmp_path / ".gryphon" / "graph.db")
+        tracked = [
+            "pkg/__init__.py", "pkg/merge.py", "pkg/helpers.py", "tests/test_merge.py",
+        ]
+        with patch("gryphon.incremental.get_all_tracked_files", return_value=tracked):
+            full_build(tmp_path, store)
+        run_post_processing(store)
+        return store, merge, helpers, test_file
+
+    @staticmethod
+    def _import_targets(store, test_file) -> set[str]:
+        return {
+            row["target_qualified"]
+            for row in store._conn.execute(
+                "SELECT target_qualified FROM edges "
+                "WHERE kind = 'IMPORTS_FROM' AND file_path = ?",
+                (test_file.as_posix(),),
+            ).fetchall()
+        }
+
+    def test_aliased_submodule_call_counts_as_test_coverage(self, tmp_path):
+        store, merge, _helpers, test_file = self._build(
+            tmp_path,
+            "from pkg import merge as merge_mod\n\n"
+            "def test_split_keeps_items():\n"
+            "    assert merge_mod.split_findings([1]) == [1]\n",
+        )
+        try:
+            production = f"{merge.as_posix()}::split_findings"
+            assert merge.as_posix() in self._import_targets(store, test_file)
+            tests = store.get_transitive_tests(production, max_depth=0)
+            assert [t["name"] for t in tests] == ["test_split_keeps_items"]
+            # What detect-changes reads: a TESTED_BY edge on the qualified function.
+            assert any(
+                e.kind == "TESTED_BY" for e in store.get_edges_by_source(production)
+            )
+        finally:
+            store.close()
+
+    def test_plain_submodule_import_and_several_names(self, tmp_path):
+        store, merge, helpers, test_file = self._build(
+            tmp_path,
+            "from pkg import merge, helpers as h\n\n"
+            "def test_both():\n"
+            "    assert merge.split_findings([]) == [] and h.helper() == 1\n",
+        )
+        try:
+            targets = self._import_targets(store, test_file)
+            assert {merge.as_posix(), helpers.as_posix()} <= targets
+            for module, name in ((merge, "split_findings"), (helpers, "helper")):
+                assert any(
+                    e.kind == "TESTED_BY"
+                    for e in store.get_edges_by_source(f"{module.as_posix()}::{name}")
+                )
+        finally:
+            store.close()
+
+    def test_importing_a_function_adds_no_module_edge(self, tmp_path):
+        store, merge, helpers, test_file = self._build(
+            tmp_path,
+            "from pkg.merge import split_findings\n\n"
+            "def test_split():\n"
+            "    assert split_findings([2]) == [2]\n",
+        )
+        try:
+            targets = self._import_targets(store, test_file)
+            assert targets == {merge.as_posix()}  # no edge to helpers.py or a bogus module
+        finally:
+            store.close()
+
+    def test_a_name_that_is_not_a_module_adds_nothing(self, tmp_path):
+        store, merge, helpers, test_file = self._build(
+            tmp_path,
+            "from pkg import helpers_missing\n\n"
+            "def test_x():\n"
+            "    assert True\n",
+        )
+        try:
+            assert self._import_targets(store, test_file) == {
+                (tmp_path / "pkg" / "__init__.py").as_posix(),
+            }
+        finally:
+            store.close()
+
+
 class TestWatchCallbackIntegration:
     def test_watch_accepts_callback_parameter(self):
         import inspect

@@ -10845,7 +10845,57 @@ class CodeParser:
                 file_path=file_path,
                 line=child.start_point[0] + 1,
             ))
+        if language == "python":
+            edges.extend(self._python_submodule_imports(child, file_path))
         return bool(imports)
+
+    def _python_submodule_imports(self, node, file_path: str) -> list[EdgeInfo]:
+        """IMPORTS_FROM edges for ``from pkg import submodule [as alias]``.
+
+        The statement names the package, so the edge above stops at
+        ``pkg/__init__.py``. When the imported name is itself a module of the
+        repository (``pkg/submodule.py``), that file is imported too. Without
+        it, ``alias.func()`` never reached the file that defines ``func``, and
+        a test calling it that way was not counted as covering it.
+
+        An edge is added only when ``pkg.name`` resolves to a file: a name
+        that is a function or a class has no such file and adds nothing.
+        """
+        if node.type != "import_from_statement":
+            return []
+        module_node = node.child_by_field_name("module_name")
+        if module_node is None:
+            return []
+        module = module_node.text.decode("utf-8", errors="replace")
+        prefix = module if module.endswith(".") else f"{module}."
+        names: list[str] = []
+        after_import = False
+        for part in node.children:
+            if part.type == "import":
+                after_import = True
+            elif not after_import:
+                continue
+            elif part.type in ("identifier", "dotted_name"):
+                names.append(part.text.decode("utf-8", errors="replace"))
+            elif part.type == "aliased_import":
+                name_node = part.child_by_field_name("name")
+                if name_node is not None:
+                    names.append(name_node.text.decode("utf-8", errors="replace"))
+        edges: list[EdgeInfo] = []
+        seen: set[str] = set()
+        for name in names:
+            resolved = self._resolve_python_module_in_repo(prefix + name, file_path)
+            if resolved is None or resolved in seen:
+                continue
+            seen.add(resolved)
+            edges.append(EdgeInfo(
+                kind="IMPORTS_FROM",
+                source=file_path,
+                target=resolved,
+                file_path=file_path,
+                line=node.start_point[0] + 1,
+            ))
+        return edges
 
     def _extract_calls(
         self,
