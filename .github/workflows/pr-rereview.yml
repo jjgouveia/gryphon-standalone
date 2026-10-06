@@ -47,11 +47,13 @@ jobs:
         id: decide
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -uo pipefail
           status=0
           python scripts/pr_watch.py \
             --repo "${GITHUB_REPOSITORY}" \
+            --pr "${PR_NUMBER}" \
             --max-rounds 6 \
             --json > "${RUNNER_TEMP}/candidates.json" || status=$?
           case "${status}" in

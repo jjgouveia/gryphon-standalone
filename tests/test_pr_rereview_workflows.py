@@ -193,6 +193,17 @@ def test_the_pre_filter_gates_the_agent(analysis):
     assert "needs-round" in text
 
 
+def test_the_pre_filter_checks_the_event_pr_not_a_reviewer_search(analysis):
+    text = ANALYSIS_WORKFLOW.read_text(encoding="utf-8")
+
+    # The workflow token is an integration token: `gh api user` answers it
+    # with 403, so a reviewer-scoped scan fails on its first call. The
+    # event already names the PR, and the ledger proves it was reviewed.
+    assert '--pr "${PR_NUMBER}"' in text
+    assert "--reviewer" not in text
+    assert "github.event.pull_request.number" in text
+
+
 def test_the_body_is_composed_by_the_script_not_the_model(analysis):
     text = ANALYSIS_WORKFLOW.read_text(encoding="utf-8")
 
