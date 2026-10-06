@@ -546,6 +546,65 @@ def test_a_pr_the_author_already_fixed_stays_out_of_the_scan(monkeypatch):
     assert survey(REPO, max_rounds=6) == []
 
 
+# --- checking one PR (the CI scope) --------------------------------------
+
+
+def test_survey_pr_needs_no_reviewer_lookup(monkeypatch):
+    # The CI token is an integration token and `gh api user` answers it
+    # with 403, so the single-PR path must never resolve an account. The
+    # ledger in the thread is the proof the PR was reviewed.
+    stub_gh(
+        monkeypatch,
+        reviews=[
+            {"body": render(make_ledger()), "submitted_at": "2026-01-01T00:00:00Z"}
+        ],
+        files=["gryphon/parser.py"],
+        compare=["gryphon/parser.py"],
+        head=NEXT_HEAD,
+    )
+    monkeypatch.setattr(
+        pr_watch,
+        "resolve_reviewer",
+        lambda: pytest.fail("the single-PR path must not resolve an account"),
+    )
+
+    found = pr_watch.survey_pr(REPO, 27, max_rounds=6)
+
+    assert [c.number for c in found] == [27]
+    assert found[0].repo == REPO
+
+
+def test_survey_pr_skips_a_pr_with_no_ledger(monkeypatch):
+    stub_gh(monkeypatch, pulls=[pull()], files=["a.py"])
+
+    assert pr_watch.survey_pr(REPO, 27, max_rounds=6) == []
+
+
+def test_survey_pr_skips_a_draft(monkeypatch):
+    stub_gh(monkeypatch, draft=True)
+
+    assert pr_watch.survey_pr(REPO, 27, max_rounds=6) == []
+
+
+def test_survey_pr_reports_an_unreadable_repo(monkeypatch):
+    def boom(args):
+        raise GitHubError("could not resolve")
+
+    monkeypatch.setattr(pr_watch, "gh", boom)
+
+    with pytest.raises(GitHubError):
+        pr_watch.survey_pr(REPO, 27)
+
+
+def test_the_cli_pr_mode_checks_only_that_pr(monkeypatch):
+    calls = stub_gh(monkeypatch)
+
+    result = run_cli("--repo", REPO, "--pr", "27", "--json")
+
+    assert result.returncode == 0
+    assert not search_queries(calls), "the single-PR path must not search"
+
+
 # --- polling several repositories ----------------------------------------
 
 
