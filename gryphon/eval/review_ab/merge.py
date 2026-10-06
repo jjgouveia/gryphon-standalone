@@ -216,7 +216,8 @@ def split_findings(merged: list[dict]) -> tuple[list[dict], list[dict]]:
     """``(final, demoted)``: the ranked findings without the contradicted ones,
     and the contradicted ones, in the base schema the judge reads."""
     base_keys = ("file", "line", "severity", "category", "claim", "evidence")
-    final, demoted = [], []
+    final: list[dict] = []
+    demoted: list[dict] = []
     for f in merged:
         row = {k: f[k] for k in base_keys}
         (demoted if f.get("check") == "contradicted" else final).append(row)
