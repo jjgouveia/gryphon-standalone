@@ -316,6 +316,53 @@ def evaluate(
     )
 
 
+def fetch_pull(repo: str, number: int) -> Pull | None:
+    """One PR's refs, or None when it is a draft."""
+    detail = json.loads(
+        gh(
+            [
+                "api",
+                f"repos/{repo}/pulls/{number}",
+                "--jq",
+                "{title: .title, head: .head.sha, base: .base.ref, draft: .draft}",
+            ]
+        )
+    )
+    if detail.get("draft"):
+        return None
+    return Pull(
+        number=number,
+        title=detail.get("title") or "",
+        headRefOid=detail["head"],
+        baseRefName=detail["base"],
+    )
+
+
+def survey_pr(
+    repo: str, number: int, *, max_rounds: int | None = None
+) -> list[Candidate]:
+    """Whether one specific PR needs a round.
+
+    This is the CI scope. A round there is triggered by a push to a known
+    PR, so asking "which PRs did this account review?" is both unnecessary
+    and impossible: the workflow's token is an integration token, and
+    ``gh api user`` answers it with 403. The ledger in the thread is the
+    proof the PR was reviewed, so the reviewer search can be skipped
+    entirely.
+    """
+    assert_repo_exists(repo)
+    pull = fetch_pull(repo, number)
+    if pull is None:
+        return []
+
+    ledger = newest_ledger(repo, number)
+    delta = fetch_delta_files(
+        repo, number, since=ledger.head if ledger is not None else ""
+    )
+    candidate = evaluate(pull, ledger, delta, max_rounds=max_rounds)
+    return [replace(candidate, repo=repo)] if candidate is not None else []
+
+
 def survey(
     repo: str,
     *,
@@ -453,6 +500,14 @@ def _main(argv: list[str] | None = None) -> int:
         help="Whose reviews start a watch (default: the authenticated account)",
     )
     parser.add_argument(
+        "--pr",
+        type=int,
+        help=(
+            "Check one PR instead of scanning. This is the CI scope: the "
+            "event names the PR, and the token cannot call `gh api user`"
+        ),
+    )
+    parser.add_argument(
         "--max-rounds", type=int, help="Stop after this many rounds per PR"
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON on stdout")
@@ -468,12 +523,15 @@ def _main(argv: list[str] | None = None) -> int:
     repos = [part.strip() for part in args.repo.split(",") if part.strip()]
 
     try:
-        candidates = survey_many(
-            repos,
-            reviewer=args.reviewer,
-            label=args.label,
-            max_rounds=args.max_rounds,
-        )
+        if args.pr is not None:
+            candidates = survey_pr(repos[0], args.pr, max_rounds=args.max_rounds)
+        else:
+            candidates = survey_many(
+                repos,
+                reviewer=args.reviewer,
+                label=args.label,
+                max_rounds=args.max_rounds,
+            )
     except GitHubError as exc:
         logger.error("%s", exc)
         return 2
