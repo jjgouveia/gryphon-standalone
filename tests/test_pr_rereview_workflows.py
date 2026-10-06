@@ -71,12 +71,24 @@ def test_both_workflows_parse_and_name_their_jobs(analysis, publish):
     assert publish["name"] == "PR Re-review Comment"
 
 
-def test_the_analysis_job_triggers_only_on_synchronize(analysis):
+def test_the_analysis_job_is_paused(analysis):
+    # The CI round is off: it needs an agent key this repo does not carry,
+    # and the round runs in the reviewer's own session instead. Nothing may
+    # start it automatically, and a manual dispatch is the deliberate way
+    # back in.
     triggers = analysis[True] if True in analysis else analysis["on"]
-    pull_request = triggers["pull_request"]
 
-    assert pull_request["types"] == ["synchronize"]
-    assert set(pull_request["branches"]) == {"main", "testing", "staging"}
+    assert "pull_request" not in triggers
+    assert list(triggers) == ["workflow_dispatch"]
+
+
+def test_the_paused_workflow_still_documents_how_to_resume_it(analysis):
+    text = ANALYSIS_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "Paused." in text
+    assert "types: [synchronize]" in text, (
+        "the trigger to restore must stay visible in the comment"
+    )
 
 
 def test_the_publish_job_is_driven_by_workflow_run(publish):
