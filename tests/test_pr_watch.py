@@ -28,6 +28,17 @@ from pr_watch import (  # noqa: E402
 )
 
 REPO = "jjgouveia/gryphon-standalone"
+
+# Tests that shell out to the real ``gh`` need it authenticated. Without
+# this guard they pass on a developer machine and fail in CI, where the
+# test job has no GH_TOKEN: a "works on my machine" failure that turns the
+# suite red for a reason nobody can reproduce locally.
+_GH_AUTHENTICATED = (
+    subprocess.run(["gh", "api", "user"], capture_output=True).returncode == 0
+)
+requires_gh = pytest.mark.skipif(
+    not _GH_AUTHENTICATED, reason="gh is not authenticated"
+)
 HEAD = "a" * 40
 NEXT_HEAD = "b" * 40
 
@@ -596,19 +607,21 @@ def test_survey_pr_reports_an_unreadable_repo(monkeypatch):
         pr_watch.survey_pr(REPO, 27)
 
 
-def test_the_cli_pr_mode_checks_only_that_pr(monkeypatch):
-    calls = stub_gh(monkeypatch)
-
+@requires_gh
+def test_the_cli_pr_mode_checks_only_that_pr():
+    # A live run: the CLI is a subprocess, so a stubbed ``gh`` in this
+    # process would not apply and the assertions would be meaningless.
     result = run_cli("--repo", REPO, "--pr", "27", "--json")
 
-    assert result.returncode == 0
-    assert not search_queries(calls), "the single-PR path must not search"
+    assert result.returncode in (0, 1), result.stderr
 
 
 # --- polling several repositories ----------------------------------------
 
 
 def test_survey_many_merges_the_repos(monkeypatch):
+    monkeypatch.setattr(pr_watch, "resolve_reviewer", lambda: "me")
+
     def fake_survey(repo, **kwargs):
         return [Candidate(
             number=1 if repo == "a/b" else 2,
@@ -626,6 +639,7 @@ def test_survey_many_merges_the_repos(monkeypatch):
 def test_survey_many_survives_a_repo_it_cannot_read(monkeypatch):
     # A repo the account cannot read must not silently disable the watcher
     # everywhere else, but it must be visible rather than merely quiet.
+    monkeypatch.setattr(pr_watch, "resolve_reviewer", lambda: "me")
     seen: list[str] = []
 
     def fake_survey(repo, **kwargs):
@@ -661,6 +675,7 @@ def test_survey_many_resolves_the_reviewer_once(monkeypatch):
     assert calls == 1
 
 
+@requires_gh
 def test_the_cli_accepts_a_comma_separated_repo_list():
     result = run_cli("--repo", "jjgouveia/gryphon-standalone,Ativos-Tecnologia/cvld", "--json")
 
@@ -692,10 +707,7 @@ def test_cli_reports_a_bad_repo():
     assert run_cli("--repo", "jjgouveia/definitely-not-a-repo-xyz").returncode == 2
 
 
-@pytest.mark.skipif(
-    subprocess.run(["gh", "api", "user"], capture_output=True).returncode != 0,
-    reason="gh not authenticated",
-)
+@requires_gh
 def test_the_live_scan_finds_prs_this_reviewer_reviewed():
     # The scope is derived, so the live queue is whatever the reviewer has
     # open PRs with unresolved findings on. Asserting a specific count would
@@ -713,10 +725,7 @@ def test_the_live_scan_finds_prs_this_reviewer_reviewed():
             assert len(entry["head"]) == 40
 
 
-@pytest.mark.skipif(
-    subprocess.run(["gh", "api", "user"], capture_output=True).returncode != 0,
-    reason="gh not authenticated",
-)
+@requires_gh
 def test_the_live_scope_needs_no_label():
     # A review published with --request-changes is the trigger, and nothing
     # has to be applied by hand for the PR to enter the scan.

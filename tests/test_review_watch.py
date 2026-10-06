@@ -23,6 +23,16 @@ from pr_ledger import Finding, Ledger  # noqa: E402
 from pr_watch import Candidate  # noqa: E402
 
 REPO = "jjgouveia/gryphon-standalone"
+
+# Tests that shell out to the real ``gh`` need it authenticated. Without
+# this guard they pass on a developer machine and fail in CI, where the
+# test job has no GH_TOKEN.
+_GH_AUTHENTICATED = (
+    subprocess.run(["gh", "api", "user"], capture_output=True).returncode == 0
+)
+requires_gh = pytest.mark.skipif(
+    not _GH_AUTHENTICATED, reason="gh is not authenticated"
+)
 HEAD = "a" * 40
 
 
@@ -366,11 +376,13 @@ def test_cli_refuses_a_directory_that_is_not_the_checkout(tmp_path):
     assert "does not look like the gryphon checkout" in result.stderr
 
 
+@requires_gh
 def test_cli_polls_the_real_repo_dry():
     result = run_cli("--repo", REPO, "--repo-root", str(ROOT), "--dry-run")
 
-    # The real repo has no labeled PR, so this is the quiet path. It proves
-    # the gh plumbing and the checkout guard without asserting a PR state.
+    # This shells out to the real gh, so it needs an authenticated one. It
+    # proves the plumbing and the checkout guard without asserting a PR
+    # state.
     assert result.returncode == 0, result.stderr
 
 
