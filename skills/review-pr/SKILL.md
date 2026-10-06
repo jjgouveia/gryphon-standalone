@@ -286,18 +286,25 @@ repository could not be queried, `3` a thread carried an unreadable ledger.
 Pass `--label <name>` to narrow the scan, which is how one PR gets paused
 while the rest keep running. The default is every PR you reviewed.
 
-The watcher follows you across repositories. `GRYPHON_PR_WATCH_REPO` takes
-a comma-separated list, and each repo is polled in turn:
+The watcher follows the work, not a configuration. It reads the `/cwd`
+Claude Code reports in the hook input — the worktree root after the agent
+enters a worktree, the new directory after a `/cd` — and takes the
+repository from that checkout's `origin`. A session in the cvld checkout
+watches cvld; one in the gryphon checkout watches gryphon. Nothing to set
+per repo, and it stays right when you move between them.
+
+`GRYPHON_PR_WATCH_REPO` overrides with a comma-separated list, for the case
+where a repo is reviewed without being checked out:
 
 ```
 GRYPHON_PR_WATCH_REPO=Ativos-Tecnologia/cvld,jjgouveia/gryphon-standalone
 ```
 
-With it unset, the hook uses the checkout's own `origin`, which is right
-for a session opened inside the repository being reviewed. One repo
-failing does not disable the others, but a poll where *every* repo fails
-is reported rather than answered with "nothing to do" — a mistyped list
-must not look like a quiet afternoon.
+A session outside any checkout, with no override, watches nothing — which
+is the honest answer rather than a guess. One repo failing does not disable
+the others, but a poll where *every* repo fails is reported rather than
+answered with "nothing to do": a mistyped list must not look like a quiet
+afternoon.
 
 `GRYPHON_PR_WATCH_INTERVAL` (seconds, default 45) throttles the poll. It
 is shared across the three events, so three turns inside a minute cost one

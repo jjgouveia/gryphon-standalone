@@ -102,7 +102,7 @@ def test_a_poll_failure_stays_silent(monkeypatch, capsys, env):
 
 def test_no_repo_configured_stays_silent(monkeypatch, capsys, env):
     monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
-    monkeypatch.setattr(pr_watch_hook, "discover_repo", lambda: None)
+    monkeypatch.setattr(pr_watch_hook, "discover_repo", lambda start=None: None)
     monkeypatch.setattr(
         pr_watch_hook,
         "survey_many",
@@ -162,7 +162,7 @@ def test_one_repo_is_still_a_list(monkeypatch, env):
 def test_the_checkout_remote_is_the_fallback(monkeypatch, env):
     monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
     monkeypatch.setattr(
-        pr_watch_hook, "discover_repo", lambda: "jjgouveia/gryphon-standalone"
+        pr_watch_hook, "discover_repo", lambda start=None: "jjgouveia/gryphon-standalone"
     )
 
     assert pr_watch_hook.pending_repos() == ["jjgouveia/gryphon-standalone"]
@@ -170,7 +170,7 @@ def test_the_checkout_remote_is_the_fallback(monkeypatch, env):
 
 def test_no_repo_anywhere_is_an_empty_list(monkeypatch, env):
     monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
-    monkeypatch.setattr(pr_watch_hook, "discover_repo", lambda: None)
+    monkeypatch.setattr(pr_watch_hook, "discover_repo", lambda start=None: None)
 
     assert pr_watch_hook.pending_repos() == []
 
@@ -385,7 +385,7 @@ def test_malformed_stdin_is_handled(monkeypatch, capsys, env):
     ],
 )
 def test_repo_names_are_parsed_from_remotes(url, expected):
-    assert repo_from(url) == expected
+    assert pr_watch_hook.repo_from_remote(url) == expected
 
 
 def test_discovery_reads_the_origin_remote(monkeypatch):
@@ -398,6 +398,23 @@ def test_discovery_reads_the_origin_remote(monkeypatch):
     assert pr_watch_hook.discover_repo() == "jjgouveia/gryphon-standalone"
 
 
+def test_discovery_reads_the_remote_of_the_directory_it_is_given(monkeypatch):
+    # `-C` is what makes this dynamic: the repo is whatever checkout the
+    # session is working in, not whatever directory the hook was spawned in.
+    seen: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        seen.append(cmd)
+        return completed(0, "git@github.com:Ativos-Tecnologia/cvld.git\n")
+
+    monkeypatch.setattr(pr_watch_hook.subprocess, "run", fake_run)
+
+    found = pr_watch_hook.discover_repo(Path("/some/cvld/checkout"))
+
+    assert found == "Ativos-Tecnologia/cvld"
+    assert seen[0][:3] == ["git", "-C", str(Path("/some/cvld/checkout"))]
+
+
 def test_discovery_gives_up_on_a_missing_remote(monkeypatch):
     monkeypatch.setattr(
         pr_watch_hook.subprocess, "run", lambda *a, **k: completed(1, "")
@@ -406,18 +423,63 @@ def test_discovery_gives_up_on_a_missing_remote(monkeypatch):
     assert pr_watch_hook.discover_repo() is None
 
 
+def test_the_repo_follows_the_events_cwd(monkeypatch, env):
+    # This is the dynamism: the watcher reads the place the review is
+    # happening from the hook input, so a session in the cvld checkout
+    # watches cvld without anything being configured.
+    monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
+    seen: list[object] = []
+
+    def fake_discover(start=None):
+        seen.append(start)
+        return "Ativos-Tecnologia/cvld"
+
+    monkeypatch.setattr(pr_watch_hook, "discover_repo", fake_discover)
+
+    found = pr_watch_hook.pending_repos({"cwd": "/work/cvld"})
+
+    assert found == ["Ativos-Tecnologia/cvld"]
+    assert seen == [Path("/work/cvld")]
+
+
+def test_the_event_cwd_scopes_what_the_session_watches(monkeypatch, capsys, env):
+    monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
+    seen: list[list[str]] = []
+
+    monkeypatch.setattr(
+        pr_watch_hook, "discover_repo", lambda start=None: "Ativos-Tecnologia/cvld"
+    )
+    monkeypatch.setattr(
+        pr_watch_hook,
+        "survey_many",
+        lambda repos, **kwargs: seen.append(list(repos)) or [],
+    )
+
+    run(monkeypatch, capsys, {"hook_event_name": "Stop", "cwd": "/work/cvld"})
+
+    assert seen == [["Ativos-Tecnologia/cvld"]]
+
+
+def test_an_explicit_repo_list_still_overrides_the_checkout(monkeypatch, env):
+    monkeypatch.setenv(pr_watch_hook.ENV_REPO, "a/b,c/d")
+    monkeypatch.setattr(
+        pr_watch_hook,
+        "discover_repo",
+        lambda start=None: pytest.fail("the override must win"),
+    )
+
+    assert pr_watch_hook.pending_repos({"cwd": "/work/elsewhere"}) == ["a/b", "c/d"]
+
+
+def test_a_session_outside_a_checkout_watches_nothing(monkeypatch, env):
+    monkeypatch.delenv(pr_watch_hook.ENV_REPO, raising=False)
+    monkeypatch.setattr(pr_watch_hook, "discover_repo", lambda start=None: None)
+
+    assert pr_watch_hook.pending_repos({"cwd": "/tmp"}) == []
+
+
 def completed(code: int, stdout: str):
     return subprocess.CompletedProcess([], code, stdout=stdout, stderr="")
-
-
-def repo_from(url: str) -> str | None:
-    """The URL half of discover_repo, exercised without a subprocess."""
-    cleaned = url[:-4] if url.endswith(".git") else url
-    if cleaned.startswith("git@") and ":" in cleaned:
-        return cleaned.split(":", 1)[1]
-    if "github.com/" in cleaned:
-        return cleaned.split("github.com/", 1)[1].strip("/")
-    return None
 
 
 # --- the skill registers it --------------------------------------------

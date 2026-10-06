@@ -117,28 +117,51 @@ def mark_poll(path: Path) -> None:
         logger.debug("could not record the poll time at %s", path)
 
 
-def pending_repos() -> list[str]:
-    """The repositories to poll, from the environment or the checkout.
+def pending_repos(event: dict | None = None) -> list[str]:
+    """The repositories to poll, from the environment or where the work is.
 
-    ``GRYPHON_PR_WATCH_REPO`` takes a comma-separated list, because a
-    reviewer works across repos and watching one while the others go
-    unnoticed is the same as not watching at all. With nothing set, the
-    checkout's own ``origin`` is used, which is right for a session opened
-    inside the repository being reviewed.
+    The default is the checkout the session is working in, which is what
+    "the place the review is happening" means and is why this needs no
+    configuration: a session in the cvld checkout watches cvld, and one in
+    the gryphon checkout watches gryphon, with nothing to set up per repo.
+
+    ``cwd`` comes from the hook's own input, not from this process. Claude
+    Code reports the worktree root after the agent enters a worktree and
+    the new directory after it runs a ``cd``, so the watcher follows the
+    agent rather than the directory the hook happened to be spawned in.
+
+    ``GRYPHON_PR_WATCH_REPO`` overrides with a comma-separated list, for
+    the case where a repo is reviewed without being checked out.
     """
     raw = os.environ.get(ENV_REPO, "")
     repos = [part.strip() for part in raw.split(",") if part.strip()]
     if repos:
         return repos
 
-    discovered = discover_repo()
+    start = None
+    if event:
+        value = event.get("cwd")
+        if isinstance(value, str) and value:
+            start = Path(value)
+
+    discovered = discover_repo(start)
     return [discovered] if discovered else []
 
 
-def discover_repo() -> str | None:
+def discover_repo(start: Path | None = None) -> str | None:
+    """The GitHub owner/name of a checkout's ``origin``.
+
+    ``-C`` points git at the directory the session is in, so a worktree or
+    a subdirectory both resolve to the same repository.
+    """
+    command = ["git"]
+    if start is not None:
+        command += ["-C", str(start)]
+    command += ["remote", "get-url", "origin"]
+
     try:
         done = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
+            command,
             capture_output=True,
             text=True,
             timeout=15,
@@ -147,7 +170,11 @@ def discover_repo() -> str | None:
         return None
     if done.returncode != 0:
         return None
-    url = done.stdout.strip()
+    return repo_from_remote(done.stdout.strip())
+
+
+def repo_from_remote(url: str) -> str | None:
+    """Turn a remote URL into owner/name, or None when it is not GitHub."""
     if url.endswith(".git"):
         url = url[:-4]
     if url.startswith("git@") and ":" in url:
@@ -207,7 +234,7 @@ def main() -> int:
     if name not in INFORMING_EVENTS:
         return 0
 
-    repo = pending_repos()
+    repo = pending_repos(event)
     if not repo:
         return 0
 
