@@ -1,0 +1,188 @@
+# Publishes the re-review round produced by the unprivileged PR Re-review
+# workflow. Runs from the default branch, never checks out PR code, and
+# treats every downloaded artifact byte as untrusted input.
+#
+# The validator is deliberately the same shape as pr-review-comment.yml: the
+# round body is model-authored prose, so it gets the same confinement.
+name: PR Re-review Comment
+
+on:
+  workflow_run:
+    workflows: ["PR Re-review"]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Locate one bounded round artifact
+        id: artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_ARCHIVE_BYTES: "200000"
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mapfile -t artifact_rows < <(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            -f per_page=100 \
+            --jq '.artifacts[] | select(
+              .name == "crg-round" and (.expired | not)
+            ) | [.id, .size_in_bytes] | @tsv')
+          if [ "${#artifact_rows[@]}" -ne 1 ]; then
+            # Zero artifacts means the pre-filter decided no round was
+            # needed, which is the common case and not an error.
+            echo "No round artifact: the PR needed no re-review round."
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          IFS=$'\t' read -r artifact_id artifact_size <<< "${artifact_rows[0]}"
+          case "${artifact_id}" in
+            ''|*[!0-9]*) echo "Invalid artifact ID." >&2; exit 1 ;;
+          esac
+          case "${artifact_size}" in
+            ''|*[!0-9]*) echo "Invalid artifact size." >&2; exit 1 ;;
+          esac
+          if [ "${artifact_size}" -eq 0 ] || \
+             [ "${artifact_size}" -gt "${MAX_ARCHIVE_BYTES}" ]; then
+            echo "Round artifact is empty or exceeds the size cap." >&2
+            exit 1
+          fi
+          printf 'artifact-id=%s\n' "${artifact_id}" >> "${GITHUB_OUTPUT}"
+          echo "publish=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Download the round artifact
+        if: steps.artifact.outputs.publish == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ steps.artifact.outputs.artifact-id }}
+          path: ${{ runner.temp }}/crg-round-download
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate the untrusted round body
+        if: steps.artifact.outputs.publish == 'true'
+        env:
+          DOWNLOAD_DIR: ${{ runner.temp }}/crg-round-download
+          METADATA: ${{ runner.temp }}/crg-round-meta.json
+          VALIDATED_BODY: ${{ runner.temp }}/crg-round-body.md
+          MAX_BODY_BYTES: "65000"
+          MAX_META_BYTES: "2000"
+          MAX_REPORT_BYTES: "60000"
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          root = Path(os.environ["DOWNLOAD_DIR"])
+          if not root.is_dir() or root.is_symlink():
+              raise SystemExit("Artifact extraction root is not a safe directory")
+
+          entries = {path.name: path for path in root.iterdir()}
+          expected = {"body.md", "meta.json"}
+          if set(entries) != expected:
+              raise SystemExit("Round artifact must contain exactly body.md and meta.json")
+          if any(path.is_symlink() or not path.is_file() for path in entries.values()):
+              raise SystemExit("Round artifact entries must be regular files")
+
+          meta_file = entries["meta.json"]
+          if meta_file.stat().st_size > int(os.environ["MAX_META_BYTES"]):
+              raise SystemExit("Round metadata is too large")
+          meta = json.loads(meta_file.read_text(encoding="utf-8"))
+          if not isinstance(meta, dict):
+              raise SystemExit("Round metadata must be an object")
+
+          pr_number = meta.get("pr_number")
+          if not isinstance(pr_number, int) or isinstance(pr_number, bool) or pr_number < 1:
+              raise SystemExit("pr_number must be a positive integer")
+
+          flag = meta.get("flag")
+          if flag not in ("comment", "request-changes"):
+              # An unattended round may never approve a merge.
+              raise SystemExit(f"flag {flag!r} is not permitted from an unattended round")
+
+          head = meta.get("head")
+          if not isinstance(head, str) or re.fullmatch(r"[0-9a-f]{40}", head) is None:
+              raise SystemExit("head must be a full 40-character lowercase SHA")
+
+          body_file = entries["body.md"]
+          body_size = body_file.stat().st_size
+          if body_size == 0 or body_size > int(os.environ["MAX_REPORT_BYTES"]):
+              raise SystemExit("Round body is empty or too large")
+          text = body_file.read_bytes().decode("utf-8")
+
+          if any(ord(char) < 32 and char not in "\n\r\t" for char in text):
+              raise SystemExit("Round body contains disallowed control characters")
+          if "\x7f" in text:
+              raise SystemExit("Round body contains disallowed control characters")
+
+          # The body must carry a ledger whose head matches the analysed
+          # commit, so the next round can resume from this thread. The last
+          # block wins, matching pr_ledger.extract: a stale copy quoted in
+          # the prose must not be validated in place of the current one.
+          matches = re.findall(
+              r"<!-- gryphon-review-state (\{.*?\}) -->", text, re.DOTALL
+          )
+          if not matches:
+              raise SystemExit("Round body does not carry a state ledger")
+          ledger = json.loads(matches[-1])
+          if ledger.get("head") != head:
+              raise SystemExit("Round body ledger head does not match the analysed commit")
+          if ledger.get("flag") != flag:
+              raise SystemExit("Round body ledger flag does not match the metadata")
+          if not isinstance(ledger.get("findings"), list):
+              raise SystemExit("Round ledger findings must be a list")
+
+          # Prevent PR-controlled text from creating GitHub mentions.
+          text = text.replace("@", "&#64;")
+          body_bytes = text.encode("utf-8")
+          if len(body_bytes) > int(os.environ["MAX_BODY_BYTES"]):
+              raise SystemExit("Round body exceeds the GitHub body limit")
+
+          Path(os.environ["VALIDATED_BODY"]).write_bytes(body_bytes)
+          Path(os.environ["METADATA"]).write_text(
+              json.dumps({"pr_number": pr_number, "flag": flag, "head": head}),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Submit the review for the analysed commit
+        if: steps.artifact.outputs.publish == 'true'
+        env:
+          BODY_FILE: ${{ runner.temp }}/crg-round-body.md
+          META_FILE: ${{ runner.temp }}/crg-round-meta.json
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          pr_number=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["pr_number"])' "${META_FILE}")
+          flag=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["flag"])' "${META_FILE}")
+          analysed_head=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["head"])' "${META_FILE}")
+
+          actual_sha=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.head.sha')
+          if [ "${actual_sha}" != "${HEAD_SHA}" ]; then
+            echo "The run analysed ${HEAD_SHA} but the PR head is now ${actual_sha}; refusing to review a commit that is no longer the head." >&2
+            exit 1
+          fi
+          if [ "${analysed_head}" != "${HEAD_SHA}" ]; then
+            echo "Round ledger head ${analysed_head} does not match the run head ${HEAD_SHA}." >&2
+            exit 1
+          fi
+
+          gh api --method POST --silent \
+            "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}/reviews" \
+            -f "event=${flag}" \
+            -F "body=@${BODY_FILE}"
