@@ -35,6 +35,32 @@ def jobs(workflow: dict) -> dict:
     return workflow["jobs"]
 
 
+def test_no_workflow_level_env_uses_the_runner_context(analysis, publish):
+    # `runner` is not an available context at the workflow level. Referencing
+    # it there makes GitHub reject the whole file at validation time, which
+    # surfaces as a run that fails in 0s with no jobs and no log — the
+    # failure mode that looks like nothing happened at all.
+    for workflow in (analysis, publish):
+        for key, value in (workflow.get("env") or {}).items():
+            assert "runner." not in str(value), (
+                f"workflow-level env {key!r} uses the runner context"
+            )
+
+
+def test_every_expression_uses_a_context_available_where_it_sits(analysis, publish):
+    # The workflow-level `on`/`env`/`concurrency` may use `github` and `vars`;
+    # `runner` and `steps` belong to jobs. This is a coarse guard: it catches
+    # the context being hoisted too high, which is the mistake that is
+    # invisible locally and fatal in CI.
+    for workflow in (analysis, publish):
+        for value in (workflow.get("env") or {}).values():
+            assert "steps." not in str(value)
+        group = (workflow.get("concurrency") or {}).get("group")
+        if group:
+            assert "runner." not in str(group)
+            assert "steps." not in str(group)
+
+
 # --- both workflows are valid YAML with the expected shape --------------
 
 

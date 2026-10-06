@@ -27,9 +27,6 @@ concurrency:
   group: pr-rereview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-env:
-  ROUND_DIR: ${{ runner.temp }}/crg-round
-
 jobs:
   round:
     # A fork PR gets a read-only token and cannot be reviewed into a post,
@@ -137,6 +134,11 @@ jobs:
         id: compose
         if: steps.decide.outputs.needs-round == 'true'
         env:
+          # The `runner` context is not available at the workflow level, so
+          # this cannot be hoisted into a top-level `env` block: GitHub
+          # rejects the whole file at validation time, which surfaces as a
+          # run that fails in 0s with no jobs and no log.
+          ROUND_DIR: ${{ runner.temp }}/crg-round
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
