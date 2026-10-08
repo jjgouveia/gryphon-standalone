@@ -406,6 +406,12 @@ every PR would look like round 1.
 - Show the review body in chat first, with the suggested flag
   (`--comment` / `--request-changes` / `--approve`) stated next to the
   draft — never inside the body.
+- Flag default: if at least one finding asks for a change before merge,
+  use `--request-changes` and move the remaining findings out of the body
+  into a follow-up issue assigned to the PR author (below). Use
+  `--comment` only when nothing in the review conditions the merge; when
+  torn between "important" and "real gap", pick `--request-changes` and
+  say in chat it can drop to comment.
 - Ask whether to publish. Only after an explicit yes, publish through
   `scripts/publish_review.py`, which composes the ledger into the body and
   refuses a body it cannot read back:
