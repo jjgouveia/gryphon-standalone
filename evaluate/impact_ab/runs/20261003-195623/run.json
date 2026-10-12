@@ -1,0 +1,25 @@
+{
+  "model": "claude-sonnet-5-5",
+  "effort": "high",
+  "reps": 2,
+  "targets": [
+    "t01-formatCurrency",
+    "t02-prefersReducedMotion",
+    "t03-BRL",
+    "t04-formatDate",
+    "t05-formatBRL",
+    "t06-useOperationalListFilterQueryState",
+    "t07-uid",
+    "t08-uid",
+    "t09-canAccessGlobalSearch",
+    "t10-getPendenciasData",
+    "t11-sanitizeCrmRqlLiteral",
+    "t12-formatBreadcrumb",
+    "t13-checkIsVisitorRoute",
+    "t14-toHealthSegmentRatio"
+  ],
+  "arms": [
+    "baseline",
+    "graph"
+  ]
+}

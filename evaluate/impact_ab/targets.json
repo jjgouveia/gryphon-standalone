@@ -1,0 +1,966 @@
+[
+ {
+  "name": "formatCurrency",
+  "file": "src/components/PostAquisition/JuridicalView/utils.ts",
+  "line": 22,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/PostAquisition/JuridicalView/utils.ts",
+    "line": 29
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx",
+    "line": 196
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx",
+    "line": 900
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx",
+    "line": 1031
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoGrid.tsx",
+    "line": 520
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoGrid.tsx",
+    "line": 544
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoGrid.tsx",
+    "line": 1051
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoHeader.tsx",
+    "line": 351
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoHeader.tsx",
+    "line": 583
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/processos/detail/ProcessoHeader.tsx",
+    "line": 180
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/PosAquisicaoFilterPanel.tsx",
+    "line": 403
+   }
+  ],
+  "n_calls": 11,
+  "n_call_files": 6,
+  "same_name_decls": 13,
+  "grep": {
+   "lines": 479,
+   "precision": 0.023,
+   "recall": 1,
+   "f1": 0.045
+  },
+  "group": "hard",
+  "id": "t01-formatCurrency"
+ },
+ {
+  "name": "prefersReducedMotion",
+  "file": "src/components/CRM/Dashboard2/stage-transition-feedback.ts",
+  "line": 114,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/CRM/Dashboard2/stage-transition-feedback.ts",
+    "line": 123
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/dashboard2-lucide.tsx",
+    "line": 148
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/TemperatureBadge.tsx",
+    "line": 70
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetailHeader.tsx",
+    "line": 185
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadTasksPanel.tsx",
+    "line": 146
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadTasksPanel.tsx",
+    "line": 192
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadTasksPanel.tsx",
+    "line": 239
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/StageTransitionCelebration.tsx",
+    "line": 25
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/StageTransitionCelebration.tsx",
+    "line": 54
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetailContent.tsx",
+    "line": 73
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetailContent.tsx",
+    "line": 148
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetailSheet.tsx",
+    "line": 31
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetailSheet.tsx",
+    "line": 220
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/dashboard2-activity-forms.tsx",
+    "line": 1601
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/dashboard2-activity-forms.tsx",
+    "line": 2073
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/sections/ActivityLogSection.tsx",
+    "line": 1597
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/_components/sections/ActivityLogSection.tsx",
+    "line": 1883
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 544
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 621
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 665
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 708
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 1298
+   },
+   {
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 4248
+   }
+  ],
+  "n_calls": 23,
+  "n_call_files": 11,
+  "same_name_decls": 6,
+  "grep": {
+   "lines": 207,
+   "precision": 0.111,
+   "recall": 1,
+   "f1": 0.2
+  },
+  "group": "hard",
+  "id": "t02-prefersReducedMotion"
+ },
+ {
+  "name": "BRL",
+  "file": "src/app/(dashboard)/uniflow/financeiro/_data/formatadores.ts",
+  "line": 16,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersCharts.tsx",
+    "line": 66
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersCharts.tsx",
+    "line": 68
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersCharts.tsx",
+    "line": 132
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersCharts.tsx",
+    "line": 137
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersSection.tsx",
+    "line": 56
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersSection.tsx",
+    "line": 79
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersSection.tsx",
+    "line": 216
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/ComparacaoClosersSection.tsx",
+    "line": 217
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/AnaliseMasterView.tsx",
+    "line": 420
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/AnaliseMasterView.tsx",
+    "line": 435
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/analise/AnaliseMasterView.tsx",
+    "line": 453
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 353
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 361
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 369
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 455
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 460
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 505
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 518
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 535
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 545
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 735
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/closer/DesempenhoCloserView.tsx",
+    "line": 802
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/gatilhos/BarraFormula.tsx",
+    "line": 136
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/gatilhos/PreviaOperacoes.tsx",
+    "line": 212
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/gatilhos/PreviaOperacoes.tsx",
+    "line": 226
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/gatilhos/PreviaOperacoes.tsx",
+    "line": 260
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/gatilhos/PreviaOperacoes.tsx",
+    "line": 273
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/GraficoHistorico.tsx",
+    "line": 241
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 366
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 375
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 589
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 619
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 836
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/painel/PainelView.tsx",
+    "line": 1019
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/revisao/CenariosDoCloser.tsx",
+    "line": 76
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/revisao/RecusarCessaoDialog.tsx",
+    "line": 96
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/financeiro/_components/revisao/RevisaoView.tsx",
+    "line": 763
+   }
+  ],
+  "n_calls": 37,
+  "n_call_files": 11,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 118,
+   "precision": 0.314,
+   "recall": 1,
+   "f1": 0.477
+  },
+  "group": "hard",
+  "id": "t03-BRL"
+ },
+ {
+  "name": "formatDate",
+  "file": "src/components/PostAquisition/utils/index.ts",
+  "line": 16,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/PostAquisition/financial/Modals/ProjectionEvolutionModal.tsx",
+    "line": 368
+   },
+   {
+    "file": "src/components/PostAquisition/financial/Modals/ProjectionEvolutionModal.tsx",
+    "line": 511
+   },
+   {
+    "file": "src/components/PostAquisition/financial/Modals/ProjectionEvolutionModal.tsx",
+    "line": 547
+   },
+   {
+    "file": "src/components/PostAquisition/financial/Modals/ProjectionEvolutionModal.tsx",
+    "line": 672
+   },
+   {
+    "file": "src/components/PostAquisition/financial/IndividualCards/IndividualCardDetail.tsx",
+    "line": 809
+   },
+   {
+    "file": "src/components/PostAquisition/financial/IndividualCards/IndividualCardDetail.tsx",
+    "line": 907
+   }
+  ],
+  "n_calls": 6,
+  "n_call_files": 2,
+  "same_name_decls": 14,
+  "grep": {
+   "lines": 72,
+   "precision": 0.083,
+   "recall": 1,
+   "f1": 0.154
+  },
+  "group": "hard",
+  "id": "t04-formatDate"
+ },
+ {
+  "name": "formatBRL",
+  "file": "src/components/PostAquisition/JuridicalView/utils.ts",
+  "line": 32,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepCalculadora.tsx",
+    "line": 259
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepComercial.tsx",
+    "line": 530
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepComercial.tsx",
+    "line": 580
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 582
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 740
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 750
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 760
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 976
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 1004
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepPrecificacao.tsx",
+    "line": 1006
+   }
+  ],
+  "n_calls": 10,
+  "n_call_files": 3,
+  "same_name_decls": 3,
+  "grep": {
+   "lines": 57,
+   "precision": 0.175,
+   "recall": 1,
+   "f1": 0.299
+  },
+  "group": "hard",
+  "id": "t05-formatBRL"
+ },
+ {
+  "name": "useOperationalListFilterQueryState",
+  "file": "src/components/Juridico/DueDiligence2/hooks/useOperationalListFilterQueryState.ts",
+  "line": 29,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelArquivamentosScreen.ts",
+    "line": 63
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsDue.ts",
+    "line": 41
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsLiquidacao.ts",
+    "line": 44
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelDueDiligenceStatistics.ts",
+    "line": 24
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelLiquidacaoSubstatusFilter.ts",
+    "line": 52
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelSubstatusKanban.ts",
+    "line": 100
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/Views/shared/OperationalListExportActions.tsx",
+    "line": 20
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/LiquidacaoFilterView/index.tsx",
+    "line": 14
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/index.tsx",
+    "line": 37
+   }
+  ],
+  "n_calls": 9,
+  "n_call_files": 9,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 48,
+   "precision": 0.188,
+   "recall": 1,
+   "f1": 0.316
+  },
+  "group": "hard",
+  "id": "t06-useOperationalListFilterQueryState"
+ },
+ {
+  "name": "uid",
+  "file": "src/functions/calculator-triggers/schema.ts",
+  "line": 232,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/functions/calculator-triggers/schema.ts",
+    "line": 289
+   },
+   {
+    "file": "src/functions/calculator-triggers/schema.ts",
+    "line": 293
+   },
+   {
+    "file": "src/functions/calculator-triggers/schema.ts",
+    "line": 298
+   },
+   {
+    "file": "src/app/(dashboard)/configuracoes/gatilhos-calculadora/_lib/trigger-scenario-save.ts",
+    "line": 54
+   },
+   {
+    "file": "src/app/(dashboard)/configuracoes/gatilhos-calculadora/_lib/trigger-scenario-save.ts",
+    "line": 59
+   },
+   {
+    "file": "src/app/(dashboard)/configuracoes/gatilhos-calculadora/_lib/trigger-scenario-save.ts",
+    "line": 63
+   }
+  ],
+  "n_calls": 6,
+  "n_call_files": 2,
+  "same_name_decls": 2,
+  "grep": {
+   "lines": 47,
+   "precision": 0.128,
+   "recall": 1,
+   "f1": 0.226
+  },
+  "group": "hard",
+  "id": "t07-uid"
+ },
+ {
+  "name": "uid",
+  "file": "src/functions/operational-triggers/schema.ts",
+  "line": 11,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 16
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 21
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 36
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 46
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 55
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 57
+   },
+   {
+    "file": "src/functions/operational-triggers/schema.ts",
+    "line": 62
+   }
+  ],
+  "n_calls": 7,
+  "n_call_files": 1,
+  "same_name_decls": 2,
+  "grep": {
+   "lines": 47,
+   "precision": 0.149,
+   "recall": 1,
+   "f1": 0.259
+  },
+  "group": "hard",
+  "id": "t08-uid"
+ },
+ {
+  "name": "canAccessGlobalSearch",
+  "file": "src/functions/global-search-access.ts",
+  "line": 11,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/Sidebar/index.tsx",
+    "line": 537
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 8
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 12
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 13
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 17
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 34
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 35
+   },
+   {
+    "file": "src/functions/__tests__/global-search-access.test.ts",
+    "line": 36
+   }
+  ],
+  "n_calls": 8,
+  "n_call_files": 2,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 35,
+   "precision": 0.229,
+   "recall": 1,
+   "f1": 0.372
+  },
+  "group": "hard",
+  "id": "t09-canAccessGlobalSearch"
+ },
+ {
+  "name": "getPendenciasData",
+  "file": "src/components/Juridico/DueDiligence2/utils/getPendenciasData.ts",
+  "line": 9,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/Juridico/DueDiligence2/utils/getPendenciasData.ts",
+    "line": 14
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/utils/getPendenciasData.ts",
+    "line": 19
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/__tests__/pendenciaStatusRefactor.test.tsx",
+    "line": 105
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/__tests__/pendenciaStatusRefactor.test.tsx",
+    "line": 106
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/__tests__/pendenciaStatusRefactor.test.tsx",
+    "line": 107
+   },
+   {
+    "file": "src/components/Juridico/DueDiligence2/__tests__/pendenciaStatusRefactor.test.tsx",
+    "line": 176
+   }
+  ],
+  "n_calls": 6,
+  "n_call_files": 2,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 34,
+   "precision": 0.176,
+   "recall": 1,
+   "f1": 0.3
+  },
+  "group": "hard",
+  "id": "t10-getPendenciasData"
+ },
+ {
+  "name": "sanitizeCrmRqlLiteral",
+  "file": "src/app/(dashboard)/uniflow/crm/utils/sanitize-crm-rql.ts",
+  "line": 5,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-tasks.ts",
+    "line": 17
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-marcos.ts",
+    "line": 22
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 27
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 31
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 52
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 61
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 65
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-board.ts",
+    "line": 69
+   },
+   {
+    "file": "src/app/(dashboard)/uniflow/crm/hooks/use-crm-marco-tasks.ts",
+    "line": 19
+   },
+   {
+    "file": "src/components/PostAquisition/JuridicalView/shared/TasksTab.tsx",
+    "line": 153
+   }
+  ],
+  "n_calls": 10,
+  "n_call_files": 5,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 10,
+   "precision": 1,
+   "recall": 1,
+   "f1": 1
+  },
+  "group": "easy",
+  "id": "t11-sanitizeCrmRqlLiteral"
+ },
+ {
+  "name": "formatBreadcrumb",
+  "file": "src/functions/formaters/formatBreadcrumb.ts",
+  "line": 185,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/components/CrmUi/build-app-header-crumbs.ts",
+    "line": 170
+   },
+   {
+    "file": "src/app/(dashboard)/comercial/__tests__/espaco-morto.test.ts",
+    "line": 61
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 24
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 25
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 26
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 27
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 31
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 32
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 33
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 37
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 38
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 39
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 40
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 41
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 42
+   },
+   {
+    "file": "src/components/CrmUi/__tests__/build-app-header-crumbs.test.ts",
+    "line": 46
+   }
+  ],
+  "n_calls": 16,
+  "n_call_files": 3,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 18,
+   "precision": 0.889,
+   "recall": 1,
+   "f1": 0.941
+  },
+  "group": "easy",
+  "id": "t12-formatBreadcrumb"
+ },
+ {
+  "name": "checkIsVisitorRoute",
+  "file": "src/functions/check-is-visitor-route/index.ts",
+  "line": 9,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/utils/api.ts",
+    "line": 34
+   },
+   {
+    "file": "src/utils/api.ts",
+    "line": 306
+   },
+   {
+    "file": "src/utils/api.ts",
+    "line": 396
+   },
+   {
+    "file": "src/hooks/use-visitor-mode.ts",
+    "line": 19
+   },
+   {
+    "file": "src/components/RouteGuard/index.tsx",
+    "line": 54
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 6
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 7
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 8
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 9
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 13
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 14
+   },
+   {
+    "file": "src/functions/check-is-visitor-route/__tests__/check-is-visitor-route.test.ts",
+    "line": 15
+   }
+  ],
+  "n_calls": 12,
+  "n_call_files": 4,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 13,
+   "precision": 0.923,
+   "recall": 1,
+   "f1": 0.96
+  },
+  "group": "easy",
+  "id": "t13-checkIsVisitorRoute"
+ },
+ {
+  "name": "toHealthSegmentRatio",
+  "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/profile-health-stacked.ts",
+  "line": 89,
+  "kind": "function",
+  "exported": true,
+  "calls": [
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/profile-health-stacked.ts",
+    "line": 154
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/profile-health-stacked.ts",
+    "line": 156
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 73
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 74
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 75
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 76
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 80
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 81
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 82
+   },
+   {
+    "file": "src/app/(dashboard)/crm/gerencial-broker/_components/Charts/__tests__/profile-health-stacked.test.ts",
+    "line": 84
+   }
+  ],
+  "n_calls": 10,
+  "n_call_files": 2,
+  "same_name_decls": 1,
+  "grep": {
+   "lines": 12,
+   "precision": 0.833,
+   "recall": 1,
+   "f1": 0.909
+  },
+  "group": "easy",
+  "id": "t14-toHealthSegmentRatio"
+ }
+]

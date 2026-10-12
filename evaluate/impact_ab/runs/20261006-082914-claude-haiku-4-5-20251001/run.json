@@ -1,0 +1,25 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "effort": "high",
+  "reps": 1,
+  "targets": [
+    "t01-formatCurrency",
+    "t02-prefersReducedMotion",
+    "t03-BRL",
+    "t04-formatDate",
+    "t05-formatBRL",
+    "t06-useOperationalListFilterQueryState",
+    "t07-uid",
+    "t08-uid",
+    "t09-canAccessGlobalSearch",
+    "t10-getPendenciasData",
+    "t11-sanitizeCrmRqlLiteral",
+    "t12-formatBreadcrumb",
+    "t13-checkIsVisitorRoute",
+    "t14-toHealthSegmentRatio"
+  ],
+  "arms": [
+    "baseline",
+    "graph"
+  ]
+}

@@ -1,0 +1,750 @@
+[
+ {
+  "id": "d01-updateExtrato",
+  "name": "updateExtrato",
+  "file": "src/services/BrokerServices.ts",
+  "line": 428,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/app/(dashboard)/crm/broker/[id]/_components/EditExtratoModal.tsx:58:EditExtratoModal",
+    "name": "EditExtratoModal",
+    "file": "src/app/(dashboard)/crm/broker/[id]/_components/EditExtratoModal.tsx",
+    "line": 58
+   },
+   {
+    "key": "src/components/CRM/Oficios/OficioDetailsFormSection.tsx:47:OficioDetailsFormSection",
+    "name": "OficioDetailsFormSection",
+    "file": "src/components/CRM/Oficios/OficioDetailsFormSection.tsx",
+    "line": 47
+   },
+   {
+    "key": "src/components/Forms/NewEditOficioBrokerForm.tsx:47:NewEditOficioBrokerForm",
+    "name": "NewEditOficioBrokerForm",
+    "file": "src/components/Forms/NewEditOficioBrokerForm.tsx",
+    "line": 47
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/crm/broker/[id]/_components/OficioDetailsHeader.tsx:67:OficioDetailsHeader",
+    "name": "OficioDetailsHeader",
+    "file": "src/app/(dashboard)/crm/broker/[id]/_components/OficioDetailsHeader.tsx",
+    "line": 67
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/[id]/_components/RequisitosSection.tsx:143:RequisitosSection",
+    "name": "RequisitosSection",
+    "file": "src/app/(dashboard)/crm/broker/[id]/_components/RequisitosSection.tsx",
+    "line": 143
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaFaixaValores.tsx:19:GavetaFaixaValores",
+    "name": "GavetaFaixaValores",
+    "file": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaFaixaValores.tsx",
+    "line": 19
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRequisitosSection.tsx:50:RequisitoRow",
+    "name": "RequisitoRow",
+    "file": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRequisitosSection.tsx",
+    "line": 50
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRodape.tsx:27:GavetaRodape",
+    "name": "GavetaRodape",
+    "file": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRodape.tsx",
+    "line": 27
+   },
+   {
+    "key": "src/components/CRM/Oficios/OficioDetails.tsx:24:OficioDetails",
+    "name": "OficioDetails",
+    "file": "src/components/CRM/Oficios/OficioDetails.tsx",
+    "line": 24
+   }
+  ]
+ },
+ {
+  "id": "d02-scrollToInvalidBrokerField",
+  "name": "scrollToInvalidBrokerField",
+  "file": "src/functions/analytics/scrollToInvalidBrokerField.ts",
+  "line": 76,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/app/(dashboard)/crm/broker/_components/OficioForm/index.tsx:237:OficioForm",
+    "name": "OficioForm",
+    "file": "src/app/(dashboard)/crm/broker/_components/OficioForm/index.tsx",
+    "line": 237
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/_components/OficioForm/index.tsx:604:onFailure",
+    "name": "onFailure",
+    "file": "src/app/(dashboard)/crm/broker/_components/OficioForm/index.tsx",
+    "line": 604
+   },
+   {
+    "key": "src/components/Forms/CalcForm.tsx:161:CalcForm",
+    "name": "CalcForm",
+    "file": "src/components/Forms/CalcForm.tsx",
+    "line": 161
+   },
+   {
+    "key": "src/components/Forms/CalcForm.tsx:366:handleFormError",
+    "name": "handleFormError",
+    "file": "src/components/Forms/CalcForm.tsx",
+    "line": 366
+   },
+   {
+    "key": "src/functions/analytics/cedenteFormValidationUx.ts:86:handleCedenteFormValidationFailure",
+    "name": "handleCedenteFormValidationFailure",
+    "file": "src/functions/analytics/cedenteFormValidationUx.ts",
+    "line": 86
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/_components/AuditFormWrapper.tsx:12:AuditFormWrapper",
+    "name": "AuditFormWrapper",
+    "file": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/_components/AuditFormWrapper.tsx",
+    "line": 12
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/calculator/CalculatorBentoCard.tsx:117:CalculatorBentoCardContent",
+    "name": "CalculatorBentoCardContent",
+    "file": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/calculator/CalculatorBentoCard.tsx",
+    "line": 117
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/dropzone/NovoPrecatorioDialogBody.tsx:28:NovoPrecatorioDialogBody",
+    "name": "NovoPrecatorioDialogBody",
+    "file": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/dropzone/NovoPrecatorioDialogBody.tsx",
+    "line": 28
+   },
+   {
+    "key": "src/components/CRM/Broker/Broker.tsx:16:Broker",
+    "name": "Broker",
+    "file": "src/components/CRM/Broker/Broker.tsx",
+    "line": 16
+   },
+   {
+    "key": "src/components/CRM/Dashboard2/page.tsx:2461:CalculadoraPopup",
+    "name": "CalculadoraPopup",
+    "file": "src/components/CRM/Dashboard2/page.tsx",
+    "line": 2461
+   },
+   {
+    "key": "src/components/CRM/Oficios/OficioDetailsFormSection.tsx:47:OficioDetailsFormSection",
+    "name": "OficioDetailsFormSection",
+    "file": "src/components/CRM/Oficios/OficioDetailsFormSection.tsx",
+    "line": 47
+   },
+   {
+    "key": "src/components/Forms/Broker/EditCedenteForm/index.tsx:574:onFormFailure",
+    "name": "onFormFailure",
+    "file": "src/components/Forms/Broker/EditCedenteForm/index.tsx",
+    "line": 574
+   },
+   {
+    "key": "src/components/Forms/Broker/RegisterPFCedenteForm.tsx:457:onFormFailure",
+    "name": "onFormFailure",
+    "file": "src/components/Forms/Broker/RegisterPFCedenteForm.tsx",
+    "line": 457
+   },
+   {
+    "key": "src/components/Forms/Broker/RegisterPJCedenteForm.tsx:397:onFormFailure",
+    "name": "onFormFailure",
+    "file": "src/components/Forms/Broker/RegisterPJCedenteForm.tsx",
+    "line": 397
+   },
+   {
+    "key": "src/components/Forms/EditOficioBrokerForm.tsx:31:EditOficioBrokerForm",
+    "name": "EditOficioBrokerForm",
+    "file": "src/components/Forms/EditOficioBrokerForm.tsx",
+    "line": 31
+   },
+   {
+    "key": "src/components/Forms/NewEditOficioBrokerForm.tsx:47:NewEditOficioBrokerForm",
+    "name": "NewEditOficioBrokerForm",
+    "file": "src/components/Forms/NewEditOficioBrokerForm.tsx",
+    "line": 47
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/RevisaoValorLOA/modals/ValidateDueValues.tsx:57:ValidateDueValues",
+    "name": "ValidateDueValues",
+    "file": "src/components/Juridico/DueDiligence2/Views/RevisaoValorLOA/modals/ValidateDueValues.tsx",
+    "line": 57
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/shared/RepactuacaoFlowDialog.tsx:34:RepactuacaoFlowDialog",
+    "name": "RepactuacaoFlowDialog",
+    "file": "src/components/Juridico/DueDiligence2/Views/shared/RepactuacaoFlowDialog.tsx",
+    "line": 34
+   },
+   {
+    "key": "src/components/Juridico/JuridicoDetailsInfoValues.tsx:104:JuridicoDetailsInfoValues",
+    "name": "JuridicoDetailsInfoValues",
+    "file": "src/components/Juridico/JuridicoDetailsInfoValues.tsx",
+    "line": 104
+   },
+   {
+    "key": "src/components/MainForm/index.tsx:26:MainForm",
+    "name": "MainForm",
+    "file": "src/components/MainForm/index.tsx",
+    "line": 26
+   },
+   {
+    "key": "src/components/Modals/NewForm.tsx:97:NewForm",
+    "name": "NewForm",
+    "file": "src/components/Modals/NewForm.tsx",
+    "line": 97
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepCalculadora.tsx:40:StepCalculadora",
+    "name": "StepCalculadora",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/steps/StepCalculadora.tsx",
+    "line": 40
+   },
+   {
+    "key": "src/functions/broker/applyCedenteFullSchemaValidation.ts:13:applyCedenteFullSchemaValidation",
+    "name": "applyCedenteFullSchemaValidation",
+    "file": "src/functions/broker/applyCedenteFullSchemaValidation.ts",
+    "line": 13
+   }
+  ]
+ },
+ {
+  "id": "d03-useProductDialogViewNavigation",
+  "name": "useProductDialogViewNavigation",
+  "file": "src/design-system/components/product-dialog-view-transition.tsx",
+  "line": 188,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/app/(dashboard)/settings/components/SmartBlockModal.tsx:50:SmartBlockModal",
+    "name": "SmartBlockModal",
+    "file": "src/app/(dashboard)/settings/components/SmartBlockModal.tsx",
+    "line": 50
+   },
+   {
+    "key": "src/components/Juridico/CardPagamentoCedentes.tsx:34:CardPagamentoCedentes",
+    "name": "CardPagamentoCedentes",
+    "file": "src/components/Juridico/CardPagamentoCedentes.tsx",
+    "line": 34
+   },
+   {
+    "key": "src/components/Modals/Juridico/CessionaryModal/JuridicoCessionaryModal.tsx:105:JuridicoCessionaryModal",
+    "name": "JuridicoCessionaryModal",
+    "file": "src/components/Modals/Juridico/CessionaryModal/JuridicoCessionaryModal.tsx",
+    "line": 105
+   },
+   {
+    "key": "src/components/Modals/PostPurchase/ImportacoesHistoryModal.tsx:660:ImportacoesHistoryModal",
+    "name": "ImportacoesHistoryModal",
+    "file": "src/components/Modals/PostPurchase/ImportacoesHistoryModal.tsx",
+    "line": 660
+   },
+   {
+    "key": "src/components/OperacoesFinanceiras/CardInvestimento/CardInvestimentoModal.tsx:41:CardInvestimentoModal",
+    "name": "CardInvestimentoModal",
+    "file": "src/components/OperacoesFinanceiras/CardInvestimento/CardInvestimentoModal.tsx",
+    "line": 41
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/settings/components/SettingsContainer.tsx:20:SettingsContainer",
+    "name": "SettingsContainer",
+    "file": "src/app/(dashboard)/settings/components/SettingsContainer.tsx",
+    "line": 20
+   },
+   {
+    "key": "src/app/(dashboard)/settings/components/SmartBlockModalRouteContainer.tsx:17:SmartBlockModalRouteContainer",
+    "name": "SmartBlockModalRouteContainer",
+    "file": "src/app/(dashboard)/settings/components/SmartBlockModalRouteContainer.tsx",
+    "line": 17
+   },
+   {
+    "key": "src/components/CRM/Dashboard2/_components/b2c/B2CDueStatusWidget.tsx:14:B2CDueStatusWidget",
+    "name": "B2CDueStatusWidget",
+    "file": "src/components/CRM/Dashboard2/_components/b2c/B2CDueStatusWidget.tsx",
+    "line": 14
+   },
+   {
+    "key": "src/components/Juridico/Details.tsx:81:LegalDetails",
+    "name": "LegalDetails",
+    "file": "src/components/Juridico/Details.tsx",
+    "line": 81
+   },
+   {
+    "key": "src/components/Juridico/Details/JuridicoDetailsFloatActionMenu.tsx:116:JuridicoDetailsFloatActionMenu",
+    "name": "JuridicoDetailsFloatActionMenu",
+    "file": "src/components/Juridico/Details/JuridicoDetailsFloatActionMenu.tsx",
+    "line": 116
+   },
+   {
+    "key": "src/components/Juridico/Details/JuridicoDetailsInvestidor.tsx:28:VincularInvestidorButton",
+    "name": "VincularInvestidorButton",
+    "file": "src/components/Juridico/Details/JuridicoDetailsInvestidor.tsx",
+    "line": 28
+   },
+   {
+    "key": "src/components/OperacoesFinanceiras/FinanceiroGerarCardInvestimento.tsx:15:FinanceiroGerarCardInvestimento",
+    "name": "FinanceiroGerarCardInvestimento",
+    "file": "src/components/OperacoesFinanceiras/FinanceiroGerarCardInvestimento.tsx",
+    "line": 15
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/index.tsx:85:JuridicalView",
+    "name": "JuridicalView",
+    "file": "src/components/PostAquisition/JuridicalView/index.tsx",
+    "line": 85
+   },
+   {
+    "key": "src/components/PostAquisition/financial/IndividualCards/IndividualCardsWrapper.tsx:282:IndividualCardsWrapper",
+    "name": "IndividualCardsWrapper",
+    "file": "src/components/PostAquisition/financial/IndividualCards/IndividualCardsWrapper.tsx",
+    "line": 282
+   }
+  ]
+ },
+ {
+  "id": "d04-usePFDataQuery",
+  "name": "usePFDataQuery",
+  "file": "src/hooks/queries/use-direct-data.ts",
+  "line": 10,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/app/(dashboard)/juridico/cessionarios/_components/cessionario-form-dialog.tsx:376:RepresentanteCpfEnrich",
+    "name": "RepresentanteCpfEnrich",
+    "file": "src/app/(dashboard)/juridico/cessionarios/_components/cessionario-form-dialog.tsx",
+    "line": 376
+   },
+   {
+    "key": "src/app/(dashboard)/juridico/cessionarios/_components/cessionario-form-dialog.tsx:778:CessionarioFormDialog",
+    "name": "CessionarioFormDialog",
+    "file": "src/app/(dashboard)/juridico/cessionarios/_components/cessionario-form-dialog.tsx",
+    "line": 778
+   },
+   {
+    "key": "src/components/Forms/Broker/RegisterPFCedenteForm.tsx:103:RegisterPFCedenteForm",
+    "name": "RegisterPFCedenteForm",
+    "file": "src/components/Forms/Broker/RegisterPFCedenteForm.tsx",
+    "line": 103
+   },
+   {
+    "key": "src/components/Forms/InformacoesCadastrais/InformacoesPFForm.tsx:79:InformacoesPFForm",
+    "name": "InformacoesPFForm",
+    "file": "src/components/Forms/InformacoesCadastrais/InformacoesPFForm.tsx",
+    "line": 79
+   },
+   {
+    "key": "src/components/Forms/InformacoesCadastrais/RepresentanteLegalModal.tsx:65:RepresentanteLegalModal",
+    "name": "RepresentanteLegalModal",
+    "file": "src/components/Forms/InformacoesCadastrais/RepresentanteLegalModal.tsx",
+    "line": 65
+   },
+   {
+    "key": "src/components/Modals/CreateLeadModal/steps/lead-info-step.tsx:144:LeadInfoStep",
+    "name": "LeadInfoStep",
+    "file": "src/components/Modals/CreateLeadModal/steps/lead-info-step.tsx",
+    "line": 144
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRepresentanteLegal.tsx:21:GavetaRepresentanteLegal",
+    "name": "GavetaRepresentanteLegal",
+    "file": "src/app/(dashboard)/crm/broker/inicio/_components/gaveta/GavetaRepresentanteLegal.tsx",
+    "line": 21
+   },
+   {
+    "key": "src/app/(dashboard)/juridico/cessionarios/_components/cessionarios-gestao-view.tsx:74:CessionariosGestaoView",
+    "name": "CessionariosGestaoView",
+    "file": "src/app/(dashboard)/juridico/cessionarios/_components/cessionarios-gestao-view.tsx",
+    "line": 74
+   },
+   {
+    "key": "src/components/Forms/Broker/RegisterModalWrapper.tsx:20:RegisterModalWrapper",
+    "name": "RegisterModalWrapper",
+    "file": "src/components/Forms/Broker/RegisterModalWrapper.tsx",
+    "line": 20
+   },
+   {
+    "key": "src/components/Forms/InformacoesCadastrais/index.tsx:14:InformacoesCadastrais",
+    "name": "InformacoesCadastrais",
+    "file": "src/components/Forms/InformacoesCadastrais/index.tsx",
+    "line": 14
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/SituacaoJuridica/CadastroCedenteModal/CadastroCedenteSituacaoJuridicaModal.tsx:41:CadastroCedenteSituacaoJuridicaModal",
+    "name": "CadastroCedenteSituacaoJuridicaModal",
+    "file": "src/components/Juridico/DueDiligence2/Views/SituacaoJuridica/CadastroCedenteModal/CadastroCedenteSituacaoJuridicaModal.tsx",
+    "line": 41
+   },
+   {
+    "key": "src/components/Modals/CreateLeadModal/index.tsx:58:CreateLeadModal",
+    "name": "CreateLeadModal",
+    "file": "src/components/Modals/CreateLeadModal/index.tsx",
+    "line": 58
+   },
+   {
+    "key": "src/components/configuracoes/due-public-trusted-groups-manager.tsx:187:DuePublicTrustedGroupsManager",
+    "name": "DuePublicTrustedGroupsManager",
+    "file": "src/components/configuracoes/due-public-trusted-groups-manager.tsx",
+    "line": 187
+   }
+  ]
+ },
+ {
+  "id": "d05-useResourceCollaboration",
+  "name": "useResourceCollaboration",
+  "file": "src/hooks/useResourceCollaboration.ts",
+  "line": 53,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/components/CRM/Broker/BrokerOficioDetails.tsx:73:BrokerOficioDetails",
+    "name": "BrokerOficioDetails",
+    "file": "src/components/CRM/Broker/BrokerOficioDetails.tsx",
+    "line": 73
+   },
+   {
+    "key": "src/components/Collaboration/ResourceCollaborationShell.tsx:31:ResourceCollaborationShell",
+    "name": "ResourceCollaborationShell",
+    "file": "src/components/Collaboration/ResourceCollaborationShell.tsx",
+    "line": 31
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/DueDiligenceIdCollaborationLayout.tsx:83:DueDiligenceIdCollaborationLayout",
+    "name": "DueDiligenceIdCollaborationLayout",
+    "file": "src/components/Juridico/DueDiligence2/DueDiligenceIdCollaborationLayout.tsx",
+    "line": 83
+   },
+   {
+    "key": "src/hooks/useLiquidacaoBoardCollaboration.ts:106:useLiquidacaoBoardCollaboration",
+    "name": "useLiquidacaoBoardCollaboration",
+    "file": "src/hooks/useLiquidacaoBoardCollaboration.ts",
+    "line": 106
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/crm/broker/[id]/_components/OficioDetailsTabs.tsx:39:OficioDetailsTabs",
+    "name": "OficioDetailsTabs",
+    "file": "src/app/(dashboard)/crm/broker/[id]/_components/OficioDetailsTabs.tsx",
+    "line": 39
+   },
+   {
+    "key": "src/app/(dashboard)/juridico/due-diligence-2.0/[id]/layout.tsx:4:DueDiligenceIdLayout",
+    "name": "DueDiligenceIdLayout",
+    "file": "src/app/(dashboard)/juridico/due-diligence-2.0/[id]/layout.tsx",
+    "line": 4
+   },
+   {
+    "key": "src/components/CRM/Dashboard2/_components/LeadDetail.tsx:116:LeadDetail",
+    "name": "LeadDetail",
+    "file": "src/components/CRM/Dashboard2/_components/LeadDetail.tsx",
+    "line": 116
+   },
+   {
+    "key": "src/components/Juridico/Details.tsx:81:LegalDetails",
+    "name": "LegalDetails",
+    "file": "src/components/Juridico/Details.tsx",
+    "line": 81
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelSubstatusKanban.ts:92:useViewModelSubstatusKanban",
+    "name": "useViewModelSubstatusKanban",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelSubstatusKanban.ts",
+    "line": 92
+   },
+   {
+    "key": "src/components/Juridico/LiquidacaoKanbanView.tsx:297:LiquidacaoKanbanView",
+    "name": "LiquidacaoKanbanView",
+    "file": "src/components/Juridico/LiquidacaoKanbanView.tsx",
+    "line": 297
+   }
+  ]
+ },
+ {
+  "id": "d06-formatCurrency",
+  "name": "formatCurrency",
+  "file": "src/components/PostAquisition/JuridicalView/utils.ts",
+  "line": 22,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/PosAquisicaoFilterPanel.tsx:41:PosAquisicaoFilterPanel",
+    "name": "PosAquisicaoFilterPanel",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/PosAquisicaoFilterPanel.tsx",
+    "line": 41
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoHeader.tsx:237:PosAquisicaoHeader",
+    "name": "PosAquisicaoHeader",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoHeader.tsx",
+    "line": 237
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx:124:PosAquisicaoGridMobileCard",
+    "name": "PosAquisicaoGridMobileCard",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx",
+    "line": 124
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx:205:PosAquisicaoGrid",
+    "name": "PosAquisicaoGrid",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoGrid.tsx",
+    "line": 205
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/processos/detail/ProcessoHeader.tsx:112:ProcessoHeader",
+    "name": "ProcessoHeader",
+    "file": "src/components/PostAquisition/JuridicalView/processos/detail/ProcessoHeader.tsx",
+    "line": 112
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoGrid.tsx:243:ProcessoGrid",
+    "name": "ProcessoGrid",
+    "file": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoGrid.tsx",
+    "line": 243
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/utils.ts:26:formatCompactCurrency",
+    "name": "formatCompactCurrency",
+    "file": "src/components/PostAquisition/JuridicalView/utils.ts",
+    "line": 26
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/components/PostAquisition/JuridicalView/index.tsx:85:JuridicalView",
+    "name": "JuridicalView",
+    "file": "src/components/PostAquisition/JuridicalView/index.tsx",
+    "line": 85
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoView.tsx:82:PosAquisicaoView",
+    "name": "PosAquisicaoView",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/detail/PosAquisicaoView.tsx",
+    "line": 82
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/EsferaLoaPanel.tsx:49:EsferaLoaPanel",
+    "name": "EsferaLoaPanel",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/EsferaLoaPanel.tsx",
+    "line": 49
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PipelineChart.tsx:41:PipelineChart",
+    "name": "PipelineChart",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PipelineChart.tsx",
+    "line": 41
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoDashboard.tsx:105:PosAquisicaoDashboard",
+    "name": "PosAquisicaoDashboard",
+    "file": "src/components/PostAquisition/JuridicalView/pos-aquisicao/main/PosAquisicaoDashboard.tsx",
+    "line": 105
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/processos/detail/ProcessoView.tsx:48:ProcessoView",
+    "name": "ProcessoView",
+    "file": "src/components/PostAquisition/JuridicalView/processos/detail/ProcessoView.tsx",
+    "line": 48
+   },
+   {
+    "key": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoDashboard.tsx:189:ProcessoDashboard",
+    "name": "ProcessoDashboard",
+    "file": "src/components/PostAquisition/JuridicalView/processos/main/ProcessoDashboard.tsx",
+    "line": 189
+   }
+  ]
+ },
+ {
+  "id": "d07-paginatedTableDisplayMessage",
+  "name": "paginatedTableDisplayMessage",
+  "file": "src/utils/paginatedTableDisplayMessage.ts",
+  "line": 1,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/_components/ScenariosTable.tsx:41:ScenariosTable",
+    "name": "ScenariosTable",
+    "file": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/_components/ScenariosTable.tsx",
+    "line": 41
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/table/PrecatoriosTableBentoCard.tsx:250:PrecatoriosTableBentoCard",
+    "name": "PrecatoriosTableBentoCard",
+    "file": "src/app/(dashboard)/crm/broker-dashboard/_components/widgets/table/PrecatoriosTableBentoCard.tsx",
+    "line": 250
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/Card/List.tsx:9:BrokerProposalList",
+    "name": "BrokerProposalList",
+    "file": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/Card/List.tsx",
+    "line": 9
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/Table/BrokerInfoTable.tsx:32:BrokerInfoTable",
+    "name": "BrokerInfoTable",
+    "file": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/Table/BrokerInfoTable.tsx",
+    "line": 32
+   },
+   {
+    "key": "src/app/(dashboard)/crm/gerencial-broker/table/data-table.tsx:31:BrokerPrecatoriosTable",
+    "name": "BrokerPrecatoriosTable",
+    "file": "src/app/(dashboard)/crm/gerencial-broker/table/data-table.tsx",
+    "line": 31
+   },
+   {
+    "key": "src/components/Modals/EditProjectionScenariosModal/index.tsx:46:EditProjectionScenariosModal",
+    "name": "EditProjectionScenariosModal",
+    "file": "src/components/Modals/EditProjectionScenariosModal/index.tsx",
+    "line": 46
+   },
+   {
+    "key": "src/components/PostAquisition/financial/IndividualCards/IndividualCardsWrapper.tsx:282:IndividualCardsWrapper",
+    "name": "IndividualCardsWrapper",
+    "file": "src/components/PostAquisition/financial/IndividualCards/IndividualCardsWrapper.tsx",
+    "line": 282
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/page.tsx:20:MonitoramentoCalculadora",
+    "name": "MonitoramentoCalculadora",
+    "file": "src/app/(dashboard)/configuracoes/monitoramento-calculadora/page.tsx",
+    "line": 20
+   },
+   {
+    "key": "src/app/(dashboard)/configuracoes/page.tsx:58:ConfiguracoesPage",
+    "name": "ConfiguracoesPage",
+    "file": "src/app/(dashboard)/configuracoes/page.tsx",
+    "line": 58
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker-dashboard/_components/grid/DashboardBentoGrid.tsx:310:renderSlot",
+    "name": "renderSlot",
+    "file": "src/app/(dashboard)/crm/broker-dashboard/_components/grid/DashboardBentoGrid.tsx",
+    "line": 310
+   },
+   {
+    "key": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/index.tsx:15:BrokerInfo",
+    "name": "BrokerInfo",
+    "file": "src/app/(dashboard)/crm/broker/_components/BrokerInfo/index.tsx",
+    "line": 15
+   },
+   {
+    "key": "src/components/CRM/GerencialBroker/GerencialBroker.tsx:23:GerencialBroker",
+    "name": "GerencialBroker",
+    "file": "src/components/CRM/GerencialBroker/GerencialBroker.tsx",
+    "line": 23
+   },
+   {
+    "key": "src/components/PostAquisition/NewPostPurchase.tsx:29:NewPostPurchase",
+    "name": "NewPostPurchase",
+    "file": "src/components/PostAquisition/NewPostPurchase.tsx",
+    "line": 29
+   }
+  ]
+ },
+ {
+  "id": "d08-normalizeLiquidacaoListFilterFromUrl",
+  "name": "normalizeLiquidacaoListFilterFromUrl",
+  "file": "src/components/Juridico/DueDiligence2/interfaces/store.ts",
+  "line": 76,
+  "group": "transitive",
+  "level1": [
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelDiligenceFilter.ts:83:useViewModelDiligenceFilter",
+    "name": "useViewModelDiligenceFilter",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelDiligenceFilter.ts",
+    "line": 83
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelLiquidacaoFilter.ts:32:useViewModelLiquidacaoFilter",
+    "name": "useViewModelLiquidacaoFilter",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelLiquidacaoFilter.ts",
+    "line": 32
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/hooks/useOperationalListFilterQueryState.ts:29:useOperationalListFilterQueryState",
+    "name": "useOperationalListFilterQueryState",
+    "file": "src/components/Juridico/DueDiligence2/hooks/useOperationalListFilterQueryState.ts",
+    "line": 29
+   }
+  ],
+  "level2": [
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelArquivamentosScreen.ts:52:useViewModelArquivamentosScreen",
+    "name": "useViewModelArquivamentosScreen",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelArquivamentosScreen.ts",
+    "line": 52
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsDue.ts:29:useViewModelCardsDue",
+    "name": "useViewModelCardsDue",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsDue.ts",
+    "line": 29
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsLiquidacao.ts:35:useViewModelCardsLiquidacao",
+    "name": "useViewModelCardsLiquidacao",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelCardsLiquidacao.ts",
+    "line": 35
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelDueDiligenceStatistics.ts:21:useViewModelDueDiligenceStatistics",
+    "name": "useViewModelDueDiligenceStatistics",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelDueDiligenceStatistics.ts",
+    "line": 21
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelLiquidacaoSubstatusFilter.ts:45:useViewModelLiquidacaoSubstatusFilter",
+    "name": "useViewModelLiquidacaoSubstatusFilter",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelLiquidacaoSubstatusFilter.ts",
+    "line": 45
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelSubstatusKanban.ts:92:useViewModelSubstatusKanban",
+    "name": "useViewModelSubstatusKanban",
+    "file": "src/components/Juridico/DueDiligence2/ViewModels/useViewModelSubstatusKanban.ts",
+    "line": 92
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/ArquivamentosScreen/ArquivadosFilterView/index.tsx:9:ArquivadosFilterView",
+    "name": "ArquivadosFilterView",
+    "file": "src/components/Juridico/DueDiligence2/Views/ArquivamentosScreen/ArquivadosFilterView/index.tsx",
+    "line": 9
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/DueDiligenceScreen/DiligenceFilterView/index.tsx:9:DiligenceFilterView",
+    "name": "DiligenceFilterView",
+    "file": "src/components/Juridico/DueDiligence2/Views/DueDiligenceScreen/DiligenceFilterView/index.tsx",
+    "line": 9
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/LiquidacaoFilterView/index.tsx:11:LiquidacaoFilterView",
+    "name": "LiquidacaoFilterView",
+    "file": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/LiquidacaoFilterView/index.tsx",
+    "line": 11
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/index.tsx:36:LiquidacaoScreenView",
+    "name": "LiquidacaoScreenView",
+    "file": "src/components/Juridico/DueDiligence2/Views/LiquidacaoScreen/index.tsx",
+    "line": 36
+   },
+   {
+    "key": "src/components/Juridico/DueDiligence2/Views/shared/OperationalListExportActions.tsx:14:OperationalListExportActions",
+    "name": "OperationalListExportActions",
+    "file": "src/components/Juridico/DueDiligence2/Views/shared/OperationalListExportActions.tsx",
+    "line": 14
+   }
+  ]
+ }
+]

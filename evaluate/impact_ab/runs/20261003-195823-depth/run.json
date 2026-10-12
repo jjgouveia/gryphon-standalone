@@ -1,0 +1,12 @@
+{
+  "model": "claude-sonnet-5-5",
+  "effort": "high",
+  "reps": 1,
+  "targets": [
+    "d01-updateExtrato"
+  ],
+  "arms": [
+    "baseline",
+    "graph"
+  ]
+}

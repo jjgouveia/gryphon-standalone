@@ -1,0 +1,12 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "effort": "high",
+  "reps": 1,
+  "targets": [
+    "t01-formatCurrency"
+  ],
+  "arms": [
+    "baseline",
+    "graph"
+  ]
+}

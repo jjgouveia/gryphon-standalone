@@ -1,0 +1,19 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "effort": "high",
+  "reps": 2,
+  "targets": [
+    "d01-getDocsFromEsteira",
+    "d02-captureCedenteFormEvent",
+    "d03-PresenceAvatarStack",
+    "d04-useSmartBlockHistoricalSuggestionsQuery",
+    "d05-usePdfViewer",
+    "d06-JuridicoCommonDialog",
+    "d07-paginatedTableDisplayMessage",
+    "d08-normalizeLiquidacaoListFilterFromUrl"
+  ],
+  "arms": [
+    "baseline",
+    "graph"
+  ]
+}
