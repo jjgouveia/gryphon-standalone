@@ -60,7 +60,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from pr_watch import GitHubError, survey_many
+from pr_watch import DEFAULT_MAX_ROUNDS, GitHubError, survey_many
 
 logger = logging.getLogger("pr_watch_hook")
 
@@ -249,9 +249,9 @@ def main() -> int:
     mark_poll(marker)
 
     try:
-        max_rounds = int(os.environ.get(ENV_MAX_ROUNDS, "6"))
+        max_rounds = int(os.environ.get(ENV_MAX_ROUNDS, str(DEFAULT_MAX_ROUNDS)))
     except ValueError:
-        max_rounds = 6
+        max_rounds = DEFAULT_MAX_ROUNDS
 
     try:
         candidates = survey_many(repo, max_rounds=max_rounds)

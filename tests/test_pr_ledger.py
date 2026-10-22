@@ -173,6 +173,8 @@ def test_parse_rejects_invalid_top_level_fields(field, value):
         {"id": 1, "status": "open", "sev": "high"},
         {"id": 1, "status": "open", "sev": "high", "title": "x", "files": "a.py"},
         {"id": 1, "status": "open", "sev": "high", "title": "x", "files": [7]},
+        {"id": 1, "status": "open", "sev": "high", "title": "x", "origin": "invented"},
+        {"id": 1, "status": "open", "sev": "high", "title": "x", "origin": None},
         {"id": True, "status": "open", "sev": "high", "title": "x"},
         "not-an-object",
     ],
@@ -189,6 +191,42 @@ def test_parse_rejects_invalid_findings(finding):
 
     with pytest.raises(LedgerError):
         pr_ledger.parse_block(json.dumps(payload))
+
+
+def test_a_finding_without_origin_is_introduced():
+    # Optional on read so a ledger written before origins existed still
+    # parses. Defaulting the other way would let an unlabelled finding
+    # silently stop blocking.
+    payload = {
+        "v": 1,
+        "head": HEAD,
+        "base": "staging",
+        "round": 1,
+        "flag": "comment",
+        "findings": [{"id": 1, "status": "open", "sev": "high", "title": "x"}],
+    }
+
+    ledger = pr_ledger.parse_block(json.dumps(payload))
+
+    assert ledger.findings[0].origin == "introduced"
+    assert ledger.findings[0].is_pre_existing is False
+
+
+def test_pre_existing_origin_round_trips_through_render():
+    ledger = make_ledger(
+        findings=(
+            Finding(
+                id=1,
+                status="open",
+                sev="high",
+                title="old bug",
+                files=("a.py",),
+                origin="pre_existing",
+            ),
+        )
+    )
+
+    assert extract(render(ledger)) == ledger
 
 
 def test_parse_rejects_duplicate_finding_ids():
@@ -230,6 +268,26 @@ def test_open_files_collects_only_open_findings():
 
     assert ledger.open_files == frozenset({"a.py", "b.py"})
     assert [f.id for f in ledger.open_findings] == [1]
+
+
+def test_blocking_findings_ignore_the_ones_the_branch_inherited():
+    ledger = make_ledger(
+        findings=(
+            Finding(id=1, status="open", sev="high", title="new", files=("a.py",)),
+            Finding(
+                id=2,
+                status="open",
+                sev="high",
+                title="old",
+                files=("b.py",),
+                origin="pre_existing",
+            ),
+            Finding(id=3, status="resolved", sev="high", title="fixed", files=("c.py",)),
+        )
+    )
+
+    assert [f.id for f in ledger.open_findings] == [1, 2]
+    assert [f.id for f in ledger.blocking_findings] == [1]
 
 
 def test_next_id_never_reuses_an_id():
@@ -295,6 +353,20 @@ def test_round_cap_stops_the_loop():
 
     assert decision == "rounds-exhausted"
     assert "6" in reason
+    # The cap is not "give up silently": the reason asks for an approach
+    # change, because that is the decision a human would make here.
+    assert "reconsider the approach" in reason
+
+
+def test_zero_max_rounds_disables_the_cap():
+    decision, _ = decide(
+        make_ledger(round=9),
+        current_head=OTHER_HEAD,
+        current_base="staging",
+        max_rounds=0,
+    )
+
+    assert decision == "resume"
 
 
 def test_round_cap_does_not_stop_below_it():
@@ -392,6 +464,28 @@ def test_skill_documents_the_ledger_growth_constraint():
 
     assert "## Ledger growth" in skill
     assert "identity" in skill
+
+
+def test_skill_documents_the_origin_label_and_its_consequence():
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "`origin` is `introduced` or `pre_existing`" in skill
+    # A bug the branch inherited is not the author's to fix before merging.
+    assert "never gates the merge" in skill
+    assert "defaults to `introduced`" in skill
+
+
+def test_skill_asks_for_one_finding_per_class_of_bug():
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "One finding per **class** of bug, not per occurrence." in skill
+
+
+def test_skill_names_the_paths_that_earn_a_deep_read():
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "## Paths that earn a deep read" in skill
+    assert "however small it looks" in skill
 
 
 def test_skill_documents_the_watch_entry_point_and_its_traps():

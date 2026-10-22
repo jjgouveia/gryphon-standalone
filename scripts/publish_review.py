@@ -43,14 +43,34 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from pr_ledger import MARKER, Ledger, LedgerError, extract
-from pr_watch import GitHubError, newest_ledger, render_round_body
+from pr_ledger import MARKER, Finding, Ledger, LedgerError, extract, render
+from pr_watch import GitHubError, newest_ledger
 from round_artifact import VerdictError, parse_findings
 
 logger = logging.getLogger("publish_review")
 
 FLAGS = ("comment", "request-changes", "approve")
 PROSE_LIMIT = 40000
+
+
+def check_flag(flag: str, findings: tuple[Finding, ...]) -> None:
+    """Refuse a merge gate that no finding introduced by this diff justifies.
+
+    ``--request-changes`` tells the author something must change before
+    merging. A ``pre_existing`` finding is not theirs to change: it belongs
+    in a follow-up issue. Publishing the block anyway is the failure the
+    origin field exists to prevent, and the interactive path has no other
+    guard — the unattended one goes through ``pr_watch.escalate``.
+    """
+    if flag != "request-changes" or not findings:
+        return
+    if any(f.is_open and not f.is_pre_existing for f in findings):
+        return
+    raise VerdictError(
+        "refusing --request-changes: no open finding was introduced by this "
+        "diff. A pre-existing bug belongs in a follow-up issue, not in this "
+        "merge gate."
+    )
 
 
 def next_round(repo: str, pr: int) -> int:
@@ -69,10 +89,21 @@ def next_round(repo: str, pr: int) -> int:
 
 
 def compose(prose: str, findings, *, head: str, base: str, round_number: int, flag: str) -> str:
+    """The published body: the prose the human approved, then the ledger.
+
+    Unlike the unattended path, the interactive review's prose already
+    enumerates the findings for a human. ``render_round_body``'s status
+    recap would duplicate them, and in a review written in another language
+    it would also append machine lines the author never wrote. The ledger is
+    the only thing added, and it is invisible.
+
+    Keeping the visible body byte-identical to the approved draft is the
+    point: the person who says "sobe" is approving exactly what lands.
+    """
     ledger = Ledger(
         head=head, base=base, round=round_number, flag=flag, findings=tuple(findings)
     )
-    return render_round_body(ledger, findings, prose)
+    return f"{prose.rstrip()}\n\n{render(ledger)}\n"
 
 
 def verify(body: str, *, head: str, flag: str) -> None:
@@ -186,6 +217,12 @@ def _main(argv: list[str] | None = None) -> int:
         except VerdictError as exc:
             logger.error("%s", exc)
             return 3
+
+    try:
+        check_flag(args.flag, findings)
+    except VerdictError as exc:
+        logger.error("%s", exc)
+        return 3
 
     round_number = args.round if args.round is not None else next_round(args.repo, args.pr)
 

@@ -32,7 +32,7 @@ Three things this guards:
   violation nobody notices.
 
     python scripts/review_watch.py --repo <owner>/<name> --dry-run
-    python scripts/review_watch.py --repo <owner>/<name> --max-rounds 6
+    python scripts/review_watch.py --repo <owner>/<name> --max-rounds 3
     python scripts/review_watch.py --register --repo <owner>/<name>
 
 Exit codes:
@@ -56,7 +56,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from pr_ledger import Ledger
-from pr_watch import Candidate, GitHubError, escalate, newest_ledger, survey
+from pr_watch import (
+    DEFAULT_MAX_ROUNDS,
+    Candidate,
+    GitHubError,
+    escalate,
+    newest_ledger,
+    survey,
+)
 
 logger = logging.getLogger("review_watch")
 
@@ -362,7 +369,8 @@ def register_task(
         "-Command",
         (
             f"& '{sys.executable}' '{runner}' --repo '{repo}' "
-            f"--repo-root '{repo_root}' --max-rounds {max_rounds or 6} "
+            f"--repo-root '{repo_root}' --max-rounds "
+            f"{DEFAULT_MAX_ROUNDS if max_rounds is None else max_rounds} "
             f">> '{log_path}' 2>&1"
         ),
     ]
@@ -435,7 +443,7 @@ def _main(argv: list[str] | None = None) -> int:
         default="claude",
         help="Headless agent to invoke",
     )
-    parser.add_argument("--max-rounds", type=int, default=6)
+    parser.add_argument("--max-rounds", type=int, default=DEFAULT_MAX_ROUNDS)
     parser.add_argument("--dry-run", action="store_true", help="Report, do not run")
     parser.add_argument(
         "--lock-dir",

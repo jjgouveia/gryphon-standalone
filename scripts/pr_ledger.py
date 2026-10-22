@@ -46,6 +46,7 @@ SCHEMA_VERSION = 1
 VALID_FLAGS = ("comment", "request-changes", "approve")
 VALID_STATUS = ("open", "resolved", "obsolete")
 VALID_SEVERITIES = ("high", "medium", "low")
+VALID_ORIGINS = ("introduced", "pre_existing")
 
 # A ledger block runs to the end of its comment. Bound it so a body that
 # contains a second comment after the ledger cannot fold unrelated text
@@ -76,10 +77,19 @@ class Finding:
     sev: str
     title: str
     files: tuple[str, ...] = ()
+    # ``introduced`` when the diff created the bug, ``pre_existing`` when it
+    # was already on the base. The default is the safe direction: an
+    # unlabelled finding can still gate the merge, while a wrongly labelled
+    # one silently excuses a real blocker.
+    origin: str = "introduced"
 
     @property
     def is_open(self) -> bool:
         return self.status == "open"
+
+    @property
+    def is_pre_existing(self) -> bool:
+        return self.origin == "pre_existing"
 
 
 @dataclass(frozen=True)
@@ -93,6 +103,18 @@ class Ledger:
     @property
     def open_findings(self) -> tuple[Finding, ...]:
         return tuple(f for f in self.findings if f.is_open)
+
+    @property
+    def blocking_findings(self) -> tuple[Finding, ...]:
+        """Open findings this branch introduced.
+
+        A bug that predates the branch is not the author's to fix before
+        merging. It stays in the ledger — the next round still reads it and
+        does not re-report it — but it never holds the merge.
+        """
+        return tuple(
+            f for f in self.findings if f.is_open and not f.is_pre_existing
+        )
 
     @property
     def open_files(self) -> frozenset[str]:
@@ -160,12 +182,21 @@ def _parse_finding(raw: Any) -> Finding:
     if not isinstance(files, list) or not all(isinstance(p, str) for p in files):
         raise LedgerError("finding files must be a list of strings")
 
+    # Optional so a ledger written before origins existed still parses;
+    # requiring it would turn every in-flight PR into an unreadable thread.
+    origin = raw.get("origin", "introduced")
+    if not isinstance(origin, str) or origin not in VALID_ORIGINS:
+        raise LedgerError(
+            f"finding origin {origin!r} is not one of {VALID_ORIGINS}"
+        )
+
     return Finding(
         id=ident,
         status=status,
         sev=sev,
         title=_require_str(raw, "title"),
         files=tuple(files),
+        origin=origin,
     )
 
 
@@ -231,6 +262,7 @@ def render(ledger: Ledger) -> str:
                     "sev": f.sev,
                     "title": f.title,
                     "files": list(f.files),
+                    "origin": f.origin,
                 }
                 for f in ledger.findings
             ],
@@ -300,10 +332,12 @@ def decide(
             f"head {current_head[:8]} was already reviewed at round {ledger.round}",
         )
 
-    if max_rounds is not None and ledger.round >= max_rounds:
+    if max_rounds is not None and max_rounds > 0 and ledger.round >= max_rounds:
         return (
             "rounds-exhausted",
-            f"round {ledger.round} has reached the cap of {max_rounds}",
+            f"round {ledger.round} has reached the cap of {max_rounds}; "
+            "stop iterating and reconsider the approach instead of opening "
+            "another round of line fixes",
         )
 
     return (

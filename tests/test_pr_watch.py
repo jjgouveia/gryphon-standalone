@@ -135,6 +135,28 @@ def test_new_head_with_a_relevant_delta_is_a_candidate():
     assert candidate.open_findings == 1
 
 
+def test_a_pr_whose_only_open_finding_predates_it_is_not_owed_a_round():
+    # The delta touches the file, so the cheap filter says "relevant". The
+    # origin label is what keeps the scanner from proposing a round for a
+    # bug the branch inherited.
+    ledger = make_ledger(
+        findings=(
+            Finding(
+                id=1,
+                status="open",
+                sev="high",
+                title="old bug",
+                files=("gryphon/parser.py",),
+                origin="pre_existing",
+            ),
+        )
+    )
+
+    assert (
+        evaluate(pull(), ledger, ("gryphon/parser.py",), max_rounds=6) is None
+    )
+
+
 def test_new_head_with_an_irrelevant_delta_is_skipped():
     ledger = make_ledger()
 
@@ -290,6 +312,33 @@ def test_a_carried_high_blocker_escalates():
     )
 
     assert pr_watch.escalate(previous, verdicts) == "request-changes"
+
+
+def test_a_carried_pre_existing_high_never_escalates():
+    # The branch inherited the bug. Blocking this author on it would hold
+    # the merge for work the PR did not create, which is the failure the
+    # origin label exists to prevent.
+    old = Finding(
+        id=1,
+        status="open",
+        sev="high",
+        title="old blocker",
+        files=(),
+        origin="pre_existing",
+    )
+    previous = make_ledger(findings=(old,))
+
+    assert pr_watch.escalate(previous, (old,)) == "comment"
+
+
+def test_an_introduced_high_escalates_beside_a_pre_existing_one():
+    old = Finding(
+        id=1, status="open", sev="high", title="old", files=(), origin="pre_existing"
+    )
+    new = Finding(id=2, status="open", sev="high", title="new", files=())
+    previous = make_ledger(findings=(old, new))
+
+    assert pr_watch.escalate(previous, (old, new)) == "request-changes"
 
 
 def test_a_brand_new_high_finding_stays_a_comment():
