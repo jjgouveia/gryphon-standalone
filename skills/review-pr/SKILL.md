@@ -28,6 +28,11 @@ hooks:
 Review a pull request or branch against its base: the graph picks what to
 read, the base ref proves what the diff actually changed.
 
+Paths like `scripts/pr_ledger.py` and `scripts/publish_review.py` are
+relative to the gryphon checkout. From a session in another repository,
+call them by their absolute path there: the scripts are not copied into
+the reviewed repo.
+
 ## State ledger
 
 Every published review carries a machine-readable footer. It is the reason

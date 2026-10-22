@@ -187,6 +187,11 @@ class LockBusyError(RuntimeError):
 
 
 def build_prompt(candidate: Candidate, repo_root: Path) -> str:
+    # The agent works in the reviewed checkout, where none of these scripts
+    # exist, so point at this runner's own directory. ``gh pr review`` is
+    # named because it is the path an agent takes when nothing tells it
+    # otherwise, and it publishes a body the next round cannot resume from.
+    publish = Path(__file__).resolve().parent / "publish_review.py"
     return (
         f"Run one re-review round on PR #{candidate.number} in the repository "
         f"at {repo_root}.\n\n"
@@ -199,9 +204,11 @@ def build_prompt(candidate: Candidate, repo_root: Path) -> str:
         "This round is unattended: there is no human to answer a question, so "
         "decide and proceed. Follow the \"Unattended rounds\" section for which "
         "review flag you may publish. You may never approve.\n\n"
-        "Publish the review yourself with gh, using the ledger from the skill to "
-        "keep the next round resumable. Post it as the repository's configured "
-        "reviewer; do not leave the review in a draft."
+        f"Publish the review yourself with `python {publish}` and the "
+        "arguments the skill gives it. Never publish with `gh pr review` "
+        "directly: a review without the ledger cannot be resumed, so the next "
+        "round would restart from finding 1. Post it as the repository's "
+        "configured reviewer; do not leave the review in a draft."
     )
 
 
