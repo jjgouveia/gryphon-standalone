@@ -96,6 +96,19 @@ def test_the_prompt_tells_the_agent_to_publish_itself():
     assert "not leave the review in a draft" in prompt
 
 
+def test_the_prompt_names_the_publish_script_and_not_gh():
+    # The agent runs in the reviewed checkout, which has no scripts of ours,
+    # and ``gh pr review`` posts a body the next round cannot resume. Both
+    # are named so it cannot take the path the skill forbids.
+    prompt = review_watch.build_prompt(candidate(), ROOT)
+
+    script = Path(review_watch.__file__).resolve().parent / "publish_review.py"
+
+    assert "publish_review.py" in prompt
+    assert "Never publish with `gh pr review` directly" in prompt
+    assert str(script) in prompt
+
+
 def test_the_prompt_forbids_approval():
     prompt = review_watch.build_prompt(candidate(), ROOT)
 

@@ -488,6 +488,15 @@ def test_skill_names_the_paths_that_earn_a_deep_read():
     assert "however small it looks" in skill
 
 
+def test_skill_says_where_the_scripts_live():
+    # The skill is installed into other repositories, where scripts/ holds
+    # none of these, and the publish command is the load-bearing one.
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "relative to the gryphon checkout" in skill
+    assert "absolute path" in skill
+
+
 def test_skill_documents_the_watch_entry_point_and_its_traps():
     skill = SKILL.read_text(encoding="utf-8")
 
