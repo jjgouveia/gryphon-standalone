@@ -17,7 +17,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import publish_review  # noqa: E402
-from pr_ledger import Finding, Ledger, extract, render  # noqa: E402
+from pr_ledger import MARKER, Finding, Ledger, extract, render  # noqa: E402
 
 REPO = "Ativos-Tecnologia/cvld"
 HEAD = "a" * 40
@@ -77,6 +77,25 @@ def test_the_composed_body_carries_a_ledger():
     assert ledger.head == HEAD
     assert ledger.flag == "request-changes"
     assert ledger.round == 1
+
+
+def test_the_visible_body_is_exactly_the_approved_prose():
+    # The person who says "sobe" is approving the draft. A status recap
+    # appended by the script is text they never read, and it duplicated the
+    # findings the prose already enumerates.
+    prose = "## Revisão\n\nBloqueador em `railpack.toml`."
+
+    body = publish_review.compose(
+        prose,
+        (Finding(id=1, status="open", sev="high", title="x", files=("railpack.toml",)),),
+        head=HEAD,
+        base="main",
+        round_number=1,
+        flag="request-changes",
+    )
+
+    visible = body.split(MARKER)[0]
+    assert visible.rstrip() == prose
 
 
 def test_verify_rejects_a_body_with_no_ledger():
@@ -178,6 +197,45 @@ def test_cli_refuses_an_invalid_finding(tmp_path):
     )
 
     assert run_cli(*base_args(prose, verdicts), "--dry-run").returncode == 3
+
+
+def test_check_flag_refuses_a_block_on_a_pre_existing_only_review():
+    findings = (
+        Finding(
+            id=1,
+            status="open",
+            sev="high",
+            title="old bug",
+            files=(),
+            origin="pre_existing",
+        ),
+    )
+
+    with pytest.raises(publish_review.VerdictError, match="pre-existing"):
+        publish_review.check_flag("request-changes", findings)
+
+
+def test_check_flag_allows_a_block_on_an_introduced_finding():
+    findings = (Finding(id=1, status="open", sev="high", title="new", files=()),)
+
+    publish_review.check_flag("request-changes", findings)
+
+
+def test_check_flag_allows_a_prose_only_block():
+    # No numbered findings: the prose carries the objection and the machine
+    # has nothing to contradict it.
+    publish_review.check_flag("request-changes", ())
+
+
+def test_cli_refuses_request_changes_when_every_finding_predates_the_pr(tmp_path):
+    prose, verdicts = write_inputs(
+        tmp_path, findings=[dict(FINDINGS[0], origin="pre_existing")]
+    )
+
+    result = run_cli(*base_args(prose, verdicts), "--dry-run")
+
+    assert result.returncode == 3
+    assert "pre-existing" in result.stderr
 
 
 def test_cli_refuses_an_unknown_flag(tmp_path):

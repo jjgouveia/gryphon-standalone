@@ -12,7 +12,7 @@ intersection below are why a push that cannot possibly affect an open
 finding never costs a model call.
 
     python scripts/pr_watch.py --repo jjgouveia/gryphon-standalone --check
-    python scripts/pr_watch.py --repo <o>/<r> --max-rounds 6 --json
+    python scripts/pr_watch.py --repo <o>/<r> --max-rounds 3 --json
 
 Exit codes:
     0  no PR needs a round (the poll was quiet, which is the normal case)
@@ -46,7 +46,10 @@ from pr_ledger import (
 
 logger = logging.getLogger("pr_watch")
 
-DEFAULT_MAX_ROUNDS = 6
+# Three rounds is where the loop stops being a review and starts being two
+# agents trading fixes: past that, most of what a reviewer finds was already
+# on the base. The cap turns a stuck PR into a conversation about approach.
+DEFAULT_MAX_ROUNDS = 3
 
 
 class GitHubError(RuntimeError):
@@ -298,10 +301,12 @@ def evaluate(
 
     assert ledger is not None
 
-    # A PR whose findings are all settled is not owed anything. Without
-    # this the scan would keep re-reviewing PRs the author already fixed
-    # and we already confirmed.
-    if not ledger.open_findings:
+    # A PR whose blocking findings are all settled is not owed anything.
+    # Without this the scan would keep re-reviewing PRs the author already
+    # fixed and we already confirmed. A pre-existing finding does not keep a
+    # PR in the queue either: it belongs to a follow-up issue, not to another
+    # round on this branch.
+    if not ledger.blocking_findings:
         return None
 
     return Candidate(
@@ -468,12 +473,16 @@ def escalate(previous: Ledger | None, verdicts: Iterable[Finding]) -> str:
     the failure that looks like the system working.
 
     Never ``approve`` — an unattended approval can merge a PR nobody read.
+    A ``pre_existing`` finding never escalates either, however high: it is
+    a bug the branch inherited, so blocking this author on it would hold
+    the merge for work the PR did not create.
     """
-    carried = {f.id for f in previous.open_findings} if previous is not None else set()
+    carried = {f.id for f in previous.blocking_findings} if previous is not None else set()
     for finding in verdicts:
         if (
             finding.sev == "high"
             and finding.status == "open"
+            and not finding.is_pre_existing
             and finding.id in carried
         ):
             return "request-changes"
@@ -508,7 +517,13 @@ def _main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--max-rounds", type=int, help="Stop after this many rounds per PR"
+        "--max-rounds",
+        type=int,
+        default=DEFAULT_MAX_ROUNDS,
+        help=(
+            "Stop after this many rounds per PR "
+            f"(default {DEFAULT_MAX_ROUNDS}; 0 disables the cap)"
+        ),
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON on stdout")
     parser.add_argument(

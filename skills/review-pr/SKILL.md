@@ -35,7 +35,7 @@ re-review can be resumed: the thread is the state, so a fresh agent session
 continues a round with no local file and no memory of the last one.
 
 ```html
-<!-- gryphon-review-state {"v":1,"head":"964e6756f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5","base":"staging","round":3,"flag":"request-changes","findings":[{"id":3,"status":"open","sev":"high","title":"Retry path skips the backoff","files":["src/net/retry.ts"]}]} -->
+<!-- gryphon-review-state {"v":1,"head":"964e6756f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5","base":"staging","round":3,"flag":"request-changes","findings":[{"id":3,"status":"open","sev":"high","title":"Retry path skips the backoff","files":["src/net/retry.ts"],"origin":"introduced"}]} -->
 ```
 
 Build it with `scripts/pr_ledger.py` — never hand-write the JSON. That module
@@ -69,6 +69,16 @@ decision, reason = decide(ledger, current_head=sha, current_base="staging")
   See *Ledger growth* for why compaction may not drop ids.
 - `sev` is `high`, `medium` or `low`. `title` is one line. `files` lists what
   the finding touches, which is what makes the delta filter cheap.
+- `origin` is `introduced` or `pre_existing`. A find that predates the branch
+  is `pre_existing`: it never gates the merge, however high the severity, and
+  it leaves the PR as a follow-up issue. The field is optional on read and
+  defaults to `introduced`, which is the safe direction — an unlabelled
+  finding can still block. Do not label it from the shape of the diff: prove
+  it with `git show origin/<base>:<path>` before writing the field.
+- A `pre_existing` finding that is spun out to an issue moves to `obsolete`,
+  not `open`. The watcher already ignores it when deciding whether a PR is
+  owed a round; leaving it `open` would claim the PR still has work it does
+  not.
 - `render()` escapes `<`, `>` and `&` inside the JSON strings as
   backslash-u plus the 4-hex codepoint (U+003C, U+003E, U+0026). The block
   lives in an HTML comment, so a literal `-->` in a finding title would
@@ -85,7 +95,7 @@ decision, reason = decide(ledger, current_head=sha, current_base="staging")
 ## Ledger growth
 
 The array grows for the life of the PR and is never pruned. Real PRs land
-around 10ÔÇô15 findings, so this is fine until it is not, and the failure
+around 10–15 findings, so this is fine until it is not, and the failure
 mode should be fixed deliberately rather than mid-round.
 
 Compaction must preserve **identity**, not just content: dropping a resolved
@@ -120,11 +130,11 @@ ledger in the thread is the only thing carried between rounds, so the same
 command works in a fresh session with no memory of the previous one.
 
 1. **Pull the whole thread** — three different surfaces:
-   - `gh api repos/<o>/<r>/pulls/<n>/reviews` ÔåÆ formal reviews (`state`,
+   - `gh api repos/<o>/<r>/pulls/<n>/reviews` → formal reviews (`state`,
      `body`, `submitted_at`)
-   - `gh api repos/<o>/<r>/issues/<n>/comments` ÔåÆ conversation replies
+   - `gh api repos/<o>/<r>/issues/<n>/comments` → conversation replies
      (the author's "fixed it" claims live here)
-   - `gh api repos/<o>/<r>/pulls/<n>/comments` ÔåÆ inline review comments
+   - `gh api repos/<o>/<r>/pulls/<n>/comments` → inline review comments
 
    Walk the reviews newest-first. The ledger lands in either the first or
    the second surface — `gh pr review` submits a formal review, `gh pr
@@ -132,18 +142,22 @@ command works in a fresh session with no memory of the previous one.
    (`pr_ledger.latest`). Then `decide(...)` settles what this pass is;
    it returns the decision and a one-line reason, so report both:
 
-   - **first-pass** ÔåÆ no ledger in the thread. Full pass, no resume
+   - **first-pass** → no ledger in the thread. Full pass, no resume
      shortcut, and say the ledger starts now. An edited-away block reads
      the same as a PR reviewed before ledgers existed.
-   - **newer-schema** ÔåÆ an unknown `v`. Stop; the block is from a newer
+   - **newer-schema** → an unknown `v`. Stop; the block is from a newer
      gryphon.
-   - **retargeted** ÔåÆ `base` moved, which invalidates every finding.
+   - **retargeted** → `base` moved, which invalidates every finding.
      Full pass, new ledger, say why.
-   - **already-reviewed** ÔåÆ `head` equals the ledger's. Report it and
+   - **already-reviewed** → `head` equals the ledger's. Report it and
      stop; never post a second review for a head already covered.
-   - **rounds-exhausted** ÔåÆ the caller's `max_rounds` cap. Stop; the
-     round summary is already in the thread.
-   - **resume** ÔåÆ round `round + 1`. The open list is the array, the
+   - **rounds-exhausted** → the caller's `max_rounds` cap (3 by default).
+     Stop here, and make the last message count: ask the author to step back
+     and reconsider the approach instead of opening another round of line
+     fixes. Two agents trading fixes can keep a PR alive indefinitely, and
+     past the third round most of what a reviewer finds was already on the
+     base.
+   - **resume** → round `round + 1`. The open list is the array, the
      delta is `ledger.head..<current head>`.
 
    Author replies claiming a fix are claims, not evidence.
@@ -161,7 +175,10 @@ command works in a fresh session with no memory of the previous one.
    *and* a regression test covers the behavior. A test that mocks the
    function under test proves nothing — check what it asserts. Also
    re-check "dead code" and "nobody calls this" claims from previous
-   rounds: the fix may have revived the call path. Write the verdict
+   rounds: the fix may have revived the call path. A carried finding that
+   turns out to predate the branch is relabelled `pre_existing`, never
+   silently dropped: same id, and it stops gating the merge even while
+   open. Write the verdict
    against the carried id — `#3` stays `#3` — and move it to
    `resolved`, `obsolete` or leave it `open`.
 4. **Re-run what was red first.** Tests that failed in previous rounds
@@ -188,6 +205,7 @@ agent proposes the flag and this policy decides what it may publish:
 | Situation | Flag |
 |---|---|
 | A `high` finding an earlier round raised is **still open** at the new head | `request-changes` |
+| A `high` finding is `pre_existing`, however severe | `comment` — it never gates the merge |
 | A `high` finding this round raised for the first time | `comment` |
 | A `low` or `medium` finding is open | `comment` |
 | Nothing open, no new findings | publish nothing — no-op round |
@@ -200,7 +218,11 @@ second row is the bot's first disagreement with new code — an opinion, and
 a merge blocked on an opinion costs more than one missed.
 
 Deciding this requires the verdict be written against the **carried id**,
-never re-derived from a fresh read of the diff.
+never re-derived from a fresh read of the diff. `pre_existing` is the one
+label that overrides severity: `escalate()` skips it, because holding a
+merge over a bug the branch inherited punishes the wrong person. The
+interactive path is guarded too: `publish_review.py` refuses
+`--request-changes` when no open finding was introduced by the diff.
 
 The agent proposes a flag; the policy has the last word.
 `pr_watch.escalate(previous_ledger, verdicts)` computes the allowed flag
@@ -276,7 +298,7 @@ privileged job to post.
 decision is free and identical wherever it is made:
 
 ```bash
-python scripts/pr_watch.py --repo <owner>/<name> --json --max-rounds 6
+python scripts/pr_watch.py --repo <owner>/<name> --json --max-rounds 3
 python scripts/pr_watch.py --repo <owner>/<name> --check   # exit 1 when ready
 ```
 
@@ -333,6 +355,24 @@ The CI round needs `pull-requests: read` on the analysis job: `contents:
 read` grants no such scope, so the ledger lookup would come back empty and
 every PR would look like round 1.
 
+## Paths that earn a deep read
+
+The ~5-call budget in step 2 is a default, not a ceiling. A diff that
+touches any of these gets the full pass however small it looks: read the
+callers, open the base, run the domain tests, and never approve on the diff
+alone.
+
+- auth, permissions and anything that answers "who can see this"
+- billing, invoicing and anything that computes a total
+- migrations, schema changes and data backfills
+- CI workflows, release scripts and anything holding repo credentials
+- settings that change a default for everyone (`DEBUG`, timeouts, flags)
+- installers, updaters and code that runs on someone else's machine
+
+A small diff with a big blast radius is the shape that gets waved through.
+When a path matches, say in the review that you read it deeply and what you
+checked, so the author can tell a deep pass from a shallow one.
+
 ## 2. Graph pass
 
 1. `get_minimal_context_tool(task="review PR #<n>", changed_files=<list>)`.
@@ -360,7 +400,7 @@ every PR would look like round 1.
    - On `status: ok` but `_graph.built_on_branch` differs from the PR base,
      warn in chat but continue: the graph is usable for structural queries
      but `detect_changes` risk scores may be off.
-2. `detect_changes_tool(changed_files=<list>, detail_level="minimal")` ÔåÆ
+2. `detect_changes_tool(changed_files=<list>, detail_level="minimal")` →
    risk score, test gaps, affected flows. If the graph was just rebuilt,
    the risk scores now reflect the correct domain.
 3. For each high-risk function:
@@ -461,7 +501,15 @@ every PR would look like round 1.
 
 Group findings by risk (high, medium, low). Number every finding — that
 number is its id for the rest of the PR, so it is assigned once and never
-changes. For each finding give what changed and why it matters, its test
+changes.
+
+One finding per **class** of bug, not per occurrence. When the same mistake
+repeats, give it one id and list every file under it; name the other sites
+in the prose. Four comments for one copy-paste defect read as four problems
+and cost four resolutions, and a later round cannot tell from a single file
+whether the sweep happened. The author fixes the class.
+
+For each finding give what changed and why it matters, its test
 coverage, and the suggested fix. End with a merge recommendation. Keep the
 structure light — a few strong paragraphs beat a long checklist.
 
