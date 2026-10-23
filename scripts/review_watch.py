@@ -192,6 +192,8 @@ def build_prompt(candidate: Candidate, repo_root: Path) -> str:
     # named because it is the path an agent takes when nothing tells it
     # otherwise, and it publishes a body the next round cannot resume from.
     publish = Path(__file__).resolve().parent / "publish_review.py"
+    comments = Path(__file__).resolve().parent / "pr_comments.py"
+    where = candidate.repo or "<owner>/<repo>"
     return (
         f"Run one re-review round on PR #{candidate.number} in the repository "
         f"at {repo_root}.\n\n"
@@ -201,6 +203,11 @@ def build_prompt(candidate: Candidate, repo_root: Path) -> str:
         f"based on {candidate.base}. The previous round left "
         f"{candidate.open_findings} open finding(s). Files changed since then: "
         f"{', '.join(candidate.delta_files) or 'unknown'}.\n\n"
+        f"Before the verdict, read the author's replies with `python {comments} "
+        f"--repo {where} --pr {candidate.number} --since last-round`. Follow the "
+        "\"Responding to the author's replies\" section: verify each claim at "
+        "head, then react with +1 or confused — never eyes — and do not post "
+        "prose replies, because there is no one to approve the wording.\n\n"
         "This round is unattended: there is no human to answer a question, so "
         "decide and proceed. Follow the \"Unattended rounds\" section for which "
         "review flag you may publish. You may never approve.\n\n"

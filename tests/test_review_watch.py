@@ -121,6 +121,20 @@ def test_the_prompt_points_at_the_unattended_policy():
     assert "Unattended rounds" in prompt
 
 
+def test_the_prompt_reads_the_authors_replies_before_the_verdict():
+    # The claim "both blockers are fixed" is checked at head, and the
+    # unattended round may acknowledge it with a reaction but not write a
+    # reply nobody approved.
+    prompt = review_watch.build_prompt(candidate(repo=REPO), ROOT)
+
+    script = Path(review_watch.__file__).resolve().parent / "pr_comments.py"
+
+    assert str(script) in prompt
+    assert "--since last-round" in prompt
+    assert "Responding to the author's replies" in prompt
+    assert "never eyes" in prompt
+
+
 def test_the_prompt_lists_the_delta():
     prompt = review_watch.build_prompt(candidate(delta_files=("a.py", "b.py")), ROOT)
 
