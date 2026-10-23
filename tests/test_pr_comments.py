@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -407,6 +408,57 @@ def test_an_empty_reply_is_rejected(monkeypatch):
 
     with pytest.raises(ValueError):
         reply(REPO, PR, sample_comment(), "   ")
+
+
+# --- the small helpers ---------------------------------------------------
+
+
+def test_as_dict_carries_the_json_contract():
+    data = sample_comment().as_dict()
+
+    assert data["kind"] == "issue"
+    assert data["is_author"] is True
+    assert data["has_ledger"] is False
+    assert data["in_reply_to_id"] is None
+
+
+def test_parse_ts_accepts_the_github_zulu_stamp():
+    parsed = pr_comments._parse_ts("2026-10-23T18:00:00Z")
+
+    assert parsed.tzinfo is not None
+    with pytest.raises(ValueError):
+        pr_comments._parse_ts("ontem")
+
+
+def test_a_malformed_timestamp_does_not_hide_the_comment():
+    # Ordering is a convenience; the body is the evidence. A stamp the
+    # parser cannot read sorts first instead of taking the comment with it.
+    assert pr_comments._timestamp("nonsense") == datetime.min.replace(
+        tzinfo=timezone.utc
+    )
+    assert pr_comments._timestamp("2026-01-01T00:00:00Z") > pr_comments._timestamp(
+        "nonsense"
+    )
+
+
+def test_bot_detection_covers_the_type_and_the_login_suffix():
+    assert pr_comments._is_bot({"login": "ci[bot]", "type": "User"}) is True
+    assert pr_comments._is_bot({"login": "someone", "type": "Bot"}) is True
+    assert pr_comments._is_bot({"login": "someone", "type": "User"}) is False
+
+
+def test_review_url_points_at_the_review_anchor():
+    assert pr_comments._review_url(PR_URL, 9) == f"{PR_URL}#pullrequestreview-9"
+    assert pr_comments._review_url("", 9) == ""
+
+
+def test_clip_leaves_a_short_body_alone_and_marks_the_cut():
+    assert pr_comments._clip("curto", 100) == "curto"
+
+    clipped = pr_comments._clip("x" * 50, 10)
+
+    assert clipped.startswith("x" * 10)
+    assert "truncado" in clipped
 
 
 # --- the argument contract ----------------------------------------------
