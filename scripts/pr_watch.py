@@ -95,15 +95,30 @@ class Candidate:
 
 
 def gh(args: list[str]) -> str:
-    """Run a ``gh`` command and return stdout, or raise."""
+    """Run a ``gh`` command and return stdout, or raise.
+
+    ``encoding="utf-8"`` is not optional on Windows: the default is the
+    console code page (cp1252), and a PR body with a single emoji or an
+    accented character makes the reader thread raise ``UnicodeDecodeError``
+    and hands back ``None``. That failure looks like "no comments" instead
+    of "could not read the thread", which is the class of bug this module
+    keeps guarding against.
+    """
     try:
         done = subprocess.run(
-            ["gh", *args], capture_output=True, text=True, timeout=60
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitHubError(f"gh {' '.join(args)}: {exc}") from exc
     if done.returncode != 0:
         raise GitHubError(f"gh {' '.join(args)}: {done.stderr.strip()}")
+    if done.stdout is None:
+        raise GitHubError(f"gh {' '.join(args)} returned no output")
     return done.stdout
 
 

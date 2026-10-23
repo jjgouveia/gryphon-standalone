@@ -137,7 +137,9 @@ def publish(repo: str, pr: int, flag: str, body_file: Path, *, closed: bool = Fa
     else:
         command.append(f"--{flag}")
 
-    done = subprocess.run(command, capture_output=True, text=True)
+    done = subprocess.run(
+        command, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     if done.returncode != 0:
         raise GitHubError(done.stderr.strip() or f"gh exited {done.returncode}")
 
@@ -147,6 +149,8 @@ def pr_is_open(repo: str, pr: int) -> bool:
         ["gh", "pr", "view", str(pr), "--repo", repo, "--json", "state"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if done.returncode != 0:
         raise GitHubError(done.stderr.strip() or f"gh exited {done.returncode}")

@@ -166,6 +166,17 @@ command works in a fresh session with no memory of the previous one.
      delta is `ledger.head..<current head>`.
 
    Author replies claiming a fix are claims, not evidence.
+
+   Run the read through the script, not by hand:
+
+   ```bash
+   python scripts/pr_comments.py --repo <o>/<r> --pr <n> --since last-round
+   ```
+
+   It merges the three surfaces, drops bots and ledger bodies, flags the PR
+   author, and cuts at the newest round in the thread. Put each reply in
+   chat before the verdict — the author wrote it expecting an answer, and
+   the diff never shows that they did.
 2. **Isolate the delta.** `git fetch origin <head>` + `git diff
    <ledger.head>..origin/<head>`. Without a block, fall back to the head
    SHA cited in the body, then to bounding by `submitted_at` against the
@@ -201,6 +212,44 @@ command works in a fresh session with no memory of the previous one.
    every prior finding forward with its verdict and append the new ones
    to the same array — the ledger is the record, so a dropped id is a
    finding the next round will raise again.
+
+## Responding to the author's replies
+
+A reply is part of the review. Read it, check it, answer it — in the
+thread, where the author will look first.
+
+- **A claim is checked against head, not against its own confidence.**
+  "Os dois bloqueios foram corrigidos" is one check per finding, with the
+  file and line at head; "fiz merge da main para gerar a migrate" is a
+  `git log`/`git ls-tree` on the branch, not a sentence. What step 3
+  verified is the verdict; what the author wrote is the input.
+- **React on the comment itself.** `pr_comments.py --react <emoji>`:
+
+  | Reaction | When |
+  |---|---|
+  | `eyes` | the reply is read and being verified |
+  | `+1` | every claim in it holds at head |
+  | `confused` | a claim does not hold; the reply text says which finding |
+
+  `+1`, never `hooray`/`rocket`: a review acknowledgement is not
+  applause. Never react to your own review body, to a bot, or to the
+  ledger comment — the script already skips those. A reaction is not a
+  verdict: it never changes the flag, and `confused` is only honest next
+  to the evidence that contradicts the claim.
+- **Answer the ones that need it.** A reply that contests a finding, or
+  that fixes something other than what was asked, gets a threaded answer:
+  `--reply-id <id> --reply-text "..."`. Inline comments get a real thread
+  reply; a conversation comment is quoted and mentioned. Cite the finding
+  id and the evidence (`src/x.ts:42`, the test that covers it). Draft it
+  in chat and post only after an explicit yes, same as the review body.
+- **The published round opens with the replies it read.** One line per
+  reply — "`#3` corrigido em `src/x.ts:42`, coberto por
+  `test_retry.py`" / "`#4` não se sustenta: o caminho ainda engole o
+  erro" — then the new findings. Not "o autor disse que corrigiu": what
+  you verified, and where.
+- **Unattended rounds react only after verification.** `+1` or
+  `confused`, never `eyes` (which claims a human is on it), and no prose
+  replies: the runner has no one to approve the wording.
 
 ## Unattended rounds
 
