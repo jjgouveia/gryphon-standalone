@@ -361,3 +361,16 @@ def test_the_skill_publishes_through_the_script():
     assert "publish_review.py" in skill
     # The raw gh command must not be the documented way to publish any more.
     assert "gh pr review <n> --repo <owner>/<repo> --<flag> --body-file <file>" not in skill
+
+
+def test_the_multi_skill_maps_its_findings_into_the_ledger():
+    # review-multi's list carries provenance (A, B, both) and check state,
+    # not ledger fields. Without the mapping its published review has no
+    # open findings to resume from, and the next round re-reports them.
+    skill = (ROOT / "skills" / "review-multi" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "## Publish" in skill
+    assert "publish_review.py" in skill
+    assert "next_id()" in skill
+    assert "pre_existing" in skill
+    assert "never enter as `open`" in skill

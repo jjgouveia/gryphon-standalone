@@ -97,8 +97,33 @@ than a single review's own order.
 For each finding give where it is, what is wrong, the evidence, and who
 reported it. End with a merge recommendation.
 
-Follow `review-pr` section 5 to publish: show the draft in chat first and
-publish only after an explicit yes.
+## Publish
+
+The draft goes to chat first and only an explicit yes publishes it, the
+rule from `review-pr` section 5. The flag policy is that section's too:
+anything that conditions the merge sends the review as `--request-changes`,
+and the remaining findings become a follow-up issue.
+
+What this flow adds is the mapping from a merged list to a ledger the next
+round can read. Publish with `scripts/publish_review.py` (never `gh pr
+review` directly), the command `review-pr` section 5 shows, and turn the
+findings into `verdicts.json`:
+
+- **ids**: assign in ranked order, or continue the numbering with the
+  ledger's `next_id()` when the PR was reviewed before. A finding that
+  matches an open carried one keeps the carried id, and the verdict is
+  written against it.
+- **origin**: `pre_existing` only with proof, `git show origin/<base>:<path>`
+  showing the bug was already on the base. It never gates the merge, so a
+  high finding that predates the branch publishes as a comment or spins out
+  to an issue. What you did not prove stays `introduced`, the default.
+- **contradicted** findings never enter as `open`. A fresh one gets no id
+  and stays in the prose with the reason; a carried id contradicted this
+  round moves to `obsolete`.
+- `not verified` enters `open` with the claim intact, like any unproven
+  finding.
+- Who reported what (A, B, both) stays in the prose: the ledger has no
+  column for it.
 
 ## Report in chat
 
