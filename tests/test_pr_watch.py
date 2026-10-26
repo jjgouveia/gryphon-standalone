@@ -420,6 +420,23 @@ def test_escalation_never_returns_approve():
 # --- gh failure modes ---------------------------------------------------
 
 
+def test_gh_decodes_utf8_instead_of_the_windows_code_page(monkeypatch):
+    # A PR body with an emoji or an accent breaks cp1252 decoding: the
+    # reader thread dies and stdout comes back as None, which reads as "no
+    # comments" rather than "could not read the thread".
+    captured: dict[str, object] = {}
+
+    def fake_run(command, **kwargs):
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(pr_watch.subprocess, "run", fake_run)
+
+    assert pr_watch.gh(["api", "user"]) == "ok"
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
+
+
 def test_a_gh_failure_surfaces_as_github_error(monkeypatch):
     def boom(args: list[str]) -> str:
         raise GitHubError("not authenticated")

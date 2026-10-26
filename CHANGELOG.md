@@ -4,6 +4,15 @@
 
 ### Added
 
+- `review-pr` reads the author's replies. `scripts/pr_comments.py` merges
+  the three thread surfaces, drops bots and ledger bodies, flags the PR
+  author and cuts at the newest round (`--since last-round`), so a resumed
+  pass shows what the author actually said instead of inferring it from the
+  diff. The round verifies each claim at head and reacts on the comment
+  itself (`+1` when it holds, `confused` when it does not), with a threaded
+  reply where the claim needs an answer; unattended rounds react only after
+  verification and post no prose. `review_watch`'s prompt points the agent
+  at the script.
 - `review-multi` skill (`/review-multi`): two independent reviewers run in
   parallel, their findings are merged and ranked, and each is checked
   against the code (never dropped). In the benchmark's 19 closed PRs, two
