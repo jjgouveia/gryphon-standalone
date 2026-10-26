@@ -4,6 +4,14 @@
 
 ### Added
 
+- `review-pr` runs a deterministic undefined-name check on the files a PR
+  touches (`scripts/check_undefined.py`, Python via `ruff --select F821,F811`)
+  and classifies each hit against the base version of the same file:
+  `introduced` becomes a high finding, `pre_existing` never gates. It closes
+  the case a diff cannot show — a commit deletes an import together with the
+  one caller it noticed and leaves the surviving calls outside every hunk, so
+  `gh pr diff` reads coherently, the module still imports, and the
+  `NameError` only fires on that path at runtime.
 - `review-pr` reads the author's replies. `scripts/pr_comments.py` merges
   the three thread surfaces, drops bots and ledger bodies, flags the PR
   author and cuts at the newest round (`--since last-round`), so a resumed

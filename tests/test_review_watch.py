@@ -87,6 +87,15 @@ def test_the_prompt_names_the_pr_head_and_round():
     assert "--resume" in prompt
 
 
+def test_the_prompt_runs_the_undefined_name_check():
+    prompt = review_watch.build_prompt(candidate(), ROOT)
+
+    checker = Path(review_watch.__file__).resolve().parent / "check_undefined.py"
+    assert str(checker) in prompt
+    assert "pre_existing" in prompt
+    assert "Exit 2 means" in prompt
+
+
 def test_the_prompt_tells_the_agent_to_publish_itself():
     prompt = review_watch.build_prompt(candidate(), ROOT)
 
