@@ -619,6 +619,65 @@ def _should_ignore(path: str, patterns: list[str]) -> bool:
     return False
 
 
+# A linked worktree or a nested clone is a separate repository that happens to
+# live under this root. Indexing it duplicates another checkout into this
+# graph -- a review worktree created inside a Django repository once grew its
+# graph from ~50k to ~350k nodes -- and makes every watch batch proportional to
+# the nested checkout. Submodules are deliberately not matched here: their
+# ``.git`` file points at ``.git/modules`` and ``CRG_RECURSE_SUBMODULES`` is
+# the existing opt-in for them.
+_NESTED_REPO_DIRS: set[str] = set()
+
+
+def _is_nested_repo_dir(directory: Path) -> bool:
+    """Return True when *directory* is a linked worktree or a nested clone."""
+    if not isinstance(directory, Path):
+        # Path-identity tests pass PureWindowsPath on POSIX; there is no
+        # filesystem to inspect, so the path cannot be a nested repository.
+        return False
+    key = os.path.normcase(os.path.abspath(str(directory)))
+    if key in _NESTED_REPO_DIRS:
+        return True
+    marker = directory / ".git"
+    try:
+        if marker.is_dir():
+            nested = True
+        elif marker.is_file():
+            first_line = marker.read_text(encoding="utf-8", errors="replace").splitlines()
+            location = first_line[0].strip() if first_line else ""
+            if location.lower().startswith("gitdir:"):
+                location = location.split(":", 1)[1].strip()
+            location = location.replace("\\", "/")
+            # ``.git/worktrees/<name>`` is a linked worktree; ``.git/modules/
+            # <name>`` is a submodule and keeps the existing opt-in behavior.
+            lowered = location.lower()
+            nested = "/worktrees/" in lowered or lowered.startswith("worktrees/")
+        else:
+            nested = False
+    except OSError:
+        nested = False
+    if nested:
+        _NESTED_REPO_DIRS.add(key)
+    return nested
+
+
+def _is_nested_repo_path(repo_root: Path, relative_path: str) -> bool:
+    """Return True when *relative_path* lives inside a nested repository.
+
+    The repository root itself is never treated as nested; only its
+    descendants can be a linked worktree or a clone.
+    """
+    parts = PurePosixPath(relative_path.replace("\\", "/")).parts
+    if len(parts) <= 1:
+        return False
+    current = repo_root
+    for part in parts[:-1]:
+        current = current / part
+        if _is_nested_repo_dir(current):
+            return True
+    return False
+
+
 def _child_directories(directory: Path) -> list[tuple[str, bool]]:
     """List ``directory`` once, returning ``(name, is_dir)`` for its entries.
 
@@ -1065,13 +1124,21 @@ def _find_content_mismatches(
             path = repo_root / path
         try:
             relative_path = path.relative_to(repo_root).as_posix()
+        except ValueError:
+            # Paths outside the repository cannot be represented as relative
+            # update inputs and are left to stale-file reconciliation.
+            continue
+        if _is_nested_repo_path(repo_root, relative_path):
+            # A graph built before nested worktrees were skipped can still
+            # hold their files; do not read them, and let reconciliation
+            # remove the stale rows.
+            continue
+        try:
             raw = path.read_bytes()
             current_hash = hashlib.sha256(raw).hexdigest()
             current_hashes[relative_path] = current_hash
         except (OSError, ValueError):
-            # Missing files are handled by stale-file reconciliation.  Paths
-            # outside the repository cannot be represented as relative update
-            # inputs and are left to that reconciliation path as well.
+            # Missing files are handled by stale-file reconciliation.
             continue
         if b"\x00" not in raw[:8192]:
             text_files.add(stored_path)
@@ -1256,6 +1323,8 @@ def collect_all_files(
     for rel_path in candidates:
         if _should_ignore(rel_path, ignore_patterns):
             continue
+        if _is_nested_repo_path(repo_root, rel_path):
+            continue
         # Skip paths that would exceed OS filename limits (macOS: 255 bytes
         # per component, ~1024 total; Windows: 260 total).
         try:
@@ -1295,7 +1364,9 @@ def _reconcile_stale_files(
     current_paths: set[str]
     if current_files is not None:
         current_paths = {
-            normalize_file_path(repo_root / file_path) for file_path in current_files
+            normalize_file_path(repo_root / file_path)
+            for file_path in current_files
+            if not _is_nested_repo_path(repo_root, file_path)
         }
     else:
         ignore_patterns = _load_ignore_patterns(repo_root)
@@ -1311,6 +1382,7 @@ def _reconcile_stale_files(
                 path.is_file()
                 and not path.is_symlink()
                 and not _should_ignore(relative, ignore_patterns)
+                and not _is_nested_repo_path(repo_root, relative)
                 and parser.detect_language(path) is not None
                 and (
                     (known_text is not None and stored_file in known_text)
@@ -1704,7 +1776,9 @@ def incremental_update(
     # Separate deleted/unparseable files from files that need re-parsing
     to_parse: list[str] = []
     for rel_path in all_files:
-        if _should_ignore(rel_path, ignore_patterns):
+        if _should_ignore(rel_path, ignore_patterns) or _is_nested_repo_path(
+            repo_root, rel_path,
+        ):
             if rel_path in remaining_identity:
                 ignored_path = repo_root / rel_path
                 if (
@@ -2557,6 +2631,8 @@ def _create_watch_handler(
                 return None
             if apply_ignores and _should_ignore(str(relative), ignore_patterns):
                 return None
+            if _is_nested_repo_path(repo_root, str(relative)):
+                return None
             return str(relative)
 
         def _refresh_ignore_patterns(
@@ -2649,11 +2725,14 @@ def _create_watch_handler(
                 and not absolute_path.is_symlink()
                 and parser.detect_language(absolute_path) is not None
                 and not _is_binary(absolute_path)
+                and not _is_nested_repo_path(repo_root, relative_path)
             )
 
         def _parseable_descendants(self, relative_directory: str) -> set[str]:
             directory = repo_root / relative_directory
             if not directory.is_dir() or directory.is_symlink():
+                return set()
+            if directory != repo_root and _is_nested_repo_dir(directory):
                 return set()
             return {
                 str(path.relative_to(repo_root))
