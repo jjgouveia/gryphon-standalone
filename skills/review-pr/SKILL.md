@@ -198,9 +198,11 @@ command works in a fresh session with no memory of the previous one.
    against the carried id — `#3` stays `#3` — and move it to
    `resolved`, `obsolete` or leave it `open`.
 4. **Re-run what was red first.** Tests that failed in previous rounds
-   are the cheapest oracle — run them before the broader suite. Lint
-   the touched files too (`ruff check --select F821` catches
-   missing-import breakage without booting the app).
+   are the cheapest oracle — run them before the broader suite. Run
+   `scripts/check_undefined.py` on the delta files too (section 3): a fix
+   commit that restores a call path often drops the import with it, so a
+   round that verifies only the intended fix can carry the new breakage
+   forward as resolved.
 5. **Expect breakage inside the fix.** Fix commits often introduce new
    issues (a re-added call path drops an import, a restored fan-out
    drops the debounce). Diff the delta fresh; don't assume a fix
@@ -482,6 +484,43 @@ checked, so the author can tell a deep pass from a shallow one.
   `git worktree add ../.wt-pr<n> origin/<head>`), not in a dirty workspace.
   Reuse the parent checkout's virtualenv and env files instead of
   reinstalling.
+
+### Undefined names: the check a diff cannot do
+
+A diff can break a file without touching the line that breaks. The case this
+section exists for: a commit deletes `from itertools import chain` in the
+same hunk that deletes the one caller it noticed, and two
+`chain.from_iterable(...)` calls survive outside every hunk. `gh pr diff`
+tells a coherent story, the module still imports, and the failure only shows
+up when that branch runs. No amount of reading the diff finds it.
+
+Run the checker on the files step 1 listed, before trusting the diff:
+
+```bash
+python <gryphon>/scripts/check_undefined.py --repo . --base origin/<base> \
+  --files <path> [<path> ...]
+```
+
+It lints the touched files with `ruff --select F821,F811` and classifies each
+hit against the same file at `<base>`:
+
+- `introduced` — the name resolved at base and does not at head;
+- `pre_existing` — already broken at base, so it is the base's debt;
+- `unknown` — no base version to compare against.
+
+Exit `1` means something was introduced, `2` that no checker could run.
+
+- An `introduced` hit is a `high` finding: it is a guaranteed `NameError` on
+  that path, not a style opinion. Cite `file:line` and the symbol.
+- Group by class, as the Output section says: two surviving
+  `chain.from_iterable` calls in one file are one finding with two sites.
+- `pre_existing` never gates the merge. Mention it as a follow-up at most,
+  and never relabel it `introduced` to make it block.
+- Exit `2` is *not checked*, not *clean*: say so in chat, the same way you
+  report a test suite you could not run.
+- Non-Python files come back as skipped. Do not claim they were checked.
+- Report the result in chat next to the graph metrics — clean, N introduced,
+  or not checked — so the reader can tell the check ran.
 
 ## 4. Tests (when the environment allows)
 

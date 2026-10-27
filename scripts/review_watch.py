@@ -193,6 +193,8 @@ def build_prompt(candidate: Candidate, repo_root: Path) -> str:
     # otherwise, and it publishes a body the next round cannot resume from.
     publish = Path(__file__).resolve().parent / "publish_review.py"
     comments = Path(__file__).resolve().parent / "pr_comments.py"
+    checker = Path(__file__).resolve().parent / "check_undefined.py"
+    delta = " ".join(candidate.delta_files) or "<changed files>"
     where = candidate.repo or "<owner>/<repo>"
     return (
         f"Run one re-review round on PR #{candidate.number} in the repository "
@@ -208,6 +210,10 @@ def build_prompt(candidate: Candidate, repo_root: Path) -> str:
         "\"Responding to the author's replies\" section: verify each claim at "
         "head, then react with +1 or confused — never eyes — and do not post "
         "prose replies, because there is no one to approve the wording.\n\n"
+        f"Also before the verdict, run `python {checker} --repo {repo_root} "
+        f"--base origin/{candidate.base} --files {delta}`. An `introduced` hit "
+        "is a high finding; `pre_existing` never gates the merge. Exit 2 means "
+        "it was not checked — report that instead of implying it passed.\n\n"
         "This round is unattended: there is no human to answer a question, so "
         "decide and proceed. Follow the \"Unattended rounds\" section for which "
         "review flag you may publish. You may never approve.\n\n"

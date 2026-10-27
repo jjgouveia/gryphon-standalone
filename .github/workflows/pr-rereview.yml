@@ -103,6 +103,15 @@ jobs:
           --resume. You are not alone in the checkout: the worktree is clean and
           the branch is already checked out at ${HEAD_SHA}, based on ${BASE_REF}.
 
+          Before the verdict, run:
+
+            python scripts/check_undefined.py --repo . --base origin/${BASE_REF} \
+              --files <the files the delta touches>
+
+          Treat an "introduced" hit as a high finding. "pre_existing" never gates
+          the merge. Exit 2 means it was not checked - report that instead of
+          implying it passed.
+
           This round is unattended. Follow the "Unattended rounds" section of the
           skill for which review flag you may publish. You may never approve, and
           you may never publish anything yourself.
