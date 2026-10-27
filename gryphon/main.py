@@ -122,6 +122,12 @@ async def build_or_update_graph_tool(
     with the sync handler blocking the only event-loop thread. See:
     #46, #136.
 
+    Note:
+        A full rebuild is CPU- and I/O-heavy and can keep other graph calls
+        waiting for minutes on a large repository. For a full build, prefer
+        ``gryphon build`` in a shell (separate process); use this tool for
+        incremental updates after edits.
+
     Args:
         full_rebuild: If True, re-parse all files. Default: False (incremental).
         repo_root: Repository root path. Auto-detected from current directory if omitted.

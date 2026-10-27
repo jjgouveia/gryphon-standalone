@@ -157,6 +157,17 @@
 
 ### Fixed
 
+- A review worktree created inside the checkout is no longer indexed into
+  the parent graph. Linked worktrees (`.git` file pointing at
+  `.git/worktrees`) and nested clones (`.git` directory) are skipped by the
+  build, the watcher and incremental updates; submodules keep the
+  `CRG_RECURSE_SUBMODULES` opt-in. Nine such worktrees had grown one Django
+  graph from ~50k to ~350k nodes and its database to 8 GB, and every graph
+  call waited behind a full rebuild. The `review-pr` skill now creates the
+  review worktree at `../.wt-pr<n>` (and the graph worktree at
+  `../.wt-pr<n>-base`), builds it with the CLI instead of the blocking MCP
+  tool, and removes it when the review ends.
+
 - `from pkg import submodule [as alias]` now records an import of the
   submodule's file, not only of `pkg/__init__.py`. A call such as
   `alias.func()` therefore resolves to `submodule.func`, and a test that

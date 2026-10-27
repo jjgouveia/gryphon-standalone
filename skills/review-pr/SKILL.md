@@ -437,22 +437,32 @@ checked, so the author can tell a deep pass from a shallow one.
      - If the graph was built on the **PR base branch** or an ancestor of
        it, it is usable — continue with explicit `changed_files`.
      - If the graph was built on a **different branch** (e.g. `new-main`
-       while reviewing a PR against `staging`), the graph nodes belong to
-       a different domain. **Rebuild in the worktree before continuing:**
+       while reviewing a PR against `staging`), first check whether the
+       changed files and their callers are already in the graph. A PR against
+       `main` reviewed from a feature checkout usually is. Rebuild only when
+       the graph is missing those files or was built from an unrelated
+       history. A worktree is for running the PR's tests; it does not need
+       its own graph unless this check says otherwise.
+     - A rebuild runs **in the shell, never through
+       `build_or_update_graph_tool`**: a full build inside the MCP server
+       blocks every other graph call for minutes. Use a worktree **outside**
+       the repository (or the parent checkout only when it is clean):
        ```bash
-       git checkout <PR_base_branch>
-       gryphon build
-       git checkout -   # return to original branch
+       git worktree add ../.wt-pr<n>-base origin/<PR_base_branch>
+       gryphon build --repo ../.wt-pr<n>-base
        ```
-       Or, for large repos where checkout is expensive, create a worktree:
+       Never create the worktree at `.wt-pr<n>` inside the checkout. Keep it
+       outside: the graph watcher follows the whole tree, and a copy that is
+       not a registered worktree (or an older gryphon) would be indexed into
+       the parent graph. Pass `repo_root` explicitly to all graph calls, and
+       remove the graph worktree when the review is done:
        ```bash
-       git worktree add .wt-pr<n> origin/<PR_base_branch>
-       gryphon build --repo .wt-pr<n>
+       git worktree remove --force ../.wt-pr<n>-base
        ```
-       Then pass `repo_root` explicitly to all graph calls.
-     - Only skip the rebuild when the build commit is gone from the clone
-       (history rewrite / shallow fetch) — in that case, run
-       `build_or_update_graph_tool(full_rebuild=true, postprocess="minimal")`.
+     - If the build commit is gone from the clone (history rewrite / shallow
+       fetch), a diff-based update cannot run: do a full CLI build with
+       `gryphon build --repo <path> --skip-postprocess`. Do not use the MCP
+       build tool for a full build.
    - On `status: ok` but `_graph.built_on_branch` differs from the PR base,
      warn in chat but continue: the graph is usable for structural queries
      but `detect_changes` risk scores may be off.
@@ -480,10 +490,13 @@ checked, so the author can tell a deep pass from a shallow one.
   author's narrative alone.
 - `gh pr checks <n>` informs you; only mention CI in the review when a
   failure is clearly caused by this diff.
-- Large remote PRs: review in a worktree (`git fetch origin <head>` +
-  `git worktree add ../.wt-pr<n> origin/<head>`), not in a dirty workspace.
-  Reuse the parent checkout's virtualenv and env files instead of
-  reinstalling.
+- Large remote PRs: review in a worktree outside the repository
+  (`git fetch origin <head>` +
+  `git worktree add ../.wt-pr<n> origin/<head>`), not in a dirty workspace
+  and never inside the checkout; keeping it outside avoids the parent graph
+  watcher entirely. Reuse the parent checkout's virtualenv and env files
+  instead of reinstalling. Remove the worktree when the review is done:
+  `git worktree remove --force ../.wt-pr<n>`.
 
 ### Undefined names: the check a diff cannot do
 
