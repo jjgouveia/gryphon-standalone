@@ -105,6 +105,9 @@
   radius and never wait for CI. The tests that reach the changed symbols and
   the changed domain are the evidence for the pass; a CI status is a snapshot,
   not a gate.
+- `review-pr` and `review-multi` report whether the dependency environment was
+  reused or built for the lock state, so the user can tell a zero-install start
+  from a one-time cache build.
 - The review workflow follows the Elephant-Goldfish split. `review-pr` now
   dispatches discovery to fresh-context lanes (correctness, tests/contracts,
   blast radius, intent when the PR states acceptance criteria), verifies the

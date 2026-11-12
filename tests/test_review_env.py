@@ -490,3 +490,8 @@ def test_review_skill_documents_dependency_reuse() -> None:
     assert "scripts/review_env.py" in text
     assert "never run" in text.lower()
     assert "lock hash" in text.lower() or "dependency key" in text.lower()
+    assert "Tell the user what happened" in text
+    assert "reused-cache" in text
+    assert "installing" in text
+    multi = (ROOT / "skills" / "review-multi" / "SKILL.md").read_text(encoding="utf-8")
+    assert "tell the user" in multi.lower()

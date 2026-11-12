@@ -699,6 +699,24 @@ It hashes the lockfile, manifest, runtime and OS/arch, then:
   cannot prove the tree matches the lock; `--force` moves it aside (renamed,
   never deleted) and links the cached tree.
 
+**Tell the user what happened.** After `prepare`, say in chat whether the
+environment was reused or built, before running the tests. The action line is
+the source of truth:
+
+- `reused-base`, `reused-cache`, `reused-link`, `kept-existing` -> nothing was
+  installed; say what was reused and the short lock key;
+- `linked-main` -> the parent `node_modules` was reused; no install;
+- `linked-cache` with an `installing` line -> one cache env was built for this
+  lock state; without that line, an existing cache was reused;
+- `created-cache`, `installed-in-place`, `replaced-real`, or `synced-base`
+  (`--fast`) -> say what was installed. For `--fast`, also say that the parent
+  environment was mutated and needs `review_env.py restore`;
+- exit `2` or `4` -> say the environment was not prepared and what you will do
+  instead.
+
+A silent shell command leaves the user guessing whether the review reused or
+reinstalled dependencies; one sentence removes that ambiguity.
+
 Use the interpreter it prints for the tests:
 
 ```bash
