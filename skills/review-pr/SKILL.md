@@ -74,9 +74,10 @@ conclusions:
   prints the diff (`gh pr diff <n>` or `git diff <base>...<head>`);
 - graph facts: risk score, changed functions, callers outside the diff, test
   gaps, affected flows, and the graph's build branch/SHA;
-- deterministic results: `check_undefined.py` (clean / N introduced / not
-  checked), tests run and their pass/fail/not-run status, and `gh pr checks`
-  only when a failure is clearly caused by this diff;
+- deterministic results: `check_undefined.py` (clean / N introduced /
+  not checked), and the blast-radius tests run locally with their
+  pass/fail/not-run status. `gh pr checks` may be included as a snapshot only
+  when a failure is clearly caused by this diff; the packet never waits for CI;
 - which high-risk paths the diff touches (the list under *Paths that earn a
   deep read*);
 - a resumed round writes two packets: the **carried packet** (open finding
@@ -614,14 +615,16 @@ lane that has to re-derive the diff is slower, not more independent.
   "already did X" or "nobody called Y" without base evidence.
 - Judge the diff against the PR description and code, not against the
   author's narrative alone.
-- `gh pr checks <n>` informs you; only mention CI in the review when a
-  failure is clearly caused by this diff.
+- `gh pr checks <n>` is a snapshot, not a gate. Do not wait for CI to finish;
+  the local blast-radius tests are the evidence for this pass. Mention CI only
+  when a failure is clearly caused by this diff.
 - Large remote PRs: review in a worktree outside the repository
   (`git fetch origin <head>` +
   `git worktree add ../.wt-pr<n> origin/<head>`), not in a dirty workspace
   and never inside the checkout; keeping it outside avoids the parent graph
-  watcher entirely. Reuse the parent checkout's virtualenv and env files
-  instead of reinstalling. Remove the worktree when the review is done:
+  watcher entirely. Prepare dependencies with `scripts/review_env.py` (see
+  *Dependency reuse*) instead of installing them per worktree. Remove the
+  worktree when the review is done:
   `git worktree remove --force ../.wt-pr<n>`.
 
 ### Undefined names: the check a diff cannot do
@@ -666,6 +669,75 @@ Exit `1` means something was introduced, `2` that no checker could run.
 
 Tests are facts for the packet; the tests lane reads them. Run them before
 dispatch, or record that they were not run so no lane implies they passed.
+
+Scope is the blast radius, not the whole suite. Run the tests that reach the
+changed symbols (`pattern="tests_for"`) and the changed domain's tests, then
+stop. Do not run the full suite and do not wait for CI; if a relevant test
+cannot run locally, record it as not run.
+
+### Dependency reuse
+
+A fresh worktree has no virtualenv and no `node_modules`, and installing them
+is the slow part of running the review. Do not install in the worktree before
+asking the helper whether it already has an environment for these inputs:
+
+```bash
+python <gryphon>/scripts/review_env.py prepare --repo ../.wt-pr<n> \
+  --base origin/<base>
+```
+
+It hashes the lockfile, manifest, runtime and OS/arch, then:
+
+- dependency key matches and the parent environment is safe to share → links
+  `node_modules` to it and prints the existing Poetry interpreter; nothing is
+  installed. If the parent Poetry environment has the project itself installed
+  (package mode), the helper uses a cache environment instead, so tests import
+  the worktree's source rather than the parent checkout;
+- dependency key differs → builds **one** environment per key in the cache and
+  reuses it from every worktree at that state;
+- a real `node_modules` already exists → leaves it alone, or exits `3` when it
+  cannot prove the tree matches the lock; `--force` moves it aside (renamed,
+  never deleted) and links the cached tree.
+
+**Tell the user what happened.** After `prepare`, say in chat whether the
+environment was reused or built, before running the tests. The action line is
+the source of truth:
+
+- `reused-base`, `reused-cache`, `reused-link`, `kept-existing` -> nothing was
+  installed; say what was reused and the short lock key;
+- `linked-main` -> the parent `node_modules` was reused; no install;
+- `linked-cache` with an `installing` line -> one cache env was built for this
+  lock state; without that line, an existing cache was reused;
+- `created-cache`, `installed-in-place`, `replaced-real`, or `synced-base`
+  (`--fast`) -> say what was installed. For `--fast`, also say that the parent
+  environment was mutated and needs `review_env.py restore`;
+- exit `2` or `4` -> say the environment was not prepared and what you will do
+  instead.
+
+A silent shell command leaves the user guessing whether the review reused or
+reinstalled dependencies; one sentence removes that ambiguity.
+
+Use the interpreter it prints for the tests:
+
+```bash
+<venv>\Scripts\python.exe -m pytest ...   # Windows
+<venv>/bin/python -m pytest ...           # POSIX
+```
+
+The rules that keep this honest:
+
+- Never run `npm ci`, `pnpm install` or `poetry install` through a linked
+  `node_modules`/virtualenv: the install would write into the parent checkout.
+  The helper installs in the cache or refuses.
+- Never reuse an environment without syncing it when the lock hash differs. A
+  stale environment runs the review against package versions the PR does not
+  use and hides the break the review exists to catch.
+- `--fast` is opt-in for Python: it lets `poetry install` apply only the delta
+  to the parent checkout's environment. It mutates that environment; run
+  `review_env.py restore --repo <parent>` when the review ends.
+- Exit `2` means nothing to prepare (or a workspace monorepo, whose links
+  cannot be shared safely); fall back to the normal install path. Exit `4`
+  means the install failed; report it rather than implying tests ran.
 
 - If the PR touches testable behavior, run the affected domain tests before
   requesting new tests or approving.

@@ -77,3 +77,12 @@ def test_review_changes_does_not_chain_reviews_in_one_context():
     assert "not a merge gate" in text
     assert "Do not chain a second review in this context" in text
     assert "single-context" in text
+
+
+def test_review_skills_scope_tests_to_the_blast_radius_and_do_not_wait_for_ci():
+    pr = " ".join(read("review-pr").split())
+    multi = " ".join(read("review-multi").split())
+
+    assert "Do not run the full suite and do not wait for CI" in pr
+    assert "Scope is the blast radius" in pr
+    assert "Do not wait for CI" in multi

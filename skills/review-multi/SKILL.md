@@ -39,6 +39,16 @@ PR #<n>", changed_files=<list>, detail_level="minimal")` once tells you
 whether the graph is current; rebuild as `review-pr` section 2 says if it
 was built on another branch.
 
+If the reviewers will run tests in a worktree, prepare its dependencies once
+with `python <gryphon>/scripts/review_env.py prepare --repo <worktree> --base
+<base>` (see `review-pr` *Dependency reuse*). It links the parent checkout's
+`node_modules` and reuses the Poetry environment when the dependency key
+matches, and builds one cached environment per changed lock. Do not let each
+reviewer install into the same worktree, and never install through a linked
+`node_modules`. After `prepare`, tell the user in chat whether the environment
+was reused or built, using the action mapping in `review-pr` *Dependency
+reuse*.
+
 ## 2. Two independent reviewers, in parallel
 
 Start two subagents in the same message, each with a fresh context. Give
@@ -46,8 +56,9 @@ both the same packet, not your notes:
 
 - the repository path, base and head refs with full SHAs, the change set,
   and the PR title and description;
-- the graph facts and deterministic results (tests run, `check_undefined.py`,
-  CI failures clearly caused by the diff), stated as facts;
+- the graph facts and deterministic results (blast-radius tests run locally,
+  `check_undefined.py`), stated as facts. Do not wait for CI; an existing CI
+  status is a snapshot, not a gate for the packet;
 - the task: find correctness bugs, regressions and missing or wrong tests
   in the change; verify each in the source (`git show <base>:<path>` for
   the old state) before reporting it;
