@@ -72,13 +72,13 @@ If some files fail to parse, the build or update result has status `partial` and
 ```
 /review-delta
 ```
-Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md).
+Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md). This is a quick look: for a merge decision, use `/review-multi` or the `/review-pr` lanes instead of chaining a second pass in the same context.
 
 ### 3. Review a PR
 ```
 /review-pr
 ```
-Structural review of a branch diff with blast-radius analysis.
+Structural review of a branch diff with blast-radius analysis. Discovery runs in fresh subagent lanes (correctness, tests/contracts, blast radius), and merged findings are verified in another fresh context. When the harness cannot spawn subagents, the pass is marked `single-context` and does not claim to be an independent review.
 
 ### 4. Watch mode (optional)
 ```bash

@@ -1,12 +1,18 @@
 ---
 name: review-delta
-description: Review only changes since last commit using impact analysis. Token-efficient delta review with automatic blast-radius detection.
+description: Review only changes since last commit using impact analysis. Token-efficient delta review with automatic blast-radius detection; a quick look, not a merge gate. Escalate to review-multi or the review-pr lanes when the change decides a merge.
 argument-hint: "[file or function name]"
 ---
 
 # Review Delta
 
 Review only the changed code and its blast radius.
+
+This is the cheap path: the graph pass and the source read happen in one
+context, by design. It is a quick look, not a merge gate. A single pass
+that has already read the graph's risk list will look for confirmation in
+the diff; that is acceptable for a cheap look and not acceptable for a
+decision to merge.
 
 ## Steps
 
@@ -25,10 +31,28 @@ Review only the changed code and its blast radius.
 4. For each untested high-risk function, confirm with `query_graph_tool(pattern="tests_for", target="<function>")`.
 5. Use `detail_level="standard"` only for a high-risk item the minimal output leaves unclear. Do not load whole files unless a snippet is not enough.
 
+## When it is a gate
+
+Escalate before writing a merge recommendation when any of these is true:
+
+- risk is high, or the diff touches a path from `review-pr`'s *Paths that
+  earn a deep read*;
+- the user asked for a merge decision, not a quick look;
+- the change has more than one commit or changes a public contract.
+
+Escalating means `review-multi` (two blind generalists) or the lane protocol
+in `review-pr` (correctness, tests, blast radius), not a second pass in this
+context. If you do run a second pass, give it the packet, not the findings
+you already have; the second pass must not see this session's conclusions.
+
+If no subagent tool is available, say `single-context`. A gate from one
+context is a pre-check, not a GO.
+
 ## Report
 
 - Summary: one line
 - Risk: low, medium or high, from the blast radius
 - Issues: bugs, missing tests, style
 - Blast radius: impacted files and functions
+- Independence: lanes run, or `single-context`
 - Recommendations

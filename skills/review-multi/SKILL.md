@@ -1,6 +1,6 @@
 ---
 name: review-multi
-description: Review a pull request or branch diff with two independent reviewers run in parallel, merge their findings into one ranked list and check each finding against the code. Use when a change is large or risky enough that one pass will miss things; it costs about two and a half single reviews.
+description: Review a pull request or branch diff with two independent reviewers run in parallel, merge their findings into one ranked list and check each finding against the code. Use when a change is large or risky enough that one pass will miss things; it costs about three single reviews.
 argument-hint: "[PR URL, number, or branch name]"
 ---
 
@@ -15,6 +15,17 @@ fewer false ones. This workflow does that on purpose.
 Checking findings with the knowledge graph gave the same result as checking
 them in the source (no change in recall, false findings or precision), so
 the graph is an option for the check, not a requirement.
+
+The two reviewers are goldfish: fresh contexts, the packet, and no sight of
+each other's work. This session is the elephant: it resolves the change set,
+collects facts, merges, verifies and publishes. It does not review. The
+split is Google's Elephant-Goldfish model
+(`github.com/google/elephant-goldfish-model`): a reviewer that has already
+read a proposed finding looks for confirmation, not for the defect. The
+reviewers do not need this session's model, or each other's: independence
+comes from the fresh context and the facts-only packet, so a cheaper model
+is fine for a mechanical pass, and the verifier should get the strongest
+model available.
 
 ## 1. Resolve the change set
 
@@ -31,10 +42,12 @@ was built on another branch.
 ## 2. Two independent reviewers, in parallel
 
 Start two subagents in the same message, each with a fresh context. Give
-both the same brief:
+both the same packet, not your notes:
 
-- the repository path, base and head refs, the change set, and the PR
-  title and description;
+- the repository path, base and head refs with full SHAs, the change set,
+  and the PR title and description;
+- the graph facts and deterministic results (tests run, `check_undefined.py`,
+  CI failures clearly caused by the diff), stated as facts;
 - the task: find correctness bugs, regressions and missing or wrong tests
   in the change; verify each in the source (`git show <base>:<path>` for
   the old state) before reporting it;
@@ -42,15 +55,24 @@ both the same brief:
   (`blocker`, `major`, `minor`), category, the claim, and the evidence
   (the line or the call path that shows it).
 
+No suspected bug, severity, or preliminary verdict goes into the packet. If
+the packet contains the answer, both reviewers will find it.
+
 Neither reviewer sees the other's work.
 
 Reviewer B gets one more instruction: before concluding, read the tests
 that exercise the changed symbols. Reviews that had graph context
 explored tests less and reported fewer test gaps.
 
+A reviewer that times out, fails, or returns no report did **not** review.
+Retry it once. If it fails again, record it as **not run**; never count it
+as a reviewer with zero findings.
+
 If the platform cannot run two subagents, do the review twice in separate
 sessions and bring both lists back here. A second pass that has read the
-first one is not independent and adds little.
+first one is not independent and adds little. If no separate session is
+possible either, mark the pass `single-context` and do not claim it was an
+independent review.
 
 ## 3. Merge
 
@@ -58,11 +80,20 @@ Combine the two lists. Two findings are the same when they describe the
 same defect in the same code, not merely the same line. For each merged
 finding keep who reported it: A, B or both.
 
+The merge is deduplication, not a third review. If a new suspicion appears
+while merging, write it down as a separate finding and send it to
+verification; never attribute it to A or B.
+
 Do not drop a finding because only one reviewer reported it. Half of the
 real defects the benchmark's reviews found (43 of 86) came from one review
 only.
 
 ## 4. Check each finding
+
+Run this in a fresh verifier subagent when the harness allows it. Give it
+the merged claim and the refs, not the reviewer's reasoning; its job is to
+falsify the claim, not to add findings. If no subagent is available, this
+session checks and the pass is `single-context`.
 
 Check by what the finding claims, in the source: about two lookups per
 finding, ten in total, and none for a finding the source already settles.
@@ -129,4 +160,6 @@ findings into `verdicts.json`:
 
 After the review, say in chat (never in the PR body): how many findings
 each reviewer reported alone and together, how many were set aside as
-contradicted, and, if the graph tools ran, which calls.
+contradicted, whether verification ran in a fresh context or
+`single-context`, whether any reviewer was **not run**, and, if the graph
+tools ran, which calls.
