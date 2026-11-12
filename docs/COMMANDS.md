@@ -14,6 +14,8 @@ Review changes since the last commit.
 - Changed files come from `git diff`
 - Blast radius is changed nodes plus 2-hop neighbours
 - Output is a structured review with guidance
+- A stale or missing graph does not block the look; it falls back to the
+  diff and source and records `graph: not used`
 - A quick look, not a merge gate. Escalate to `/review-multi` or the
   `/review-pr` lanes when the change decides a merge
 
@@ -25,6 +27,9 @@ Review a PR or branch diff.
   blast radius; intent when the PR states acceptance criteria) and verifies
   merged findings in another fresh context
 - Output is a structured review with a risk assessment
+- Graph context is optional and never blocks the first pass; a stale or
+  missing graph is recorded as `graph: not used` and the blast-radius lane
+  proves callers and test gaps in the source
 - Runs only the tests that reach the changed symbols; CI is a snapshot, not
   a gate, so the pass does not wait for it
 - Falls back to `single-context` with a warning when the harness cannot
@@ -37,6 +42,7 @@ Review a PR or branch diff with two independent reviewers.
 - Two subagents review in parallel; their findings are merged
 - Each finding is checked against the code (the graph tools do it faster) and never dropped
 - Output is a ranked list with who reported what; costs about three single reviews
+- Graph context is optional; reviewers use the source when it is stale or missing
 - Tests are scoped to the blast radius; the pass does not wait for CI
 - If reviewers run tests in a worktree, prepare its environment once with
   `scripts/review_env.py` (see `/review-pr`)

@@ -101,6 +101,11 @@
 
 ### Changed
 
+- A review no longer waits for the knowledge graph to be built or refreshed.
+  The graph is optional context; when it is stale, missing or built on an
+  unrelated branch, the packet records `graph: not used` and the blast-radius
+  lane proves callers and test gaps in the source. A full build is a separate
+  task, never a prerequisite to start the analysis.
 - `review-pr` and `review-multi` scope test execution to the diff's blast
   radius and never wait for CI. The tests that reach the changed symbols and
   the changed domain are the evidence for the pass; a CI status is a snapshot,

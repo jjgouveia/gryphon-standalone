@@ -85,4 +85,17 @@ def test_review_skills_scope_tests_to_the_blast_radius_and_do_not_wait_for_ci():
 
     assert "Do not run the full suite and do not wait for CI" in pr
     assert "Scope is the blast radius" in pr
-    assert "Do not wait for CI" in multi
+    assert "do not wait for ci" in multi.lower()
+
+
+def test_review_graph_is_optional_context_not_a_gate():
+    pr = " ".join(read("review-pr").split())
+    delta = " ".join(read("review-delta").split())
+    multi = " ".join(read("review-multi").split())
+    changes = " ".join(read("review-changes").split())
+
+    assert "Graph context (optional, never a gate)" in pr
+    assert "graph: not used (stale/missing)" in pr
+    assert "do not build it before the first pass" in delta
+    assert "graph: not used" in multi
+    assert "graph is optional context, not a gate" in changes

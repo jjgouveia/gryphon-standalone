@@ -36,8 +36,10 @@ Never rely on graph auto-detect for a remote PR.
 
 If the gryphon tools are available, `get_minimal_context_tool(task="review
 PR #<n>", changed_files=<list>, detail_level="minimal")` once tells you
-whether the graph is current; rebuild as `review-pr` section 2 says if it
-was built on another branch.
+whether the graph is current. If it is stale, missing, or built on an
+unrelated branch, do not rebuild to start: record `graph: not used` and let
+the reviewers prove callers and test gaps in the source. The graph is optional
+context, never a gate.
 
 If the reviewers will run tests in a worktree, prepare its dependencies once
 with `python <gryphon>/scripts/review_env.py prepare --repo <worktree> --base
@@ -54,9 +56,11 @@ both the same packet, not your notes:
 
 - the repository path, base and head refs with full SHAs, the change set,
   and the PR title and description;
-- the graph facts and deterministic results (blast-radius tests run locally,
-  `check_undefined.py`), stated as facts. Do not wait for CI; an existing CI
-  status is a snapshot, not a gate for the packet;
+- graph facts only when the graph is usable for this pass; otherwise
+  `graph: not used (stale/missing)` and no graph-derived claim. The
+  deterministic results are the blast-radius tests run locally and
+  `check_undefined.py`; do not wait for CI. An existing CI status is a
+  snapshot, not a gate for the packet;
 - the task: find correctness bugs, regressions and missing or wrong tests
   in the change; verify each in the source (`git show <base>:<path>` for
   the old state) before reporting it;

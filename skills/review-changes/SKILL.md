@@ -5,7 +5,11 @@ description: Perform a structured code review using change detection and impact.
 
 ## Review Changes
 
-Review a change set with risk scores and blast radius from the knowledge graph.
+Review a change set with risk scores and blast radius from the knowledge graph
+when it is current. The graph is optional context, not a gate: if it is missing
+or stale, do not build it before the review. Start from the diff and source,
+mark `graph: not used`, and say the risk/blast-radius output is source-derived.
+A build or update is a separate, explicit task.
 
 This is the pre-commit path, not a merge gate. Use `review-delta` for the
 token-efficient look and `review-multi` or the `review-pr` lanes when the
@@ -15,10 +19,10 @@ If no subagent tool is available, say `single-context`.
 
 ### Steps
 
-1. Call `detect_changes_tool` for risk-scored changed functions, test gaps and affected flows.
-2. Call `get_affected_flows_tool` only when you need the steps of an affected flow.
+1. If the graph is usable, call `detect_changes_tool` for risk-scored changed functions, test gaps and affected flows. If not, do not call it (it may refresh the graph); work from `git diff` and the source.
+2. Call `get_affected_flows_tool` only when the graph is usable and you need the steps of an affected flow.
 3. For each high-risk function, call `query_graph_tool` with `pattern="tests_for"` to check test coverage.
-4. Call `get_impact_radius_tool` when the blast radius is not clear from step 1.
+4. Call `get_impact_radius_tool` when the graph is usable and the blast radius is not clear from step 1.
 5. Suggest specific test cases for untested changes.
 
 ### Output Format
