@@ -31,6 +31,21 @@ expand on high-risk items.
 )
 
 
+_INDEPENDENT_REVIEW_PREAMBLE = """\
+## Independent review
+When the harness can spawn subagents, do the discovery in fresh contexts:
+one lane for correctness, one for tests and contracts, and one for blast
+radius when the change touches auth, billing, migrations, CI, defaults or
+installers. Give each lane the change set, base/head refs and graph facts,
+never your preliminary findings or this conversation. Verify the merged
+findings in another fresh context before reporting them as confirmed. Lane
+models are a cost choice: a cheaper model is fine for a mechanical lens, and
+the verifier deserves the strongest model available. If no subagent tool is
+available, say `single-context`; a pass in one context is a pre-check, not
+an independent review.
+"""
+
+
 def _user(content: str) -> list[Message]:
     """Wrap content as a single-message user prompt.
 
@@ -50,6 +65,7 @@ def review_changes_prompt(base: str = "HEAD~1") -> list[Message]:
     """
     return _user(
         f"{_TOKEN_EFFICIENCY_PREAMBLE}\n"
+        f"{_INDEPENDENT_REVIEW_PREAMBLE}\n"
         f"## Review Workflow\n"
         f'1. Call `get_minimal_context_tool(task="review changes against '
         f'{base}", base="{base}")` to get risk overview.\n'
@@ -140,6 +156,7 @@ def pre_merge_check_prompt(base: str = "HEAD~1") -> list[Message]:
     """
     return _user(
         f"{_TOKEN_EFFICIENCY_PREAMBLE}\n"
+        f"{_INDEPENDENT_REVIEW_PREAMBLE}\n"
         "## Pre-Merge Check Workflow\n"
         f'1. Call `get_minimal_context_tool(task="pre-merge check", base="{base}")`.\n'
         f'2. Call `detect_changes_tool(base="{base}", detail_level="minimal")` for risk '

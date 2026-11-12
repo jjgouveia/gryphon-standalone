@@ -1,11 +1,17 @@
 ---
 name: review-changes
-description: Perform a structured code review using change detection and impact
+description: Perform a structured code review using change detection and impact. Pre-commit path; escalate to review-multi or the review-pr lanes for a merge gate.
 ---
 
 ## Review Changes
 
 Review a change set with risk scores and blast radius from the knowledge graph.
+
+This is the pre-commit path, not a merge gate. Use `review-delta` for the
+token-efficient look and `review-multi` or the `review-pr` lanes when the
+change decides a merge. Do not chain a second review in this context: a
+reviewer that has read the first list is checking the list, not the code.
+If no subagent tool is available, say `single-context`.
 
 ### Steps
 
@@ -17,7 +23,7 @@ Review a change set with risk scores and blast radius from the knowledge graph.
 
 ### Output Format
 
-Group findings by risk level (high, medium, low). For each finding give what changed and why it matters, its test coverage, and the suggested fix. End with a merge recommendation.
+Group findings by risk level (high, medium, low). For each finding give what changed and why it matters, its test coverage, and the suggested fix. End with a merge recommendation, and say whether independent lanes ran or this was a `single-context` pre-check.
 
 ## Token Efficiency Rules
 - Call `get_minimal_context_tool(task="<your task>")` before any other graph tool.

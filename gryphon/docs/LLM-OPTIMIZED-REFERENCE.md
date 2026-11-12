@@ -17,6 +17,7 @@ context_savings, when present, is an estimate, not an exact token count.
 3. get_review_context_tool(detail_level="minimal") when you need source snippets and review_guidance.
 4. query_graph_tool(pattern="tests_for", target="<function>") for each untested high-risk function.
 Use detail_level="standard" only for high-risk items. Report summary, risk, issues, blast radius, recommendations.
+This is a quick look, not a merge gate. Escalate to review-multi or the review-pr lanes when the change decides a merge; do not chain a second review in the same context.
 </section>
 
 <section name="review-pr">
@@ -24,6 +25,7 @@ Use detail_level="standard" only for high-risk items. Report summary, risk, issu
 2. detect_changes_tool(base="main", detail_level="minimal"); get_affected_flows_tool(base="main", detail_level="minimal") when you need flow steps.
 3. query_graph_tool with callers_of and tests_for for high-risk functions.
 Report a structured review with a blast-radius table and risk scores. Do not include whole files unless asked.
+Run discovery in fresh subagent lanes (correctness, tests and contracts, blast radius) and verify merged findings in another fresh context; the main session owns the packet and the ledger. Lane models are a cost choice and need not match the orchestrator's; the verifier should get the strongest available. No subagent tool means say single-context.
 </section>
 
 <section name="commands">
@@ -31,7 +33,7 @@ MCP tools (30): build_or_update_graph_tool, run_postprocess_tool, get_minimal_co
 query_graph_tool patterns: callers_of, references_to, callees_of, imports_of, importers_of, children_of, tests_for, inheritors_of, triggers_of, triggered_by, publishers_of, listeners_of, handlers_of, endpoints_for, consumers_of, file_summary.
 refactor_tool modes: rename (old_name, new_name; apply with apply_refactor_tool(refactor_id)), dead_code, suggest.
 MCP prompts (5): review_changes, architecture_map, debug_issue, onboard_developer, pre_merge_check.
-Skills: build-graph, debug-issue, explore-codebase, refactor-safely, review-changes, review-delta, review-pr.
+Skills: build-graph, debug-issue, explore-codebase, refactor-safely, review-changes, review-delta, review-multi, review-pr.
 CLI: gryphon {install, init, uninstall, build, update, postprocess, embed, watch, status, forget, visualize, wiki, register, unregister, repos, eval, detect-changes, enrich, dead-code, query, impact, search, flows, flow, communities, community, architecture, large-functions, refactor, serve, mcp, daemon}. Run gryphon <command> --help for flags.
 Result bounds: lists are capped. Defaults are small; pass the tool's cap parameter to widen up to its hard ceiling. Truncation is reported: total (or a *_total field per list) gives the full count, truncated is true, and the summary says how many of how many are shown.
 Cap parameters: max_results (query_graph, get_review_context, detect_changes, list_communities, get_architecture_overview, refactor, cross_repo_search); max_flows (get_affected_flows, detect_changes); max_members (list_communities, get_community, get_architecture_overview); max_steps and max_source_lines (get_flow); max_per_category (get_knowledge_gaps); top_n (get_hub_nodes, get_bridge_nodes, get_surprising_connections); limit (list_flows, semantic_search_nodes, find_large_functions, cross_repo_search); max_files (get_review_context); max_chars (get_wiki_page); max_diff_files (apply_refactor).

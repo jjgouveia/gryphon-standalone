@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub pull request or branch diff using the knowledge graph for structural context, verify the change against base and head, and publish the review with gh. Outputs a structured review with blast-radius analysis. Covers first-pass reviews and re-review rounds that verify prior findings against a new head, resumable in a fresh session with --resume via the review's state ledger.
+description: Review a GitHub pull request or branch diff with independent fresh-context reviewers, using the knowledge graph for structural context, verify the change against base and head, and publish the review with gh. Outputs a structured review with blast-radius analysis. Covers first-pass reviews and re-review rounds that verify prior findings against a new head, resumable in a fresh session with --resume via the review's state ledger.
 argument-hint: "[PR URL, number, or branch name] [--resume]"
 hooks:
   Stop:
@@ -32,6 +32,107 @@ Paths like `scripts/pr_ledger.py` and `scripts/publish_review.py` are
 relative to the gryphon checkout. From a session in another repository,
 call them by their absolute path there: the scripts are not copied into
 the reviewed repo.
+
+## Independence: the elephant and the goldfish
+
+A review pass has two roles, and mixing them is how a review ends up
+agreeing with itself.
+
+- **The elephant** is this session. It owns the PR thread and the ledger,
+  resolves base and head, collects graph facts and test results, verifies
+  claims and publishes. It does not decide what is wrong with the diff.
+- **The goldfish** are fresh subagents. Each one gets the review packet and
+  one lens. It never sees the conversation that produced the packet, the
+  orchestrator's hypotheses, or another lane's findings.
+- **The verifier** is another fresh subagent. It gets the merged findings,
+  not the lanes' reasoning, and its job is to falsify each one in the source.
+
+The split is the Elephant-Goldfish model: a context-rich session prepares
+the material; stateless reviewers examine it without the context that
+produced it (Google, `github.com/google/elephant-goldfish-model`). A
+reviewer that has already read a proposed finding looks for confirmation; a
+reviewer that has read the author's explanation grades the explanation.
+Neither is the review the author needs. Model choice is not part of the
+split: a lane can run on the same model, a smaller one, or a different one.
+The fresh context and the packet are what keep it independent. Use the
+strongest model for the verifier and for correctness on a high-risk path,
+and a cheaper one for a mechanical lens. Not every review needs lanes — a
+small, low-risk diff can stay on the `review-delta` quick look — but a merge
+gate that ran no lane is `single-context` and says so.
+
+### The review packet
+
+Write one packet per pass — two on a resumed round — outside the
+repository, and give every lane its path. The packet is facts, never
+conclusions:
+
+- repository path, PR number and URL, base ref and **full base SHA**, head
+  ref and **full head SHA**;
+- the PR title and body, and the issue it closes, verbatim — the author's
+  statement of intent is evidence, not a verdict;
+- changed files, additions/deletions, commit count, and the command that
+  prints the diff (`gh pr diff <n>` or `git diff <base>...<head>`);
+- graph facts: risk score, changed functions, callers outside the diff, test
+  gaps, affected flows, and the graph's build branch/SHA;
+- deterministic results: `check_undefined.py` (clean / N introduced / not
+  checked), tests run and their pass/fail/not-run status, and `gh pr checks`
+  only when a failure is clearly caused by this diff;
+- which high-risk paths the diff touches (the list under *Paths that earn a
+  deep read*);
+- a resumed round writes two packets: the **carried packet** (open finding
+  id, title, files, severity) for the verifier, and the **delta packet**
+  (the delta diff and its files) for the discovery lane. Never the previous
+  review prose, the author's replies, or the last round's verdict.
+
+Do not put a suspected bug, a severity, a "smells like", or a suggested fix
+in the packet. If the packet contains the answer, every lane will find it.
+
+### Lanes
+
+Run these in parallel, each in a fresh subagent context. Give each one the
+packet path and its own brief; do not paste the other briefs.
+
+| Lane | It looks for | It must not report |
+|---|---|---|
+| **Correctness** | behavior that is wrong at head, regressions, broken call paths, unhandled states, races, swallowed errors | style, naming, missing tests |
+| **Tests and contracts** | a test gap that lets a real regression through, tautological or mocked tests, public signature/return/exception/field changes whose callers or tests were not updated | correctness bugs outside that lens |
+| **Blast radius** | callers outside the diff, inheritance and dynamic dispatch, auth/permissions, billing/totals, migrations/backfills, CI credentials, defaults, installers/updaters, concurrency and retries | nits and hypotheticals with no call path |
+| **Intent** (only when the body or linked issue states acceptance criteria) | a stated behavior the diff does not deliver, scope the PR did not declare | product taste or scope you would have chosen |
+
+Default is three lanes: correctness, tests and blast radius. Use two
+(correctness and tests) only on a small, low-risk diff; the blast-radius
+lane is mandatory when the diff matches *Paths that earn a deep read*. The
+intent lane is for a PR that makes a promise; do not invent one. The model
+behind a lane is a cost choice; it does not have to match this session's
+model.
+
+Each lane returns one finding per **class** of bug, with:
+
+- `file:line` at head, and the base path when the claim is "this already
+  happened before the branch";
+- severity `high`, `medium` or `low` — the ledger's scale, not a new one;
+- the claim in one sentence, the call path or test that shows it, and what
+  would prove it false;
+- `confidence` (`high`, `medium`, `low`) and the exact commands or reads
+  used.
+
+A lane is not a vote. Two lanes agreeing raises confidence; it does not
+prove the finding. A lane that cannot verify a claim says so and returns it
+as `unverified`, not as a finding.
+
+### Failures and fallback
+
+- A lane that times out, fails, or returns no report did **not** review.
+  Retry it once. If it fails again, record it as **not run** in chat and in
+  the review notes. Never count it as a lane with zero findings.
+- If no lane can run, stop: an approval from a pass that never happened is
+  the one failure that looks like success.
+- If the harness cannot spawn subagents, the pass can still run in one
+  context, but it is not an independent review. Say `single-context` in
+  chat, keep the packet/lane split in the transcript so the reader can see
+  what was not separated, and do not claim the review had independent eyes.
+  The same applies to a resumed round: verify carried findings in a fresh
+  session when one is available.
 
 ## State ledger
 
@@ -125,6 +226,10 @@ has somewhere safe to land.
   reviewed head, not the full file list. Read *State ledger* and
   *Re-review* before any graph call.
 
+Building the packet is the last thing this session does before it stops
+reading for findings. Resolving the change set is fact collection; forming
+an opinion here is exactly the contamination the lanes exist to avoid.
+
 ## Re-review: continuing a reviewed PR
 
 When the PR already has review rounds (yours or others'), the unit of
@@ -197,6 +302,13 @@ command works in a fresh session with no memory of the previous one.
    open. Write the verdict
    against the carried id — `#3` stays `#3` — and move it to
    `resolved`, `obsolete` or leave it `open`.
+
+   Run this verification in a fresh verifier subagent when one is available.
+   Give it the carried finding (id, title, files, severity) and the head
+   checkout — not the previous review prose, the author's replies, or the
+   last round's verdict. Its job is to prove each carried finding resolved
+   or still open, not to re-review the PR. If no subagent tool is available,
+   mark the round `single-context` and verify in a fresh session when one is.
 4. **Re-run what was red first.** Tests that failed in previous rounds
    are the cheapest oracle — run them before the broader suite. Run
    `scripts/check_undefined.py` on the delta files too (section 3): a fix
@@ -205,8 +317,10 @@ command works in a fresh session with no memory of the previous one.
    forward as resolved.
 5. **Expect breakage inside the fix.** Fix commits often introduce new
    issues (a re-added call path drops an import, a restored fan-out
-   drops the debounce). Diff the delta fresh; don't assume a fix
-   commit is only a fix.
+   drops the debounce). Run a separate delta lane for this when one is
+   available: it gets only the delta and the correctness brief, never the
+   carried findings, so it reviews the change instead of grading the fix.
+   Diff the delta fresh either way; don't assume a fix commit is only a fix.
 6. **Body continuity.** Title the pass ("segunda passada", "quarta
    passada"), open with per-item resolution status keyed to the prior
    numbering, then new findings. Never re-report a resolved item as
@@ -219,6 +333,9 @@ command works in a fresh session with no memory of the previous one.
 
 A reply is part of the review. Read it, check it, answer it — in the
 thread, where the author will look first.
+
+The replies belong to the elephant, not to the discovery lane. A reply can
+be handed to the verifier as a claim to check, never as evidence.
 
 - **A claim is checked against head, not against its own confidence.**
   "Os dois bloqueios foram corrigidos" is one check per finding, with the
@@ -269,7 +386,10 @@ agent proposes the flag and this policy decides what it may publish:
 
 The first row is a disconfirmation, not a disagreement: a blocker was
 already raised, the author pushed, and it is verifiably still there. A
-human reviewer blocks on that without re-deriving the analysis. The
+human reviewer blocks on that without re-deriving the analysis. It also
+needs the verifier: if the verifier did not run, a carried high finding is
+not verified, so publish `comment` and say what was not verified instead of
+blocking the merge on an unchecked claim. The
 second row is the bot's first disagreement with new code — an opinion, and
 a merge blocked on an opinion costs more than one missed.
 
@@ -414,9 +534,9 @@ every PR would look like round 1.
 ## Paths that earn a deep read
 
 The ~5-call budget in step 2 is a default, not a ceiling. A diff that
-touches any of these gets the full pass however small it looks: read the
-callers, open the base, run the domain tests, and never approve on the diff
-alone.
+touches any of these gets the full pass however small it looks: the
+blast-radius lane reads the callers, opens the base and runs the domain
+tests, and the pass never approves on the diff alone.
 
 - auth, permissions and anything that answers "who can see this"
 - billing, invoicing and anything that computes a total
@@ -478,7 +598,13 @@ checked, so the author can tell a deep pass from a shallow one.
    `get_impact_radius_tool` only when a high-risk item stays unclear.
    Budget: ~5 graph calls per review (excluding the rebuild).
 
+Put the result in the packet. A risk score is not a finding: the
+correctness or blast-radius lane turns it into one.
+
 ## 3. Verify against base and head
+
+These are facts for the packet. Run them before dispatching the lanes; a
+lane that has to re-derive the diff is slower, not more independent.
 
 - `gh pr diff <n>` is the real diff; cross-check the file count against
   step 1.
@@ -524,7 +650,8 @@ hit against the same file at `<base>`:
 Exit `1` means something was introduced, `2` that no checker could run.
 
 - An `introduced` hit is a `high` finding: it is a guaranteed `NameError` on
-  that path, not a style opinion. Cite `file:line` and the symbol.
+  that path, not a style opinion. Cite `file:line` and the symbol. The
+  verifier still confirms the line at head before this gates a merge.
 - Group by class, as the Output section says: two surviving
   `chain.from_iterable` calls in one file are one finding with two sites.
 - `pre_existing` never gates the merge. Mention it as a follow-up at most,
@@ -537,6 +664,9 @@ Exit `1` means something was introduced, `2` that no checker could run.
 
 ## 4. Tests (when the environment allows)
 
+Tests are facts for the packet; the tests lane reads them. Run them before
+dispatch, or record that they were not run so no lane implies they passed.
+
 - If the PR touches testable behavior, run the affected domain tests before
   requesting new tests or approving.
 - To run tests that only exist in the head, apply
@@ -548,6 +678,10 @@ Exit `1` means something was introduced, `2` that no checker could run.
   optional follow-up note.
 
 ## 5. Draft, then ask, then publish
+
+Merge the lanes, run the verifier, then write. The body belongs to the
+elephant: a lane has neither the thread nor the ledger, and a draft written
+straight from a lane's report reads as a list of claims, not a review.
 
 - Show the review body in chat first, with the suggested flag
   (`--comment` / `--request-changes` / `--approve`) stated next to the
@@ -616,8 +750,11 @@ and cost four resolutions, and a later round cannot tell from a single file
 whether the sweep happened. The author fixes the class.
 
 For each finding give what changed and why it matters, its test
-coverage, and the suggested fix. End with a merge recommendation. Keep the
-structure light — a few strong paragraphs beat a long checklist.
+coverage, and the suggested fix. Say whether the verifier confirmed it or
+it remains not verified, and keep the lane provenance (correctness, tests,
+blast radius, intent) in the prose — the ledger has no column for it. End
+with a merge recommendation. Keep the structure light — a few strong
+paragraphs beat a long checklist.
 
 ## Graph metrics
 

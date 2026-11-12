@@ -14,18 +14,35 @@ Review changes since the last commit.
 - Changed files come from `git diff`
 - Blast radius is changed nodes plus 2-hop neighbours
 - Output is a structured review with guidance
+- A quick look, not a merge gate. Escalate to `/review-multi` or the
+  `/review-pr` lanes when the change decides a merge
 
 ### `/review-pr`
 Review a PR or branch diff.
 - Uses `main` (or `master`) as the base
 - Covers every commit in the PR
+- Runs discovery in fresh subagent lanes (correctness, tests/contracts,
+  blast radius; intent when the PR states acceptance criteria) and verifies
+  merged findings in another fresh context
 - Output is a structured review with a risk assessment
+- Falls back to `single-context` with a warning when the harness cannot
+  spawn subagents
 
 ### `/review-multi`
 Review a PR or branch diff with two independent reviewers.
 - Two subagents review in parallel; their findings are merged
 - Each finding is checked against the code (the graph tools do it faster) and never dropped
-- Output is a ranked list with who reported what; costs about twice a single review
+- Output is a ranked list with who reported what; costs about three single reviews
+
+`/review-pr` and `/review-multi` follow the Elephant-Goldfish split: the
+main session owns the thread, the ledger and the facts; each reviewer is a
+fresh subagent that sees the packet and one lens, not the conversation that
+produced it. A reviewer that has already read a proposed finding looks for
+confirmation, not for the defect. Reviewer models are a cost choice: a lane
+can run on a cheaper model, and the verifier should get the strongest
+available; independence comes from the fresh context, not from matching the
+orchestrator's model. Neither skill claims independence when the harness
+cannot spawn subagents; the pass is marked `single-context`.
 
 `install` also writes four workflow skills alongside them: `explore-codebase`,
 `review-changes`, `debug-issue` and `refactor-safely`.

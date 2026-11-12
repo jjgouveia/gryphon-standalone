@@ -172,6 +172,24 @@ class TestPreMergeCheckPrompt:
         assert "dead_code" in _text(result[0])
 
 
+class TestIndependentReviewPreamble:
+    """Review prompts must not ask the same context to review its own facts."""
+
+    def test_review_changes_asks_for_fresh_contexts(self):
+        content = _text(review_changes_prompt()[0])
+
+        assert "fresh contexts" in content
+        assert "never your preliminary findings" in content
+        assert "cheaper model" in content
+        assert "single-context" in content
+
+    def test_pre_merge_check_asks_for_fresh_contexts(self):
+        content = _text(pre_merge_check_prompt()[0])
+
+        assert "fresh contexts" in content
+        assert "single-context" in content
+
+
 class TestTokenEfficiencyPreamble:
     """All prompts should include the token efficiency preamble."""
 

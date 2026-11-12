@@ -89,6 +89,17 @@
 
 ### Changed
 
+- The review workflow follows the Elephant-Goldfish split. `review-pr` now
+  dispatches discovery to fresh-context lanes (correctness, tests/contracts,
+  blast radius, intent when the PR states acceptance criteria), verifies the
+  merged findings in another fresh context, and keeps the PR thread, ledger
+  and publication in the orchestrator. `review-multi`, `review-delta`,
+  `review-changes` and the MCP `review_changes` / `pre_merge_check` prompts
+  carry the same rule; a harness without subagents marks the pass
+  `single-context` instead of claiming an independent review. Lane models
+  are a cost choice and need not match the orchestrator's: a cheaper model
+  is fine for a mechanical lens, and the verifier should use the strongest
+  available, because independence comes from the fresh context.
 - `query_graph_tool callers_of` lists every call site. Each caller carries
   `call_lines` (every line it calls the target on, up to 25) and
   `call_count`; before, a function that called the target three times
