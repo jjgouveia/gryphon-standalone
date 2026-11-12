@@ -25,14 +25,21 @@ Review a PR or branch diff.
   blast radius; intent when the PR states acceptance criteria) and verifies
   merged findings in another fresh context
 - Output is a structured review with a risk assessment
+- Runs only the tests that reach the changed symbols; CI is a snapshot, not
+  a gate, so the pass does not wait for it
 - Falls back to `single-context` with a warning when the harness cannot
   spawn subagents
+- Reuses dependencies across review worktrees (`scripts/review_env.py`,
+  keyed by the lock hash and runtime) instead of installing them per worktree
 
 ### `/review-multi`
 Review a PR or branch diff with two independent reviewers.
 - Two subagents review in parallel; their findings are merged
 - Each finding is checked against the code (the graph tools do it faster) and never dropped
 - Output is a ranked list with who reported what; costs about three single reviews
+- Tests are scoped to the blast radius; the pass does not wait for CI
+- If reviewers run tests in a worktree, prepare its environment once with
+  `scripts/review_env.py` (see `/review-pr`)
 
 `/review-pr` and `/review-multi` follow the Elephant-Goldfish split: the
 main session owns the thread, the ledger and the facts; each reviewer is a

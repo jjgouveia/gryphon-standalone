@@ -80,6 +80,10 @@ Reviews the files changed since the last commit plus their graph-derived impact 
 ```
 Structural review of a branch diff with blast-radius analysis. Discovery runs in fresh subagent lanes (correctness, tests/contracts, blast radius), and merged findings are verified in another fresh context. When the harness cannot spawn subagents, the pass is marked `single-context` and does not claim to be an independent review.
 
+Tests are scoped to the change's blast radius: run the tests that reach the changed symbols and the changed domain, not the full suite, and do not wait for CI. A CI status is a snapshot, not a gate for the review.
+
+Large PRs are reviewed in a worktree outside the checkout. Prepare its dependencies once with `scripts/review_env.py` rather than reinstalling them: it hashes the lockfile, manifest, runtime and OS/arch, links the parent checkout's `node_modules` when the key matches, and builds one cached Poetry environment per changed lock. Use the interpreter it prints, and never run an install through a linked `node_modules` — the install would write into the parent checkout.
+
 ### 4. Watch mode (optional)
 ```bash
 gryphon watch

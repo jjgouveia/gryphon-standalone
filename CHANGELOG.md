@@ -4,6 +4,18 @@
 
 ### Added
 
+- `review-pr` and `review-multi` reuse dependency environments across review
+  worktrees instead of installing them per worktree
+  (`scripts/review_env.py`). The helper keys an environment by the hash of its
+  dependency inputs — lockfile and manifest, runtime, OS and architecture — so
+  a worktree whose key matches the parent checkout links `node_modules` and
+  reuses the Poetry interpreter with no install, while a changed lock gets one
+  cached environment per key shared by every worktree at that state. It never
+  installs through a link, never deletes a real `node_modules` (`--force`
+  renames it aside), and refuses to reuse an environment whose key differs:
+  the stale-environment failure that runs a review against package versions the
+  PR does not use. `--fast` is opt-in for Poetry and syncs only the delta into
+  the parent environment; `restore` puts it back.
 - `review-pr` runs a deterministic undefined-name check on the files a PR
   touches (`scripts/check_undefined.py`, Python via `ruff --select F821,F811`)
   and classifies each hit against the base version of the same file:
@@ -89,6 +101,10 @@
 
 ### Changed
 
+- `review-pr` and `review-multi` scope test execution to the diff's blast
+  radius and never wait for CI. The tests that reach the changed symbols and
+  the changed domain are the evidence for the pass; a CI status is a snapshot,
+  not a gate.
 - The review workflow follows the Elephant-Goldfish split. `review-pr` now
   dispatches discovery to fresh-context lanes (correctness, tests/contracts,
   blast radius, intent when the PR states acceptance criteria), verifies the
