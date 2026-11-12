@@ -72,15 +72,13 @@ If some files fail to parse, the build or update result has status `partial` and
 ```
 /review-delta
 ```
-Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md). This is a quick look: for a merge decision, use `/review-multi` or the `/review-pr` lanes instead of chaining a second pass in the same context. If the graph is stale or missing, the look starts from the diff and source and records `graph: not used`; it does not build a graph first.
+Reviews the files changed since the last commit plus their graph-derived impact radius. Review and impact responses carry a compact `context_savings` estimate. Across the 6 benchmark repositories, graph queries use about 65x fewer tokens per question (median; range 36x to 376x) than reading the whole corpus. See the [README benchmarks](../README.md#benchmarks) and [REPRODUCING.md](REPRODUCING.md). This is a quick look: for a merge decision, use `/review-multi` or the `/review-pr` lanes instead of chaining a second pass in the same context.
 
 ### 3. Review a PR
 ```
 /review-pr
 ```
 Structural review of a branch diff with blast-radius analysis. Discovery runs in fresh subagent lanes (correctness, tests/contracts, blast radius), and merged findings are verified in another fresh context. When the harness cannot spawn subagents, the pass is marked `single-context` and does not claim to be an independent review.
-
-Graph context is optional and never blocks the first pass. If the graph is stale, missing or built on an unrelated branch, the packet records `graph: not used` and the blast-radius lane proves callers and test gaps in the source. A full build is a separate task, not a prerequisite to start the analysis.
 
 Tests are scoped to the change's blast radius: run the tests that reach the changed symbols and the changed domain, not the full suite, and do not wait for CI. A CI status is a snapshot, not a gate for the review.
 

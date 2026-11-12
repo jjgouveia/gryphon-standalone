@@ -9,27 +9,25 @@ argument-hint: "[file or function name]"
 Review only the changed code and its blast radius.
 
 This is the cheap path: the graph pass and the source read happen in one
-context when the graph is current. Without a current graph, it is a source-only
-quick look; that is still enough to start. It is a quick look, not a merge
-gate. A single pass that has already read the graph's risk list will look for
-confirmation in the diff; that is acceptable for a cheap look and not
-acceptable for a decision to merge.
+context, by design. It is a quick look, not a merge gate. A single pass
+that has already read the graph's risk list will look for confirmation in
+the diff; that is acceptable for a cheap look and not acceptable for a
+decision to merge.
 
 ## Steps
 
-1. Call `get_minimal_context_tool(task="review changes")` once.
-   - If the graph is usable (built on the current branch or its base, and it
-     covers the changed files), use it for the steps below.
-   - If it is `stale_graph`, `missing_graph`, or built on an unrelated branch,
-     **do not build it before the first pass**. Continue from
-     `git diff HEAD~1` and the source, and record `graph: not used`. A rebuild
-     is a separate operation; run it only if the user asked for graph
-     maintenance or the quick look escalates to a review that needs it.
-2. Only when the graph is usable, call
-   `detect_changes_tool(detail_level="minimal")` for risk-scored changed
-   functions, test gaps and affected flows. Changes come from `git diff`
-   against `HEAD~1`; if the argument names a file, pass it in `changed_files`.
-3. When the graph is usable, call `get_review_context_tool(detail_level="minimal")` when you need source snippets for the changed areas and `review_guidance` (untested functions, wide blast radius, inheritance changes).
+1. Call `get_minimal_context_tool(task="review changes")`.
+   - If `status: not_ready` with `reason: stale_graph` or
+     `status: ok` with `_graph.built_on_branch` differing from the
+     current branch, the graph nodes may belong to a different domain.
+     Rebuild in the worktree:
+     ```bash
+     gryphon build --repo <repo_root>
+     ```
+   - If `status: not_ready` with `reason: missing_graph`, call
+     `build_or_update_graph_tool()` and continue.
+2. Call `detect_changes_tool(detail_level="minimal")` for risk-scored changed functions, test gaps and affected flows. Changes come from `git diff` against `HEAD~1`; if the argument names a file, pass it in `changed_files`.
+3. Call `get_review_context_tool(detail_level="minimal")` when you need source snippets for the changed areas and `review_guidance` (untested functions, wide blast radius, inheritance changes).
 4. For each untested high-risk function, confirm with `query_graph_tool(pattern="tests_for", target="<function>")`.
 5. Use `detail_level="standard"` only for a high-risk item the minimal output leaves unclear. Do not load whole files unless a snippet is not enough.
 

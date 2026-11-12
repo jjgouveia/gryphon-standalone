@@ -25,8 +25,8 @@ hooks:
 
 # Review PR
 
-Review a pull request or branch against its base: the diff and the source
-decide what changed; the graph narrows where else to look when it is current.
+Review a pull request or branch against its base: the graph picks what to
+read, the base ref proves what the diff actually changed.
 
 Paths like `scripts/pr_ledger.py` and `scripts/publish_review.py` are
 relative to the gryphon checkout. From a session in another repository,
@@ -39,8 +39,8 @@ A review pass has two roles, and mixing them is how a review ends up
 agreeing with itself.
 
 - **The elephant** is this session. It owns the PR thread and the ledger,
-  resolves base and head, collects graph facts when available and test results,
-  verifies claims and publishes. It does not decide what is wrong with the diff.
+  resolves base and head, collects graph facts and test results, verifies
+  claims and publishes. It does not decide what is wrong with the diff.
 - **The goldfish** are fresh subagents. Each one gets the review packet and
   one lens. It never sees the conversation that produced the packet, the
   orchestrator's hypotheses, or another lane's findings.
@@ -72,10 +72,8 @@ conclusions:
   statement of intent is evidence, not a verdict;
 - changed files, additions/deletions, commit count, and the command that
   prints the diff (`gh pr diff <n>` or `git diff <base>...<head>`);
-- graph facts **only when the graph is usable for this pass**: risk score,
-  changed functions, callers outside the diff, test gaps, affected flows, and
-  the graph's build branch/SHA. Otherwise `graph: not used (stale/missing)` and
-  no graph-derived claim;
+- graph facts: risk score, changed functions, callers outside the diff, test
+  gaps, affected flows, and the graph's build branch/SHA;
 - deterministic results: `check_undefined.py` (clean / N introduced /
   not checked), and the blast-radius tests run locally with their
   pass/fail/not-run status. `gh pr checks` may be included as a snapshot only
@@ -552,46 +550,57 @@ A small diff with a big blast radius is the shape that gets waved through.
 When a path matches, say in the review that you read it deeply and what you
 checked, so the author can tell a deep pass from a shallow one.
 
-## 2. Graph context (optional, never a gate)
+## 2. Graph pass
 
-Start from the diff and the source; the graph only narrows where to look. It
-is context, not a prerequisite, and a missing or stale graph must not delay
-the first pass.
+1. `get_minimal_context_tool(task="review PR #<n>", changed_files=<list>)`.
+   - On `status: not_ready` with `reason: stale_graph`:
+     - Check `built_on_branch`/`built_at_sha`.
+     - If the graph was built on the **PR base branch** or an ancestor of
+       it, it is usable — continue with explicit `changed_files`.
+     - If the graph was built on a **different branch** (e.g. `new-main`
+       while reviewing a PR against `staging`), first check whether the
+       changed files and their callers are already in the graph. A PR against
+       `main` reviewed from a feature checkout usually is. Rebuild only when
+       the graph is missing those files or was built from an unrelated
+       history. A worktree is for running the PR's tests; it does not need
+       its own graph unless this check says otherwise.
+     - A rebuild runs **in the shell, never through
+       `build_or_update_graph_tool`**: a full build inside the MCP server
+       blocks every other graph call for minutes. Use a worktree **outside**
+       the repository (or the parent checkout only when it is clean):
+       ```bash
+       git worktree add ../.wt-pr<n>-base origin/<PR_base_branch>
+       gryphon build --repo ../.wt-pr<n>-base
+       ```
+       Never create the worktree at `.wt-pr<n>` inside the checkout. Keep it
+       outside: the graph watcher follows the whole tree, and a copy that is
+       not a registered worktree (or an older gryphon) would be indexed into
+       the parent graph. Pass `repo_root` explicitly to all graph calls, and
+       remove the graph worktree when the review is done:
+       ```bash
+       git worktree remove --force ../.wt-pr<n>-base
+       ```
+     - If the build commit is gone from the clone (history rewrite / shallow
+       fetch), a diff-based update cannot run: do a full CLI build with
+       `gryphon build --repo <path> --skip-postprocess`. Do not use the MCP
+       build tool for a full build.
+   - On `status: ok` but `_graph.built_on_branch` differs from the PR base,
+     warn in chat but continue: the graph is usable for structural queries
+     but `detect_changes` risk scores may be off.
+2. `detect_changes_tool(changed_files=<list>, detail_level="minimal")` →
+   risk score, test gaps, affected flows. If the graph was just rebuilt,
+   the risk scores now reflect the correct domain.
+3. For each high-risk function:
+   `query_graph_tool(pattern="callers_of", target="<fn>")` finds call sites
+   the diff does not show (inheritance, dynamic calls, signals), and
+   `pattern="tests_for"` confirms whether a reported test gap is real.
+   Flag public-API changes whose callers were not updated.
+4. Escalate to `get_review_context_tool(detail_level="minimal")` or
+   `get_impact_radius_tool` only when a high-risk item stays unclear.
+   Budget: ~5 graph calls per review (excluding the rebuild).
 
-1. Call `get_minimal_context_tool(task="review PR #<n>",
-   changed_files=<list>)` once. Treat the result as usable only when it covers
-   the PR base or the changed files and their callers:
-   - `status: ok` and built on the PR base or an ancestor -> use it;
-   - built on another branch -> use it only if the changed files and their
-     callers are already indexed; otherwise it is not usable for this pass;
-   - `stale_graph`, `missing_graph`, or an unrelated build -> **do not build it
-     now**. Put `graph: not used (stale/missing)` in the packet and continue
-     with `git diff`, `git show <base>:<path>`, `grep` and the blast-radius
-     tests. The blast-radius lane must prove callers and test gaps in the
-     source, not infer them from an absent graph.
-2. Only when the graph is usable, call
-   `detect_changes_tool(changed_files=<list>, detail_level="minimal")` for risk
-   score, test gaps and affected flows, then targeted
-   `query_graph_tool(pattern="callers_of"|"tests_for", target="<fn>")` for the
-   high-risk functions. Budget: ~5 graph calls per review. A risk score is not
-   a finding: the correctness or blast-radius lane turns it into one.
-3. If you choose to update the graph (the user asked, or the review is
-   graph-focused), run `gryphon update --repo <repo>` in the background while
-   the lanes work, or leave it for after the first pass. Never block the lanes
-   on it. A full build belongs to `build-graph`, not to the start of a review.
-   If a full build is explicitly requested, keep the worktree outside the
-   checkout, run it there, and remove it afterwards:
-   ```bash
-   git worktree add ../.wt-pr<n>-base origin/<PR_base_branch>
-   gryphon build --repo ../.wt-pr<n>-base
-   # ... and when done:
-   git worktree remove --force ../.wt-pr<n>-base
-   ```
-   Never create the worktree at `.wt-pr<n>` inside the checkout: the graph
-   watcher follows the whole tree, and a copy that is not a registered worktree
-   (or an older gryphon) would be indexed into the parent graph. Never use
-   `build_or_update_graph_tool` for a full build inside the MCP server; it
-   blocks every other graph call for minutes.
+Put the result in the packet. A risk score is not a finding: the
+correctness or blast-radius lane turns it into one.
 
 ## 3. Verify against base and head
 
@@ -805,9 +814,7 @@ paragraphs beat a long checklist.
 
 After the review, report in chat (never in the PR body): which graph tools
 ran, `context_savings.saved_tokens`/`saved_percent`, test gaps the graph
-surfaced, and files the graph surfaced that a grep would have missed. When the
-graph was not usable, report `graph: not used (<reason>)` instead; do not
-present graph metrics for a graph that did not run.
+surfaced, and files the graph surfaced that a grep would have missed.
 
 ## Tips
 
