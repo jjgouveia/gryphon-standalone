@@ -1050,12 +1050,23 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
                         {
                             "type": "command",
                             "command": (
-                                "cat >/dev/null || true; "
+                                "payload=$(cat || true); "
                                 "command -v gryphon >/dev/null 2>&1 || exit 0; "
-                                "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon update --skip-postprocess --min-interval 60"
-                                " --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\""
-                                " || true"
+                                "f=$(printf '%s' \"$payload\" | { "
+                                "python -c 'import sys,json;"
+                                "ti=(json.load(sys.stdin).get(\"tool_input\") or {});"
+                                "print(ti.get(\"file_path\") or ti.get(\"filePath\") or \"\")'"
+                                " 2>/dev/null || "
+                                "python3 -c 'import sys,json;"
+                                "ti=(json.load(sys.stdin).get(\"tool_input\") or {});"
+                                "print(ti.get(\"file_path\") or ti.get(\"filePath\") or \"\")'"
+                                " 2>/dev/null; }); "
+                                "crg_dir=${f:+$(dirname \"$f\" 2>/dev/null)}; "
+                                "r=$(cd \"${crg_dir:-.}\" 2>/dev/null"
+                                " && git rev-parse --show-toplevel 2>/dev/null)"
+                                " || exit 0; "
+                                "gryphon update --skip-postprocess --min-interval 60"
+                                " --repo \"$r\" || true"
                             ),
                             "timeout": 30,
                         },
@@ -1665,7 +1676,8 @@ payload=$(cat || true)
 # Update the graph of the git repo that owns the edited file. A hardcoded
 # workspace root that is not itself a git repo turns every update into a
 # full mtime scan of a multi-repo tree — minutes on a large graph.
-crg_file=$(printf '%s' "$payload" | python3 -c '
+PY=$(command -v python || command -v python3 || true)
+crg_file=$([ -n "$PY" ] && printf '%s' "$payload" | "$PY" -c '
 import sys, json
 try:
     ti = json.load(sys.stdin).get("tool_input", {})
@@ -1892,7 +1904,8 @@ set -euo pipefail
 # owns the edited file — a non-git workspace root must not trigger a
 # full-tree update scan.
 payload=$(cat || true)
-crg_file=$(printf '%s' "$payload" | python3 -c '
+PY=$(command -v python || command -v python3 || true)
+crg_file=$([ -n "$PY" ] && printf '%s' "$payload" | "$PY" -c '
 import sys, json
 try:
     d = json.load(sys.stdin)

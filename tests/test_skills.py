@@ -267,7 +267,12 @@ class TestGenerateHooksConfig:
         inner = entry["hooks"][0]
         assert inner["type"] == "command"
         assert "update" in inner["command"]
-        assert inner["command"].startswith("cat >/dev/null || true; ")
+        # The command drains stdin into a variable (bug #493 needs the full
+        # payload consumed) and resolves the repo from the edited file's
+        # git root so non-git workspaces never trigger an update.
+        assert inner["command"].startswith("payload=$(cat || true); ")
+        assert "git rev-parse --show-toplevel" in inner["command"]
+        assert "--skip-postprocess --min-interval" in inner["command"]
         assert 0 < inner["timeout"] <= 600
 
     def test_has_session_start(self):
@@ -423,9 +428,9 @@ class TestShippedHooksFiles:
         ]
         assert commands, "hooks/hooks.json should define at least one command hook"
         for command in commands:
-            assert command.startswith(self.STDIN_DRAIN), (
-                f"hooks.json command lacks the stdin drain prefix: {command!r}"
-            )
+            assert command.startswith(self.STDIN_DRAIN) or command.startswith(
+                "payload=$(cat || true); "
+            ), f"hooks.json command lacks the stdin drain prefix: {command!r}"
 
     def test_session_start_script_drains_stdin(self):
         script = (self.HOOKS_DIR / "session-start.sh").read_text(encoding="utf-8")
@@ -2737,9 +2742,11 @@ class TestGeneratedHooksGuardGitRepo:
     def test_post_tool_use_command_guarded_by_git_check(self):
         config = generate_hooks_config(Path("/repo"))
         cmd = config["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
-        # Must short-circuit on the git check before calling update.
-        assert "git rev-parse --git-dir" in cmd
-        idx_guard = cmd.index("git rev-parse --git-dir")
+        # Must short-circuit on the git check before calling update. The
+        # repo is resolved from the edited file's git root, so the guard is
+        # rev-parse --show-toplevel inside the file's directory.
+        assert "git rev-parse --show-toplevel" in cmd
+        idx_guard = cmd.index("git rev-parse")
         idx_update = cmd.index("gryphon update")
         assert idx_guard < idx_update, "git guard must precede the update call"
 

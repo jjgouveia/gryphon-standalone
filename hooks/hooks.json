@@ -26,7 +26,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "cat >/dev/null || true; gryphon update --skip-postprocess --min-interval 60",
+          "command": "payload=$(cat || true); command -v gryphon >/dev/null 2>&1 || exit 0; f=$(printf '%s' \"$payload\" | { python -c 'import sys,json;ti=(json.load(sys.stdin).get(\"tool_input\") or {});print(ti.get(\"file_path\") or ti.get(\"filePath\") or \"\")' 2>/dev/null || python3 -c 'import sys,json;ti=(json.load(sys.stdin).get(\"tool_input\") or {});print(ti.get(\"file_path\") or ti.get(\"filePath\") or \"\")' 2>/dev/null; }); crg_dir=${f:+$(dirname \"$f\" 2>/dev/null)}; r=$(cd \"${crg_dir:-.}\" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || exit 0; gryphon update --skip-postprocess --min-interval 60 --repo \"$r\" || true",
           "timeout": 30
         }
       ]
