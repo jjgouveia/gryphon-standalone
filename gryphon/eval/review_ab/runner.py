@@ -51,6 +51,13 @@ DENIED_TOOLS = (
     "Bash(git fetch *)", "Bash(git pull *)", "Bash(git push *)",
     "Bash(git clone *)", "Bash(git remote *)", "Bash(git ls-remote *)",
     "WebFetch", "WebSearch",
+    # The graph is reachable only through the MCP tools, which the record
+    # counts. A gryphon on PATH would serve the same graph through Bash —
+    # uncounted in the graph arm, contaminating in baseline (the failure
+    # mode the CodeGraph benchmark hit in 26 of 28 runs).
+    "Bash(gryphon *)", "Bash(gryphon:*)",
+    "Bash(uvx gryphon*)", "Bash(uv tool run gryphon*)", "Bash(uv run gryphon*)",
+    "Bash(python -m gryphon*)", "Bash(python3 -m gryphon*)", "Bash(py -m gryphon*)",
 )
 # Read-only shell commands both arms may run without a prompt. ``-p`` denies
 # anything unlisted, and a denied compound command costs the reviewer turns.
@@ -237,11 +244,12 @@ def build_command(
 
 
 def parse_stream(lines) -> dict:
-    """Pull init info, tool calls and the result event out of stream-json."""
+    """Pull init info, tool calls, per-turn usage and the result out of stream-json."""
     init: dict = {}
     result: dict | None = None
     tool_calls: list[dict] = []
     hook_events: list[str] = []
+    assistant_usage: list[dict] = []
     for raw in lines:
         raw = raw.strip()
         if not raw:
@@ -258,17 +266,31 @@ def parse_stream(lines) -> dict:
                 f"{event.get('subtype')}:{event.get('hook_event') or event.get('hook_name') or ''}"
             )
         elif kind == "assistant":
-            for block in (event.get("message") or {}).get("content") or []:
+            message = event.get("message") or {}
+            if isinstance(message.get("usage"), dict):
+                assistant_usage.append(message["usage"])
+            for block in message.get("content") or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     tool_calls.append({"name": block.get("name"), "input": block.get("input")})
         elif kind == "result":
             result = event
-    return {"init": init, "result": result, "tool_calls": tool_calls, "hook_events": hook_events}
+    return {
+        "init": init, "result": result, "tool_calls": tool_calls,
+        "hook_events": hook_events, "assistant_usage": assistant_usage,
+    }
 
 
 _NETWORK_RE = re.compile(
     r"(?<![\w-])(gh|curl|wget|iwr|Invoke-WebRequest|Invoke-RestMethod)(?![\w-])"
     r"|git\s+(fetch|pull|push|clone|remote|ls-remote)\b",
+    re.I,
+)
+# Bash entry points to the graph CLI. Denied everywhere (DENIED_TOOLS), but an
+# attempt in baseline still says the reviewer wanted the graph — worth a note.
+_GRAPH_CLI_RE = re.compile(
+    r"(?<![\w-])(gryphon|code-review-graph|uvx)(?![\w-])"
+    r"|uv\s+(run|tool\s+run)\b"
+    r"|(?:python[0-9.]*|py)\s+-m\s+gryphon\b",
     re.I,
 )
 # A drive letter must not follow another word character: in `grep "user_id:\|x"`
@@ -326,6 +348,8 @@ def audit_tool_calls(
                     leaks.append(f"#{i} absolute path outside the clone: {m.group(0)[:160]}")
             if _PARENT_REL_RE.search(cmd):
                 notes.append(f"#{i} parent-relative path: {cmd[:160]}")
+            if _GRAPH_CLI_RE.search(cmd):
+                notes.append(f"#{i} tried a graph CLI entry point: {cmd[:160]}")
         elif name in ("Read", "Grep", "Glob"):
             for key in ("file_path", "path"):
                 value = args.get(key)
@@ -390,10 +414,22 @@ def _child_env(sandbox: ArmSandbox, python: str | None = None) -> dict[str, str]
     return env
 
 
+def _context_size(usage: dict) -> int:
+    """Tokens of context a turn occupied: fresh input plus the cached prefix."""
+    return (
+        (usage.get("input_tokens") or 0)
+        + (usage.get("cache_read_input_tokens") or 0)
+        + (usage.get("cache_creation_input_tokens") or 0)
+    )
+
+
 def summarize(parsed: dict, *, exit_code: int | None, timed_out: bool) -> dict:
     """Flatten a parsed stream into the record fields."""
     result = parsed["result"] or {}
     usage = result.get("usage") or {}
+    # Per-turn context sizes let us tell "processed fewer tokens" apart from
+    # "occupies more window" — a dense graph payload can do both at once.
+    ctx_sizes = [_context_size(u) for u in parsed["assistant_usage"]]
     structured = result.get("structured_output")
     calls = Counter(c["name"] for c in parsed["tool_calls"])
     if timed_out:
@@ -419,6 +455,9 @@ def summarize(parsed: dict, *, exit_code: int | None, timed_out: bool) -> dict:
         "cache_creation_input_tokens": usage.get("cache_creation_input_tokens"),
         "cache_read_input_tokens": usage.get("cache_read_input_tokens"),
         "output_tokens": usage.get("output_tokens"),
+        "total_input_tokens": _context_size(usage) if usage else None,
+        "peak_context_tokens": max(ctx_sizes) if ctx_sizes else None,
+        "final_context_tokens": ctx_sizes[-1] if ctx_sizes else None,
         "tool_calls_total": sum(calls.values()),
         "tool_calls": dict(calls),
         "graph_tool_calls": sum(n for k, n in calls.items() if k.startswith(GRAPH_TOOL_PREFIX)),
