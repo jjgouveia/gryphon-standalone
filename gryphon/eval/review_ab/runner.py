@@ -512,6 +512,7 @@ def _run_devin(
     stdout_path = run_dir / "streams" / f"{stem}.jsonl"
     stderr_path = run_dir / "streams" / f"{stem}.stderr"
     env = _child_env(sandbox, python)
+    env.update(dvn.isolated_user_env(sandbox.root))
     env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/json"
 
     with dvn.OtelSink(otel_path) as sink:

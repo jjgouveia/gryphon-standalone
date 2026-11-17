@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import shutil
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -95,6 +97,43 @@ def write_devin_config(sandbox: ArmSandbox, arm: str, python: str | None = None)
         )
     elif mcp_path.exists():
         mcp_path.unlink()
+
+
+def isolated_user_env(work_dir: Path) -> dict[str, str]:
+    """Env overrides hiding the user's global devin config from a run.
+
+    Devin merges the user-level config dir (``%APPDATA%\\devin`` on Windows,
+    ``~/.config/devin`` elsewhere) into every session. That dir carries the
+    user's own MCP servers — including gryphon — and permission allows, both
+    of which would leak into every arm and silently break the isolation the
+    audit assumes. The run gets a private config dir holding only the auth
+    credentials and org id the CLI needs; MCP config starts empty.
+    """
+    if sys.platform == "win32":
+        real_dir = Path(os.environ.get("APPDATA", "")) / "devin"
+        fake_root = work_dir / "devin-appdata"
+        target = fake_root / "devin"
+        env = {"APPDATA": str(fake_root)}
+    else:
+        real_dir = Path.home() / ".config" / "devin"
+        fake_root = work_dir / "devin-home"
+        target = fake_root / ".config" / "devin"
+        env = {"HOME": str(fake_root)}
+    target.mkdir(parents=True, exist_ok=True)
+    creds = real_dir / "credentials.toml"
+    if creds.exists():
+        shutil.copy2(creds, target / "credentials.toml")
+    try:
+        cfg = json.loads((real_dir / "config.json").read_text(encoding="utf-8"))
+        # User-level permission allows (Exec(gh label), mcp__engram__*, ...)
+        # merge over the arm's deny rules; everything else stays so the CLI
+        # does not fall back to a first-run wizard in headless mode.
+        cfg.pop("permissions", None)
+    except (OSError, json.JSONDecodeError):
+        cfg = {}
+    (target / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    (target / "mcp_config.json").write_text('{"mcpServers": {}}', encoding="utf-8")
+    return env
 
 
 def build_devin_command(
@@ -217,6 +256,13 @@ def parse_atif(path: Path) -> dict:
                     args = json.loads(args)
                 except json.JSONDecodeError:
                     args = {"command": args} if name == "exec" else {"raw": args}
+            # Devin also exposes a generic MCP gateway: mcp_call_tool with
+            # server_name/tool_name args. Normalize to mcp__<srv>__<tool> so
+            # graph calls are counted and audited like the claude backend.
+            if name == "mcp_call_tool" and isinstance(args, dict):
+                srv, tool = args.get("server_name"), args.get("tool_name")
+                if srv and tool:
+                    name = f"mcp__{srv}__{tool}"
             if name:
                 tool_calls.append({"name": TOOL_NAME_MAP.get(name, name), "input": args})
         # Steps of type tool_call also appear as standalone nodes in some exports.

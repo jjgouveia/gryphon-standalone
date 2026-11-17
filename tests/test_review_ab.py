@@ -425,6 +425,54 @@ def test_devin_config_denies_edits_and_graph_cli():
     assert "mcp__gryphon__*" not in baseline["permissions"]["allow"]
 
 
+def test_isolated_user_env_hides_global_mcp_and_permissions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    from gryphon.eval.review_ab import devin as dvn
+
+    envkey = "APPDATA" if sys.platform == "win32" else "HOME"
+    real_root = tmp_path / "real"
+    real = real_root / ("devin" if envkey == "APPDATA" else ".config/devin")
+    real.mkdir(parents=True)
+    (real / "credentials.toml").write_text('windsurf_api_key = "k"\n')
+    (real / "config.json").write_text(json.dumps({
+        "permissions": {"allow": ["Exec(gh label)"]},
+        "devin": {"org_id": "org-1"}, "theme_mode": "dark",
+    }))
+    (real / "mcp_config.json").write_text(
+        json.dumps({"mcpServers": {"gryphon": {}, "airtable": {}}})
+    )
+    monkeypatch.setenv(envkey, str(real_root))
+    env = dvn.isolated_user_env(tmp_path / "work")
+    fake_devin = Path(env[envkey]) / ("devin" if envkey == "APPDATA" else ".config/devin")
+    assert (fake_devin / "credentials.toml").exists()
+    cfg = json.loads((fake_devin / "config.json").read_text())
+    assert "permissions" not in cfg and cfg["devin"]["org_id"] == "org-1"
+    mcp = json.loads((fake_devin / "mcp_config.json").read_text())
+    assert mcp["mcpServers"] == {}
+
+
+def test_parse_atif_mcp_gateway_calls_normalize(tmp_path: Path):
+    from gryphon.eval.review_ab.devin import parse_atif
+
+    atif = {"steps": [
+        {"step_id": 1, "source": "agent", "message": "",
+         "tool_calls": [{"function_name": "mcp_call_tool",
+                         "arguments": {"server_name": "gryphon",
+                                       "tool_name": "detect_changes_tool",
+                                       "arguments": {}}}],
+         "metrics": {"prompt_tokens": 100, "completion_tokens": 10,
+                     "cached_tokens": 20, "extra": {"cache_creation_input_tokens": 5}}},
+    ]}
+    path = tmp_path / "run.atif.json"
+    path.write_text(json.dumps(atif), encoding="utf-8")
+    parsed = parse_atif(path)
+    assert parsed["tool_calls"][0]["name"] == "mcp__gryphon__detect_changes_tool"
+    row = parsed["assistant_usage"][0]
+    assert row["input_tokens"] == 75  # 100 - 20 cached - 5 creation
+    assert row["cache_read_input_tokens"] == 20
+
+
 def test_parse_atif_collects_tools_usage_and_findings(tmp_path: Path):
     from gryphon.eval.review_ab.devin import parse_atif
 
