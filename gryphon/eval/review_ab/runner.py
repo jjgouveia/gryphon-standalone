@@ -684,8 +684,23 @@ def reaudit_run(run_dir: Path, cases: list[ReviewCase], workdir: Path) -> int:
         kind = sandbox_kind(rec["arm"])
         root = workdir / _opaque_name(case.id, kind)
         sandbox = ArmSandbox(case_id=case.id, kind=kind, root=root, repo=root / "repo")
-        with open(run_dir / rec["stream"], encoding="utf-8", errors="replace") as f:
-            parsed = parse_stream(f)
+        if rec.get("backend") == "devin":
+            # Re-parse the ATIF and re-summarize, so parser fixes reach
+            # records already written without re-running the reviews.
+            from . import devin as dvn
+
+            atif = run_dir / str(rec["stream"]).replace(".jsonl", ".atif.json")
+            parsed = dvn.parse_atif(atif)
+            flat = summarize(
+                parsed, exit_code=rec.get("exit_code"),
+                timed_out=rec.get("status") == "timeout",
+            )
+            if any(rec.get(k) != v for k, v in flat.items()):
+                rec.update(flat)
+                changed += 1
+        else:
+            with open(run_dir / rec["stream"], encoding="utf-8", errors="replace") as f:
+                parsed = parse_stream(f)
         leaks, notes = audit_tool_calls(parsed["tool_calls"], sandbox, case.source_repo)
         if leaks != rec.get("leak_flags") or notes != rec.get("audit_notes"):
             rec["leak_flags"], rec["audit_notes"] = leaks, notes

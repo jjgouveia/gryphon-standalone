@@ -382,13 +382,22 @@ def parse_atif(path: Path) -> dict:
 
 
 _JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.S)
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def _loads_lenient(raw: str) -> Any:
+    """json.loads tolerating the trailing commas models love to emit."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return json.loads(_TRAILING_COMMA_RE.sub(r"\1", raw))
 
 
 def _extract_findings(text: str) -> dict | None:
     """The ``{"summary": ..., "findings": [...]}`` object from the printed answer."""
     for match in reversed(list(_JSON_BLOCK_RE.finditer(text))):
         try:
-            obj = json.loads(match.group(1))
+            obj = _loads_lenient(match.group(1))
         except json.JSONDecodeError:
             continue
         if isinstance(obj, dict) and "findings" in obj:
@@ -396,7 +405,7 @@ def _extract_findings(text: str) -> dict | None:
     # Last resort: the whole tail is a bare JSON object.
     tail = text[text.rfind("{"):]
     try:
-        obj = json.loads(tail)
+        obj = _loads_lenient(tail)
         if isinstance(obj, dict) and "findings" in obj:
             return {"summary": obj.get("summary", ""), "findings": obj["findings"]}
     except json.JSONDecodeError:
