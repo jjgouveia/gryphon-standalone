@@ -58,6 +58,13 @@ def add_parser(sub) -> argparse.ArgumentParser:
     )
     run.add_argument("--claude-bin", default="claude", help="claude executable")
     run.add_argument(
+        "--backend", choices=["claude", "devin"], default="claude",
+        help="Agent CLI that reviews: claude -p or devin -p",
+    )
+    run.add_argument(
+        "--devin-bin", default="devin", help="devin executable (devin backend)",
+    )
+    run.add_argument(
         "--ref-python", default=None,
         help="Python of another gryphon checkout; graph_install_ref uses its install "
              "(hooks, CLAUDE.md block, MCP server, gryphon on PATH)",
@@ -189,6 +196,8 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             claude_bin=args.claude_bin,
             isolation=args.isolation,
             ref_python=args.ref_python,
+            backend=args.backend,
+            devin_bin=args.devin_bin,
         )
         try:
             run_dir = run_cases(

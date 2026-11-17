@@ -411,6 +411,111 @@ def test_summarize_tracks_context_sizes():
     assert rec["final_context_tokens"] == 1300
 
 
+# --- devin backend ------------------------------------------------------------
+
+
+def test_devin_config_denies_edits_and_graph_cli():
+    from gryphon.eval.review_ab.devin import devin_config
+
+    graph = devin_config("graph")
+    deny = set(graph["permissions"]["deny"])
+    assert "edit" in deny and "Exec(gryphon)" in deny and "Exec(gh)" in deny
+    assert "mcp__gryphon__*" in graph["permissions"]["allow"]
+    baseline = devin_config("baseline")
+    assert "mcp__gryphon__*" not in baseline["permissions"]["allow"]
+
+
+def test_parse_atif_collects_tools_usage_and_findings(tmp_path: Path):
+    from gryphon.eval.review_ab.devin import parse_atif
+
+    findings = {"summary": "ok", "findings": [
+        {"file": "app.py", "line": 2, "severity": "major",
+         "category": "bug", "claim": "off by one", "evidence": "+ 1"},
+    ]}
+    atif = {
+        "schema_version": "1",
+        "steps": [
+            {"type": "message", "source": "user", "message": {"content": "review"}},
+            {"type": "tool_call", "tool_name": "exec",
+             "arguments": {"command": "git diff"}},
+            {"type": "tool_call", "tool_name": "mcp__gryphon__query_graph_tool",
+             "arguments": {"pattern": "callers_of"}},
+            {"type": "message", "source": "agent",
+             "message": {"content": "checking callers"},
+             "usage": {"input_tokens": 700, "cache_read_tokens": 300,
+                       "output_tokens": 20}},
+            {"type": "message", "source": "agent",
+             "message": {"content": "```json\n" + json.dumps(findings) + "\n```"},
+             "usage": {"input_tokens": 50, "cache_read_tokens": 1100,
+                       "output_tokens": 40}},
+        ],
+    }
+    path = tmp_path / "run.atif.json"
+    path.write_text(json.dumps(atif), encoding="utf-8")
+    parsed = parse_atif(path)
+
+    names = [c["name"] for c in parsed["tool_calls"]]
+    assert "Bash" in names and "mcp__gryphon__query_graph_tool" in names
+    rec = summarize(parsed, exit_code=0, timed_out=False)
+    assert rec["status"] == "ok"
+    assert rec["findings"] == findings["findings"]
+    assert rec["total_input_tokens"] == 2150  # 700+300 + 50+1100
+    assert rec["output_tokens"] == 60
+    assert rec["peak_context_tokens"] == 1150
+    assert rec["final_context_tokens"] == 1150
+
+
+def test_parse_atif_without_usage_or_findings(tmp_path: Path):
+    from gryphon.eval.review_ab.devin import parse_atif
+
+    path = tmp_path / "run.atif.json"
+    path.write_text(json.dumps({"steps": [
+        {"type": "message", "source": "agent", "message": {"content": "hmm"}},
+    ]}), encoding="utf-8")
+    rec = summarize(parse_atif(path), exit_code=0, timed_out=False)
+    assert rec["status"] == "no_structured_output"
+    assert rec["total_input_tokens"] is None
+
+
+def test_parse_atif_real_v17_shape(tmp_path: Path):
+    """ATIF-v1.7: steps carry source/message strings, tokens live in
+    final_metrics (total_prompt_tokens already counts the cached prefix)."""
+    from gryphon.eval.review_ab.devin import parse_atif
+
+    findings = {"summary": "ok", "findings": [
+        {"file": "app.py", "line": 2, "severity": "major",
+         "category": "bug", "claim": "off by one", "evidence": "+ 1"},
+    ]}
+    atif = {
+        "schema_version": "ATIF-v1.7",
+        "session_id": "s1",
+        "agent": {"name": "devin", "model_name": "Claude Haiku 5.5 High"},
+        "steps": [
+            {"step_id": 1, "source": "user", "message": "review this"},
+            {"step_id": 2, "source": "agent",
+             "message": {"content": "```json\n" + json.dumps(findings) + "\n```"},
+             "extra": {"generation_model": "claude-haiku-5-5-high"}},
+        ],
+        "final_metrics": {
+            "total_prompt_tokens": 43113,
+            "total_completion_tokens": 77,
+            "total_cached_tokens": 12885,
+            "total_steps": 10,
+        },
+    }
+    path = tmp_path / "run.atif.json"
+    path.write_text(json.dumps(atif), encoding="utf-8")
+    parsed = parse_atif(path)
+
+    rec = summarize(parsed, exit_code=0, timed_out=False)
+    assert rec["status"] == "ok"
+    assert rec["findings"] == findings["findings"]
+    # total_prompt_tokens already counts the cached prefix: 30228 fresh
+    # input + 12885 cache_read = 43113 processed.
+    assert rec["total_input_tokens"] == 43113
+    assert rec["output_tokens"] == 77
+
+
 # --- run_arm ----------------------------------------------------------------
 
 

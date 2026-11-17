@@ -78,6 +78,22 @@ REQUIRED_FIRST_CALLS = (
 # Variables that make a nested claude think it runs inside another session.
 _PARENT_SESSION_VARS = ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT")
 
+# Variables an IDE terminal injects that redirect the devin CLI to the host
+# session (ACP backend, extension-host dirs). A benchmark child must behave
+# like a CLI launched from a plain shell: authenticate from credentials.toml
+# and read MCP config from the repo/user dirs, not from the parent IDE.
+_IDE_SESSION_VARS = (
+    "ACP_BACKEND",
+    "DEVIN_FD_PATH",
+    "WINDSURF_CODEIUM_DIR",
+    "WINDSURF_EXT_HOST_PID",
+    "WINDSURF_IDE_TYPE",
+    "VSCODE_CWD",
+    "VSCODE_CODE_CACHE_PATH",
+    "VSCODE_NODE_COMPILE_CACHE_ROOT",
+    "VSCODE_NLS_CONFIG",
+)
+
 
 @dataclass(frozen=True)
 class RunSettings:
@@ -86,6 +102,9 @@ class RunSettings:
     max_budget_usd: float = DEFAULT_BUDGET_USD
     timeout_s: int = DEFAULT_TIMEOUT_S
     claude_bin: str = "claude"
+    # "claude" drives `claude -p`; "devin" drives `devin -p` (see devin.py).
+    backend: str = "claude"
+    devin_bin: str = "devin"
     # "restricted": --restricted (no settings, no CLAUDE.md, file tools
     # confined to the clone). "project": --setting-sources project, which
     # loads the clone's CLAUDE.md; the user's ~/.claude/CLAUDE.md loads too,
@@ -403,7 +422,7 @@ def _run_claude(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 def _child_env(sandbox: ArmSandbox, python: str | None = None) -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if not k.startswith("CRG_")}
-    for var in _PARENT_SESSION_VARS:
+    for var in (*_PARENT_SESSION_VARS, *_IDE_SESSION_VARS):
         env.pop(var, None)
     # The SessionStart hook runs gryphon in the claude process environment.
     env.update(sandbox.gryphon_env())
@@ -474,6 +493,75 @@ def summarize(parsed: dict, *, exit_code: int | None, timed_out: bool) -> dict:
     }
 
 
+def _run_devin(
+    case: ReviewCase,
+    sandbox: ArmSandbox,
+    settings: RunSettings,
+    arm: str,
+    stem: str,
+    prompt_path: Path,
+    run_dir: Path,
+) -> tuple[dict, int | None, bool]:
+    """Run ``devin -p`` for one arm; return ``(parsed, exit_code, timed_out)``."""
+    from . import devin as dvn
+
+    python = gryphon_python(arm, settings)
+    dvn.write_devin_config(sandbox, arm, python)
+    export_path = run_dir / "streams" / f"{stem}.atif.json"
+    otel_path = run_dir / "streams" / f"{stem}.otel.jsonl"
+    stdout_path = run_dir / "streams" / f"{stem}.jsonl"
+    stderr_path = run_dir / "streams" / f"{stem}.stderr"
+    env = _child_env(sandbox, python)
+    env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/json"
+
+    with dvn.OtelSink(otel_path) as sink:
+        env["OTEL_EXPORTER_OTLP_ENDPOINT"] = sink.endpoint
+        cmd = dvn.build_devin_command(
+            sandbox, settings.model,
+            prompt_file=prompt_path, export_path=export_path,
+            devin_bin=settings.devin_bin, otel_endpoint=sink.endpoint,
+        )
+        exit_code: int | None = None
+        timed_out = False
+        with open(stdout_path, "w", encoding="utf-8") as out, open(
+            stderr_path, "w", encoding="utf-8"
+        ) as err:
+            try:
+                proc = subprocess.run(
+                    cmd, cwd=str(sandbox.repo), stdout=out, stderr=err,
+                    text=True, encoding="utf-8", errors="replace",
+                    stdin=subprocess.DEVNULL, env=env,
+                    timeout=settings.timeout_s,
+                )
+                exit_code = proc.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                logger.warning("%s timed out after %ss", stem, settings.timeout_s)
+
+    parsed = dvn.parse_atif(export_path)
+    # The ATIF export is authoritative for the transcript; when it is missing
+    # or empty (crash, old CLI), fall back to the printed stdout for findings.
+    if not parsed["tool_calls"] and stdout_path.exists():
+        parsed["final_text"] = parsed["final_text"] or stdout_path.read_text(
+            encoding="utf-8", errors="replace"
+        )
+        if parsed["result"] is None:
+            parsed["result"] = {}
+        if parsed["result"].get("structured_output") is None:
+            parsed["result"]["structured_output"] = dvn._extract_findings(
+                parsed["final_text"]
+            )
+            if parsed["result"]["structured_output"] is not None:
+                parsed["result"]["subtype"] = "success"
+                parsed["result"]["is_error"] = False
+    otel = sink.parse()
+    if otel["usage"]:
+        parsed["result"] = parsed["result"] or {}
+        parsed["result"]["usage"] = otel["usage"]
+        parsed["assistant_usage"] = otel["requests"]
+    return parsed, exit_code, timed_out
+
+
 def run_arm(
     case: ReviewCase,
     sandbox: ArmSandbox,
@@ -490,12 +578,21 @@ def run_arm(
         raise ValueError(
             f"arm {arm!r} needs isolation='project': --restricted skips CLAUDE.md"
         )
+    if settings.backend == "devin" and arm in CLAUDE_MD_ARMS:
+        raise ValueError(
+            f"arm {arm!r} is a claude-install ablation; the devin backend "
+            "runs baseline, graph and graph_required"
+        )
     files = changed_files(sandbox)
-    prompt = build_prompt(arm, title=case.title, body=case.body, files=files)
+    prompt = build_prompt(
+        arm, title=case.title, body=case.body, files=files,
+        backend=settings.backend,
+    )
     stem = f"{case.id}__{arm}__r{rep}"
     (run_dir / "prompts").mkdir(parents=True, exist_ok=True)
     (run_dir / "streams").mkdir(parents=True, exist_ok=True)
-    (run_dir / "prompts" / f"{case.id}__{arm}.txt").write_text(prompt, encoding="utf-8")
+    prompt_path = run_dir / "prompts" / f"{case.id}__{arm}.txt"
+    prompt_path.write_text(prompt, encoding="utf-8")
     stream_path = run_dir / "streams" / f"{stem}.jsonl"
     stderr_path = run_dir / "streams" / f"{stem}.stderr"
 
@@ -504,32 +601,39 @@ def run_arm(
     exit_code: int | None = None
     timed_out = False
     python = gryphon_python(arm, settings)
-    restore = _install_claude_md(sandbox, python) if arm in CLAUDE_MD_ARMS else None
-    with open(stream_path, "w", encoding="utf-8") as out, open(
-        stderr_path, "w", encoding="utf-8"
-    ) as err:
-        try:
-            proc = _run_claude(
-                build_command(sandbox, settings, arm=arm),
-                cwd=str(sandbox.repo), input=prompt, stdout=out, stderr=err,
-                text=True, encoding="utf-8", errors="replace",
-                env=_child_env(sandbox, python), timeout=settings.timeout_s,
-            )
-            exit_code = proc.returncode
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            logger.warning("%s timed out after %ss", stem, settings.timeout_s)
-        finally:
-            if restore:
-                restore()
 
-    with open(stream_path, encoding="utf-8", errors="replace") as f:
-        parsed = parse_stream(f)
+    if settings.backend == "devin":
+        parsed, exit_code, timed_out = _run_devin(
+            case, sandbox, settings, arm, stem, prompt_path, run_dir,
+        )
+    else:
+        restore = _install_claude_md(sandbox, python) if arm in CLAUDE_MD_ARMS else None
+        with open(stream_path, "w", encoding="utf-8") as out, open(
+            stderr_path, "w", encoding="utf-8"
+        ) as err:
+            try:
+                proc = _run_claude(
+                    build_command(sandbox, settings, arm=arm),
+                    cwd=str(sandbox.repo), input=prompt, stdout=out, stderr=err,
+                    text=True, encoding="utf-8", errors="replace",
+                    env=_child_env(sandbox, python), timeout=settings.timeout_s,
+                )
+                exit_code = proc.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                logger.warning("%s timed out after %ss", stem, settings.timeout_s)
+            finally:
+                if restore:
+                    restore()
+
+        with open(stream_path, encoding="utf-8", errors="replace") as f:
+            parsed = parse_stream(f)
     leaks, notes = audit_tool_calls(parsed["tool_calls"], sandbox, case.source_repo)
     record = {
         "case_id": case.id,
         "arm": arm,
         "rep": rep,
+        "backend": settings.backend,
         "model": settings.model,
         "effort": settings.effort,
         "isolation": settings.isolation,
@@ -624,6 +728,7 @@ def run_cases(
         "cases": [c.id for c in cases],
         "arms": list(arms),
         "reps": reps,
+        "backend": settings.backend,
         "model": settings.model,
         "effort": settings.effort,
         "isolation": settings.isolation,

@@ -64,7 +64,7 @@ def sandbox_kind(arm: str) -> str:
 EXCLUDED_PATHS = (
     ".claude/", ".mcp.json", ".gryphon/", ".code-review-graph/", ".cursor/",
     ".codex/", ".gemini/", ".kiro/", ".qoder/", ".codebuddy/", ".windsurf/",
-    ".continue/", ".opencode/", ".serena/", ".vscode/mcp.json",
+    ".continue/", ".opencode/", ".serena/", ".vscode/mcp.json", ".devin/",
 )
 
 _INSTRUCTION_FILE_RE = re.compile(r"(^|/)(CLAUDE|AGENTS|GEMINI|QODER)(\.[\w-]+)?\.md$", re.I)

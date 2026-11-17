@@ -73,11 +73,29 @@ Rules:
 
 {tools}
 
+{contract}
+"""
+
+_CONTRACT_STRUCTURED = """\
 Return the review through the structured output: a short `summary` and one
 entry per finding with `file` (repo-relative path), `line` (at `{review}`, or
 null), `severity` (blocker, major or minor), `category`, `claim` (what is
 wrong, one or two sentences) and `evidence` (the code that proves it). Write
 `summary`, `claim` and `evidence` in the language of the PR title.
+"""
+
+# Devin has no --json-schema; the findings come back as a fenced block in the
+# printed answer instead.
+_CONTRACT_JSON_BLOCK = """\
+Return the review as one fenced ```json block and nothing after it, shaped:
+{{"summary": "<short summary>", "findings": [
+  {{"file": "<repo-relative path>", "line": <line at {review} or null>,
+    "severity": "blocker"|"major"|"minor",
+    "category": "bug"|"regression"|"broken-caller"|"test-gap"|"security"|
+                "performance"|"data"|"other",
+    "claim": "<what is wrong, one or two sentences>",
+    "evidence": "<the code that proves it>"}}]}}
+Write `summary`, `claim` and `evidence` in the language of the PR title.
 """
 
 _TOOLS_BASELINE = """\
@@ -138,14 +156,20 @@ def _format_files(files: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(arm: str, *, title: str, body: str, files: list[dict]) -> str:
-    """The full review prompt for *arm*."""
+def build_prompt(
+    arm: str, *, title: str, body: str, files: list[dict], backend: str = "claude",
+) -> str:
+    """The full review prompt for *arm* on *backend*."""
     tools = TOOLS_BY_ARM[arm]
     fmt = {"base": BASE_BRANCH, "review": REVIEW_BRANCH}
+    contract = (
+        _CONTRACT_STRUCTURED if backend == "claude" else _CONTRACT_JSON_BLOCK
+    )
     return _TASK.format(
         title=title.strip() or "(no title)",
         body=body.strip() or "(no description)",
         files=_format_files(files),
         tools=tools.format(**fmt),
+        contract=contract.format(**fmt),
         **fmt,
     )
