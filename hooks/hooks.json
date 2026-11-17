@@ -26,7 +26,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "cat >/dev/null || true; gryphon update --skip-flows --min-interval 60",
+          "command": "cat >/dev/null || true; gryphon update --skip-postprocess --min-interval 60",
           "timeout": 30
         }
       ]

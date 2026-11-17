@@ -632,7 +632,7 @@ class TestGenerateCodexHooksConfig:
         session_cmd = config["hooks"]["SessionStart"][0]["hooks"][0]["command"]
         assert "--repo" not in post_cmd
         assert "--repo" not in session_cmd
-        assert "gryphon update --skip-flows" in post_cmd
+        assert "gryphon update --skip-postprocess" in post_cmd
         assert "gryphon status" in session_cmd
 
 
@@ -1704,11 +1704,15 @@ class TestCursorHookScripts:
         """Each script must consume stdin (Cursor protocol)."""
         scripts = _cursor_hook_scripts()
         for name, content in scripts.items():
-            assert "cat > /dev/null" in content, f"{name} missing stdin consumption"
+            assert "cat > /dev/null" in content or "payload=$(cat" in content, (
+                f"{name} missing stdin consumption"
+            )
 
     def test_update_script_runs_update(self):
         scripts = _cursor_hook_scripts()
-        assert "gryphon update --skip-flows" in scripts["crg-update.sh"]
+        assert "gryphon update --skip-postprocess --min-interval 60" in scripts[
+            "crg-update.sh"
+        ]
 
     def test_session_start_script_runs_status(self):
         scripts = _cursor_hook_scripts()
@@ -2494,7 +2498,7 @@ class TestOpenCodePluginContent:
     def test_hooks_file_edited_event(self):
         content = _opencode_plugin_content()
         assert '"file.edited"' in content
-        assert "gryphon update --skip-flows" in content
+        assert "gryphon update --skip-postprocess" in content
 
     def test_hooks_session_created_event(self):
         content = _opencode_plugin_content()

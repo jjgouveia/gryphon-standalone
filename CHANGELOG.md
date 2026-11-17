@@ -117,6 +117,14 @@
   failure retries once before the check is recorded as not run. CI is
   advisory and silent by default — it is collected and cited only under
   `--ci-gate`.
+- Edit hooks installed by `gryphon install` run
+  `gryphon update --skip-postprocess --min-interval 60` and resolve the
+  repo from the edited file's git root instead of a fixed path. A hook
+  fired inside a non-git workspace no longer launches a full-tree update
+  scan — a stale multi-repo workspace graph was taking minutes per edit
+  and freezing every MCP reader. Cursor session-start and pre-commit
+  scripts skip outside a git repo; the git pre-commit hook keeps running
+  the full update so post-processing catches up at commit time.
 - `review-pr` and `review-multi` scope test execution to the diff's blast
   radius and never wait for CI. The tests that reach the changed symbols and
   the changed domain are the evidence for the pass; a CI status is a snapshot,

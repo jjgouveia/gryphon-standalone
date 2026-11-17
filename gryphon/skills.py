@@ -1053,7 +1053,7 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
                                 "cat >/dev/null || true; "
                                 "command -v gryphon >/dev/null 2>&1 || exit 0; "
                                 "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon update --skip-flows --min-interval 60"
+                                " && gryphon update --skip-postprocess --min-interval 60"
                                 " --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\""
                                 " || true"
                             ),
@@ -1126,7 +1126,7 @@ def generate_codex_hooks_config(repo_root: Path) -> dict[str, Any]:
                             "command": (
                                 "cat >/dev/null || true; "
                                 "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon update --skip-flows --min-interval 60"
+                                " && gryphon update --skip-postprocess --min-interval 60"
                                 " || true"
                             ),
                             "timeout": 30,
@@ -1638,7 +1638,12 @@ set -euo pipefail
 
 cat > /dev/null || true
 
-msg="$(gryphon status --repo "__CRG_REPO__" 2>&1 | head -n 1 || true)"
+crg_repo=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -n "$crg_repo" ]; then
+    msg="$(gryphon status --brief --repo "$crg_repo" 2>&1 | head -n 1 || true)"
+else
+    msg=""
+fi
 
 CRG_MSG="$msg" python3 -c '
 import json,os
@@ -1655,9 +1660,28 @@ exit 0
 # Must output ONLY JSON on stdout. Low-noise: no systemMessage.
 set -euo pipefail
 
-cat > /dev/null || true
+payload=$(cat || true)
 
-gryphon update --skip-flows --min-interval 60 --repo "__CRG_REPO__" >/dev/null 2>&1 || true
+# Update the graph of the git repo that owns the edited file. A hardcoded
+# workspace root that is not itself a git repo turns every update into a
+# full mtime scan of a multi-repo tree — minutes on a large graph.
+crg_file=$(printf '%s' "$payload" | python3 -c '
+import sys, json
+try:
+    ti = json.load(sys.stdin).get("tool_input", {})
+except Exception:
+    ti = {}
+print(ti.get("file_path") or ti.get("filePath") or ti.get("path") or "")
+' 2>/dev/null || true)
+crg_dir=${crg_file:+$(dirname "$crg_file" 2>/dev/null)}
+crg_repo=$(cd "${crg_dir:-.}" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || true
+
+if [ -z "$crg_repo" ]; then
+    echo '{"suppressOutput": true}'
+    exit 0
+fi
+
+gryphon update --skip-postprocess --min-interval 60 --repo "$crg_repo" >/dev/null 2>&1 || true
 echo '{"suppressOutput": true}'
 exit 0
 """
@@ -1864,11 +1888,28 @@ def _cursor_hook_scripts() -> dict[str, str]:
 # Fails gracefully — never blocks the editor.
 set -euo pipefail
 
-# Consume stdin (Cursor sends JSON context)
-cat > /dev/null
+# Consume stdin (Cursor sends JSON context) and resolve the repo that
+# owns the edited file — a non-git workspace root must not trigger a
+# full-tree update scan.
+payload=$(cat || true)
+crg_file=$(printf '%s' "$payload" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+print(d.get("file_path") or d.get("filePath") or d.get("path") or "")
+' 2>/dev/null || true)
+crg_dir=${crg_file:+$(dirname "$crg_file" 2>/dev/null)}
+crg_repo=$(cd "${crg_dir:-.}" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || true
+
+if [ -z "$crg_repo" ]; then
+    echo '{"passed":true}'
+    exit 0
+fi
 
 # Run update; swallow errors so the hook always succeeds.
-output=$(gryphon update --skip-flows --min-interval 60 2>&1) || true
+output=$(gryphon update --skip-postprocess --min-interval 60 --repo "$crg_repo" 2>&1) || true
 
 # Emit valid JSON on stdout per Cursor hooks protocol.
 python3 -c "
@@ -1888,8 +1929,14 @@ set -euo pipefail
 # Consume stdin
 cat > /dev/null
 
-# Capture status output
-output=$(gryphon status 2>&1) || output="graph not built yet"
+# Status only inside a git repo — outside one there is no repo to report
+# and resolving a workspace root can open a very large shared graph.
+crg_repo=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -n "$crg_repo" ]; then
+    output=$(gryphon status --brief --repo "$crg_repo" 2>&1) || output="graph not built yet"
+else
+    output=""
+fi
 
 # Emit valid JSON on stdout
 python3 -c "
@@ -1910,8 +1957,14 @@ set -euo pipefail
 # Consume stdin
 cat > /dev/null
 
-# Run detect-changes; swallow errors
-output=$(gryphon detect-changes --brief 2>&1) || output=""
+# Scope to the repo being committed — a non-git workspace root resolves to
+# a shared workspace graph and takes minutes to open.
+crg_repo=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -n "$crg_repo" ]; then
+    output=$(gryphon detect-changes --brief --repo "$crg_repo" 2>&1) || output=""
+else
+    output=""
+fi
 
 # Emit valid JSON on stdout
 python3 -c "
@@ -2088,7 +2141,7 @@ export default (app: any) => {
   // 1. Auto-update graph after file edits
   app.on("file.edited", async ({ $ }: { $: any }) => {
     try {
-      await $`gryphon update --skip-flows --min-interval 60`.quiet()
+      await $`gryphon update --skip-postprocess --min-interval 60`.quiet()
     } catch {
       // Swallow — graph may not be built yet for this project.
     }
