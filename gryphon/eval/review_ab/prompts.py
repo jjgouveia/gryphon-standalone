@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from .sandbox import BASE_BRANCH, REVIEW_BRANCH
 
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "4"
 
 SEVERITIES = ("blocker", "major", "minor")
 CATEGORIES = (
@@ -134,6 +134,18 @@ Required protocol for this review — follow it even if the diff looks small:
   before concluding.
 - Then verify each finding in the source as usual."""
 
+# Devin reaches MCP tools through the mcp_call_tool gateway — there are no
+# dedicated mcp__gryphon__* entries in its tool list, so the model must be
+# told the invocation form or it falls back to Bash and never uses the graph.
+_DEVIN_MCP_NOTE = """\
+How to call the graph tools here: this CLI exposes MCP servers through a
+gateway, not as dedicated tools. Call `mcp_call_tool(server_name="gryphon",
+tool_name="<tool>", arguments={{...}})` — `mcp_list_tools` lists the gryphon
+server's tools. Where the steps below name a tool like
+`get_minimal_context_tool`, pass it as `tool_name`.
+
+"""
+
 TOOLS_BY_ARM = {
     "baseline": _TOOLS_BASELINE,
     "graph": _TOOLS_GRAPH,
@@ -161,6 +173,8 @@ def build_prompt(
 ) -> str:
     """The full review prompt for *arm* on *backend*."""
     tools = TOOLS_BY_ARM[arm]
+    if backend == "devin" and arm != "baseline":
+        tools = _DEVIN_MCP_NOTE + tools
     fmt = {"base": BASE_BRANCH, "review": REVIEW_BRANCH}
     contract = (
         _CONTRACT_STRUCTURED if backend == "claude" else _CONTRACT_JSON_BLOCK
