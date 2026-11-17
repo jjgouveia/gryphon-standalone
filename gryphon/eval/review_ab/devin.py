@@ -146,6 +146,8 @@ def build_devin_command(
     otel_endpoint: str | None = None,
 ) -> list[str]:
     """The ``devin -p`` argv for one arm."""
+    # Absolute paths: the child runs with cwd=sandbox.repo, so a relative
+    # prompt/export path would resolve inside the clone, not the run dir.
     cmd = [
         devin_bin, "-p",
         "--model", model,
@@ -153,8 +155,8 @@ def build_devin_command(
         # allow/deny rules still decide exec commands and MCP tools.
         "--permission-mode", "auto",
         "--respect-workspace-trust", "false",
-        "--prompt-file", str(prompt_file),
-        "--export", str(export_path),
+        "--prompt-file", str(prompt_file.resolve()),
+        "--export", str(export_path.resolve()),
     ]
     if otel_endpoint:
         # A dedicated config file keeps the OTLP endpoint out of the user's
@@ -231,7 +233,8 @@ def parse_atif(path: Path) -> dict:
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("could not parse ATIF export %s: %s", path, exc)
         return {"init": {}, "result": None, "tool_calls": [],
-                "hook_events": [], "assistant_usage": []}
+                "hook_events": [], "assistant_usage": [],
+                "tool_result_bytes": 0, "final_text": ""}
 
     tool_calls: list[dict] = []
     usage_rows: list[dict] = []
