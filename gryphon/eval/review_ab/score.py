@@ -98,6 +98,11 @@ def score_case(payload: dict, labels: dict, records: list[dict], known_ids: list
             "known_recall": _ratio(len(found_known), len(known_ids)) if known_ids else None,
             "top3_serious": top3_serious,
             "cost_usd": rec.get("total_cost_usd"),
+            "input_tokens": rec.get("input_tokens"),
+            "total_input_tokens": rec.get("total_input_tokens"),
+            "output_tokens": rec.get("output_tokens"),
+            "peak_context_tokens": rec.get("peak_context_tokens"),
+            "final_context_tokens": rec.get("final_context_tokens"),
             "turns": rec.get("num_turns"),
             "wall_seconds": rec.get("wall_seconds"),
             "graph_tool_calls": rec.get("graph_tool_calls"),
@@ -164,7 +169,13 @@ def _pooled_baseline(
         "weighted_recall": _ratio(weight, total_weight),
         "known_recall": _ratio(len(known), len(known_ids)) if known_ids else None,
         "top3_serious": None,
-        "cost_usd": total("cost_usd"), "turns": total("turns"),
+        "cost_usd": total("cost_usd"),
+        "input_tokens": total("input_tokens"),
+        "total_input_tokens": total("total_input_tokens"),
+        "output_tokens": total("output_tokens"),
+        "peak_context_tokens": total("peak_context_tokens"),
+        "final_context_tokens": total("final_context_tokens"),
+        "turns": total("turns"),
         "wall_seconds": total("wall_seconds"), "graph_tool_calls": 0, "protocol_ok": None,
         **{k: None for k in RUBRIC}, "judge_comment": None,
     }]
@@ -173,6 +184,8 @@ def _pooled_baseline(
 PAIRED_METRICS = (
     "real", "false", "precision", "pooled_recall", "weighted_recall", "known_recall",
     "top3_serious", *RUBRIC, "cost_usd",
+    "total_input_tokens", "output_tokens", "peak_context_tokens",
+    "final_context_tokens", "turns", "wall_seconds",
 )
 
 
@@ -214,8 +227,9 @@ def paired_deltas(
 
 _MEAN_FIELDS = (
     "findings", "real", "false", "unverifiable", "precision", "pooled_recall",
-    "weighted_recall", "known_recall", "top3_serious", *RUBRIC, "cost_usd", "turns",
-    "wall_seconds", "graph_tool_calls",
+    "weighted_recall", "known_recall", "top3_serious", *RUBRIC, "cost_usd",
+    "total_input_tokens", "output_tokens", "peak_context_tokens",
+    "final_context_tokens", "turns", "wall_seconds", "graph_tool_calls",
 )
 
 
@@ -390,9 +404,10 @@ def render_markdown(scored: dict) -> str:
     header = (
         "| Braço | Revisões | Achados | Reais | Falsos | Precisão | Recall combinado "
         "| Recall ponderado | Recall gabarito | Corretude | Impacto | Testes | Sinal "
-        "| Acionável | Custo | Turnos | Tempo (s) | Chamadas ao grafo | Graves no top 3 |"
+        "| Acionável | Custo | Tokens in | Tokens out | Ctx. pico | Ctx. final "
+        "| Turnos | Tempo (s) | Chamadas ao grafo | Graves no top 3 |"
     )
-    lines += [header, "|" + "---|" * 19]
+    lines += [header, "|" + "---|" * 23]
     for arm, a in scored["by_arm"].items():
         lines.append(
             f"| {arm} | {a['reviews']} | {_fmt(a['findings'])} | {_fmt(a['real'])} "
@@ -400,7 +415,10 @@ def render_markdown(scored: dict) -> str:
             f"| {_fmt(a['pooled_recall'], True)} | {_fmt(a['weighted_recall'], True)} "
             f"| {_fmt(a['known_recall'], True)} "
             + " ".join(f"| {_fmt(a[k])}" for k in RUBRIC)
-            + f" | {_usd(a['cost_usd'])} | {_fmt(a['turns'])} | {_fmt(a['wall_seconds'])} "
+            + f" | {_usd(a['cost_usd'])} | {_fmt(a['total_input_tokens'])} "
+            f"| {_fmt(a['output_tokens'])} | {_fmt(a['peak_context_tokens'])} "
+            f"| {_fmt(a['final_context_tokens'])} "
+            f"| {_fmt(a['turns'])} | {_fmt(a['wall_seconds'])} "
             f"| {_fmt(a['graph_tool_calls'])} | {_fmt(a['top3_serious'])} |"
         )
 

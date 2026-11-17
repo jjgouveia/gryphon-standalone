@@ -12,7 +12,13 @@ from pathlib import Path
 import pytest
 
 from gryphon.eval.review_ab import runner, sandbox
-from gryphon.eval.review_ab.cases import ReviewCase, load_cases, save_cases, upsert_case
+from gryphon.eval.review_ab.cases import (
+    ReviewCase,
+    case_from_github,
+    load_cases,
+    save_cases,
+    upsert_case,
+)
 from gryphon.eval.review_ab.prompts import build_prompt
 from gryphon.eval.review_ab.runner import (
     RunSettings,
@@ -103,6 +109,62 @@ def test_load_cases_rejects_duplicate_ids(tmp_path: Path, case: ReviewCase):
     save_cases([case, case], path)
     with pytest.raises(ValueError, match="duplicate"):
         load_cases(path)
+
+
+def _fake_gh_open_pr(head: str, base_tip: str, monkeypatch, *, have_head=True):
+    """subprocess.run serving an OPEN ``gh pr view`` and merge-base git calls."""
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd[0] == "gh":
+            out = json.dumps({
+                "number": 7, "title": "Aberto", "body": "d",
+                "headRefOid": head, "baseRefOid": base_tip,
+                "baseRefName": "main", "mergeCommit": None, "state": "OPEN",
+            })
+            return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+        if cmd[:3] == ["git", "cat-file", "-e"]:
+            # The head is absent locally only when have_head is false.
+            missing = not have_head and cmd[3].startswith(head)
+            return subprocess.CompletedProcess(cmd, int(missing), stdout="", stderr="")
+        if cmd[:2] == ["git", "fetch"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "merge-base"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="f" * 40 + "\n", stderr="")
+        raise AssertionError(f"unexpected call: {cmd}")
+
+    monkeypatch.setattr("gryphon.eval.review_ab.cases.subprocess.run", fake_run)
+    return calls
+
+
+def test_case_from_github_open_pr_uses_merge_base(tmp_path, monkeypatch):
+    head, base_tip = "b" * 40, "c" * 40
+    _fake_gh_open_pr(head, base_tip, monkeypatch)
+    case = case_from_github("o/api-celer", 7, tmp_path)
+    assert case.id == "api-celer-7"
+    assert case.head_sha == head and case.base_sha == "f" * 40
+
+
+def test_case_from_github_open_pr_fetches_missing_commits(tmp_path, monkeypatch):
+    head, base_tip = "b" * 40, "c" * 40
+    calls = _fake_gh_open_pr(head, base_tip, monkeypatch, have_head=False)
+    case_from_github("o/api-celer", 7, tmp_path)
+    assert ["git", "fetch", "-q", "origin", head] in calls
+
+
+def test_case_from_github_rejects_non_reviewable_pr(tmp_path, monkeypatch):
+    def fake_run(cmd, **kwargs):
+        out = json.dumps({
+            "number": 7, "title": "t", "body": "", "headRefOid": "b" * 40,
+            "baseRefOid": "c" * 40, "baseRefName": "main",
+            "mergeCommit": None, "state": "CLOSED",
+        })
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr("gryphon.eval.review_ab.cases.subprocess.run", fake_run)
+    with pytest.raises(ValueError, match="CLOSED"):
+        case_from_github("o/api-celer", 7, tmp_path)
 
 
 # --- sandbox ----------------------------------------------------------------
@@ -311,6 +373,42 @@ def test_audit_flags_network_and_escapes(tmp_path: Path):
 
     assert indices(leaks) == [3, 4, 5, 7]
     assert indices(notes) == [6]
+
+
+def test_audit_notes_graph_cli_attempts(tmp_path: Path):
+    sb = _sb(tmp_path, "baseline")
+    calls = [
+        {"name": "Bash", "input": {"command": "gryphon status"}},
+        {"name": "Bash", "input": {"command": "uvx gryphon query x"}},
+        {"name": "Bash", "input": {"command": "python -m gryphon query x"}},
+    ]
+    leaks, notes = audit_tool_calls(calls, sb, "/src")
+    assert leaks == []
+    assert len(notes) == 3 and all("graph CLI" in n for n in notes)
+
+
+def test_summarize_tracks_context_sizes():
+    events = [
+        {"type": "system", "subtype": "init", "tools": []},
+        {"type": "assistant", "message": {"content": [], "usage": {
+            "input_tokens": 500, "cache_read_input_tokens": 1000,
+            "output_tokens": 20,
+        }}},
+        {"type": "assistant", "message": {"content": [], "usage": {
+            "input_tokens": 50, "cache_read_input_tokens": 1200,
+            "cache_creation_input_tokens": 50, "output_tokens": 30,
+        }}},
+        {"type": "result", "subtype": "success", "is_error": False, "num_turns": 2,
+         "usage": {"input_tokens": 550, "cache_read_input_tokens": 2200,
+                   "cache_creation_input_tokens": 50, "output_tokens": 50},
+         "structured_output": {"summary": "ok", "findings": []}},
+    ]
+    parsed = parse_stream([json.dumps(e) for e in events])
+    rec = summarize(parsed, exit_code=0, timed_out=False)
+    assert rec["status"] == "ok"
+    assert rec["total_input_tokens"] == 2800
+    assert rec["peak_context_tokens"] == 1500
+    assert rec["final_context_tokens"] == 1300
 
 
 # --- run_arm ----------------------------------------------------------------

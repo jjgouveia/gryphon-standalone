@@ -88,41 +88,87 @@ def upsert_case(case: ReviewCase, path: Path) -> None:
     save_cases(cases, path)
 
 
-def case_from_github(gh_repo: str, pr: int, source_repo: Path) -> ReviewCase:
-    """Build a case from a merged GitHub PR via ``gh``.
+def _git_has(repo: Path, sha: str) -> bool:
+    return subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+        cwd=str(repo), capture_output=True,
+    ).returncode == 0
 
-    The base is the merge commit's first parent, resolved in *source_repo*,
-    so the sanitized clone never needs the merge commit itself.
+
+def _ensure_commit(repo: Path, sha: str) -> None:
+    """Fetch *sha* from origin if the local clone does not have it.
+
+    GitHub serves reachable SHAs, so an open PR's head resolves even when
+    its branch was never checked out locally.
+    """
+    if _git_has(repo, sha):
+        return
+    subprocess.run(
+        ["git", "fetch", "-q", "origin", sha],
+        cwd=str(repo), capture_output=True, text=True, check=True,
+    )
+
+
+def case_from_github(gh_repo: str, pr: int, source_repo: Path) -> ReviewCase:
+    """Build a case from a GitHub PR via ``gh``, merged or still open.
+
+    Merged: the base is the merge commit's first parent, so the reviewed
+    change is what actually landed. Open: the base is the merge-base of the
+    PR head and the current base-branch tip — the same ``base...head`` diff
+    a reviewer would read on the PR page.
     """
     result = subprocess.run(
         [
             "gh", "pr", "view", str(pr), "--repo", gh_repo,
-            "--json", "number,title,body,headRefOid,baseRefOid,mergeCommit,state",
+            "--json", "number,title,body,headRefOid,baseRefOid,baseRefName,"
+            "mergeCommit,state",
         ],
         capture_output=True, text=True, encoding="utf-8", check=True,
     )
     meta = json.loads(result.stdout)
-    if meta.get("state") != "MERGED" or not meta.get("mergeCommit"):
-        raise ValueError(f"{gh_repo}#{pr} is not merged; only merged PRs have a fixed base")
-    merge_sha = meta["mergeCommit"]["oid"]
-    parent = subprocess.run(
-        ["git", "rev-parse", f"{merge_sha}^1"],
-        cwd=str(source_repo), capture_output=True, text=True, check=True,
-    )
-    head = meta["headRefOid"]
-    head_known = subprocess.run(
-        ["git", "cat-file", "-e", f"{head}^{{commit}}"],
-        cwd=str(source_repo), capture_output=True,
-    ).returncode == 0
-    if not head_known:
-        # A squash-merged PR whose branch is gone: the squash commit holds the
-        # same change against the same parent.
-        head = merge_sha
+    if meta.get("state") == "MERGED" and meta.get("mergeCommit"):
+        merge_sha = meta["mergeCommit"]["oid"]
+        parent = subprocess.run(
+            ["git", "rev-parse", f"{merge_sha}^1"],
+            cwd=str(source_repo), capture_output=True, text=True, check=True,
+        )
+        base = parent.stdout.strip()
+        head = meta["headRefOid"]
+        if not _git_has(source_repo, head):
+            # A squash-merged PR whose branch is gone: the squash commit holds
+            # the same change against the same parent.
+            head = merge_sha
+    elif meta.get("state") == "OPEN":
+        head = meta["headRefOid"]
+        for sha in (head, meta["baseRefOid"]):
+            try:
+                _ensure_commit(source_repo, sha)
+            except subprocess.CalledProcessError as exc:
+                raise ValueError(
+                    f"{gh_repo}#{pr}: could not fetch {sha[:12]} into "
+                    f"{source_repo} ({exc.stderr.strip()})"
+                ) from exc
+        mb = subprocess.run(
+            ["git", "merge-base", head, meta["baseRefOid"]],
+            cwd=str(source_repo), capture_output=True, text=True,
+        )
+        base = mb.stdout.strip()
+        if mb.returncode != 0 or not base:
+            raise ValueError(
+                f"{gh_repo}#{pr}: head and base share no merge-base in "
+                f"{source_repo}; the clone is probably shallow "
+                "(git fetch --deepen=N there)"
+            )
+    else:
+        raise ValueError(
+            f"{gh_repo}#{pr} is {meta.get('state')}; review cases need an "
+            "open or merged PR"
+        )
     repo_slug = gh_repo.rsplit("/", 1)[-1]
     return ReviewCase(
         id=f"{repo_slug}-{pr}",
         source_repo=str(source_repo.resolve()),
-        base_sha=parent.stdout.strip(),
+        base_sha=base,
         head_sha=head,
         title=meta.get("title") or "",
         body=meta.get("body") or "",
