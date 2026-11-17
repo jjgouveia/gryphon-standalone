@@ -25,7 +25,9 @@ read a proposed finding looks for confirmation, not for the defect. The
 reviewers do not need this session's model, or each other's: independence
 comes from the fresh context and the facts-only packet, so a cheaper model
 is fine for a mechanical pass, and the verifier should get the strongest
-model available.
+model available. If the harness gives both reviewers the orchestrator's
+model, say `single-model` in chat and in the review notes: the pass is
+still independent, but the model split was not available.
 
 ## 1. Resolve the change set
 
@@ -47,7 +49,9 @@ matches, and builds one cached environment per changed lock. Do not let each
 reviewer install into the same worktree, and never install through a linked
 `node_modules`. After `prepare`, tell the user in chat whether the environment
 was reused or built, using the action mapping in `review-pr` *Dependency
-reuse*.
+reuse*. Copy the parent's `.env*` into the worktree and give its test runs
+a dedicated database name, per `review-pr` *Environment files and shared
+test databases*.
 
 ## 2. Two independent reviewers, in parallel
 
@@ -57,8 +61,10 @@ both the same packet, not your notes:
 - the repository path, base and head refs with full SHAs, the change set,
   and the PR title and description;
 - the graph facts and deterministic results (blast-radius tests run locally,
-  `check_undefined.py`), stated as facts. Do not wait for CI; an existing CI
-  status is a snapshot, not a gate for the packet;
+  `check_undefined.py`), stated as facts. CI is advisory and silent by
+  default — see `review-pr` *CI posture*; `--ci-gate` is the opt-in.
+  Without it, CI status is not collected for the packet and never appears
+  in the review or a follow-up issue;
 - the task: find correctness bugs, regressions and missing or wrong tests
   in the change; verify each in the source (`git show <base>:<path>` for
   the old state) before reporting it;
@@ -71,13 +77,19 @@ the packet contains the answer, both reviewers will find it.
 
 Neither reviewer sees the other's work.
 
+The packet is where a reviewer starts, not the boundary of what it may
+read. It reads outside the diff to confirm a call path or a test, and does
+not re-run a test or re-grep a graph fact the packet already records unless
+a finding depends on it: re-deriving the same fact is not a second opinion.
+
 Reviewer B gets one more instruction: before concluding, read the tests
 that exercise the changed symbols. Reviews that had graph context
 explored tests less and reported fewer test gaps.
 
 A reviewer that times out, fails, or returns no report did **not** review.
-Retry it once. If it fails again, record it as **not run**; never count it
-as a reviewer with zero findings.
+Retry that reviewer once. If it fails again, record it as **not run**;
+never count it as a reviewer with zero findings, and never re-dispatch both
+because one failed.
 
 If the platform cannot run two subagents, do the review twice in separate
 sessions and bring both lists back here. A second pass that has read the

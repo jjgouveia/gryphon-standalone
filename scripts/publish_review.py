@@ -88,7 +88,16 @@ def next_round(repo: str, pr: int) -> int:
     return previous.round + 1 if previous is not None else 1
 
 
-def compose(prose: str, findings, *, head: str, base: str, round_number: int, flag: str) -> str:
+def compose(
+    prose: str,
+    findings,
+    *,
+    head: str,
+    base: str,
+    round_number: int,
+    flag: str,
+    self_review: bool = False,
+) -> str:
     """The published body: the prose the human approved, then the ledger.
 
     Unlike the unattended path, the interactive review's prose already
@@ -101,12 +110,17 @@ def compose(prose: str, findings, *, head: str, base: str, round_number: int, fl
     point: the person who says "sobe" is approving exactly what lands.
     """
     ledger = Ledger(
-        head=head, base=base, round=round_number, flag=flag, findings=tuple(findings)
+        head=head,
+        base=base,
+        round=round_number,
+        flag=flag,
+        findings=tuple(findings),
+        self_review=self_review,
     )
     return f"{prose.rstrip()}\n\n{render(ledger)}\n"
 
 
-def verify(body: str, *, head: str, flag: str) -> None:
+def verify(body: str, *, head: str, flag: str, self_review: bool = False) -> None:
     """Refuse a body that cannot be read back as the ledger it claims.
 
     The round-trip is the whole guard: a body that does not parse would end
@@ -126,6 +140,11 @@ def verify(body: str, *, head: str, flag: str) -> None:
     if recovered.flag != flag:
         raise LedgerError(
             f"the ledger records flag {recovered.flag!r} but this review publishes {flag!r}"
+        )
+    if recovered.self_review != self_review:
+        raise LedgerError(
+            f"the ledger records self_review={recovered.self_review} "
+            f"but this review declares {self_review}"
         )
 
 
@@ -176,6 +195,12 @@ def _main(argv: list[str] | None = None) -> int:
     parser.add_argument("--head", required=True, help="Head SHA this review verified")
     parser.add_argument("--base", required=True, help="Base ref")
     parser.add_argument("--round", type=int, help="Override the derived round number")
+    parser.add_argument(
+        "--self-review",
+        action="store_true",
+        help="This session authored commits inside the reviewed head; the "
+        "flag caps at comment and the ledger records it",
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="Compose and verify, but do not publish"
     )
@@ -228,6 +253,14 @@ def _main(argv: list[str] | None = None) -> int:
         logger.error("%s", exc)
         return 3
 
+    if args.self_review and args.flag != "comment":
+        logger.error(
+            "refusing --%s on a self-review: the reviewer authored commits "
+            "inside the reviewed head, so the flag caps at comment",
+            args.flag,
+        )
+        return 3
+
     round_number = args.round if args.round is not None else next_round(args.repo, args.pr)
 
     body = compose(
@@ -237,10 +270,11 @@ def _main(argv: list[str] | None = None) -> int:
         base=args.base,
         round_number=round_number,
         flag=args.flag,
+        self_review=args.self_review,
     )
 
     try:
-        verify(body, head=args.head, flag=args.flag)
+        verify(body, head=args.head, flag=args.flag, self_review=args.self_review)
     except LedgerError as exc:
         logger.error("%s", exc)
         return 4

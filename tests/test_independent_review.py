@@ -79,10 +79,51 @@ def test_review_changes_does_not_chain_reviews_in_one_context():
     assert "single-context" in text
 
 
-def test_review_skills_scope_tests_to_the_blast_radius_and_do_not_wait_for_ci():
+def test_review_skills_scope_tests_to_the_blast_radius_and_ci_stays_advisory():
     pr = " ".join(read("review-pr").split())
     multi = " ".join(read("review-multi").split())
 
     assert "Do not run the full suite and do not wait for CI" in pr
     assert "Scope is the blast radius" in pr
-    assert "Do not wait for CI" in multi
+    assert "CI is advisory and silent" in multi
+    assert "CI status is not collected for the packet" in multi
+
+
+def test_review_pr_records_a_single_model_when_lanes_inherit_the_parent():
+    text = " ".join(read("review-pr").split())
+
+    assert "say `single-model` in chat" in text
+    assert "the model split was not available" in text
+
+
+def test_review_pr_tells_lanes_to_start_from_the_packet_without_rederiving():
+    text = " ".join(read("review-pr").split())
+
+    assert "The packet is where a lane starts, not the boundary" in text
+    assert "re-deriving the same fact is not a second opinion" in text
+    assert "comes back `unverified`, not as a finding" in text
+
+
+def test_review_pr_retries_only_the_failed_lane():
+    text = " ".join(read("review-pr").split())
+
+    assert "Retry that lane once" in text
+    assert "never re-dispatch the whole set because one lane failed" in text
+
+
+def test_review_pr_keeps_ci_silent_unless_ci_gate_is_passed():
+    text = " ".join(read("review-pr").split())
+
+    assert "advisory by default — and silent" in text
+    assert "--ci-gate" in text
+    assert "not evidence of anything" in text
+    assert "says nothing about CI" in text
+
+
+def test_review_multi_records_a_single_model_and_retries_only_the_failed_reviewer():
+    text = " ".join(read("review-multi").split())
+
+    assert "say `single-model` in chat" in text
+    assert "The packet is where a reviewer starts" in text
+    assert "Retry that reviewer once" in text
+    assert "never re-dispatch both because one failed" in text

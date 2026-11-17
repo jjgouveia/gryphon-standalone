@@ -104,7 +104,15 @@ def stub_gh(monkeypatch, reviews=None, files=None, compare=None, pulls=None,
                 raise GitHubError("no compare")
             return json.dumps(compare)
         if "--jq" in args:
-            return json.dumps({"head": head, "base": base, "draft": draft})
+            return json.dumps(
+                {
+                    "head": head,
+                    "base": base,
+                    "draft": draft,
+                    "state": "open",
+                    "merged": False,
+                }
+            )
         return "{}"
 
     monkeypatch.setattr(pr_watch, "gh", fake_gh)
@@ -467,7 +475,48 @@ def test_draft_pulls_are_excluded(monkeypatch):
                 }
             )
         if "--jq" in args:
-            return json.dumps({"head": "a" * 40, "base": "staging", "draft": True})
+            return json.dumps(
+                {
+                    "head": "a" * 40,
+                    "base": "staging",
+                    "draft": True,
+                    "state": "open",
+                    "merged": False,
+                }
+            )
+        return "[]"
+
+    monkeypatch.setattr(pr_watch, "gh", fake_gh)
+    monkeypatch.setattr(pr_watch, "resolve_reviewer", lambda: "jjgouveia")
+
+    assert survey(REPO) == []
+
+
+def test_a_pr_merged_since_the_search_is_excluded(monkeypatch):
+    """The search filters ``is:open``; a PR merged before the detail fetch
+    must not earn a round anyway."""
+
+    def fake_gh(args: list[str]) -> str:
+        joined = " ".join(args)
+        if "search/issues" in joined:
+            return json.dumps(
+                {
+                    "items": [
+                        {"number": 28, "title": "t", "labels": [],
+                         "pull_request": {"url": "..."}},
+                    ]
+                }
+            )
+        if "--jq" in args:
+            return json.dumps(
+                {
+                    "head": "a" * 40,
+                    "base": "staging",
+                    "draft": False,
+                    "state": "closed",
+                    "merged": True,
+                }
+            )
         return "[]"
 
     monkeypatch.setattr(pr_watch, "gh", fake_gh)

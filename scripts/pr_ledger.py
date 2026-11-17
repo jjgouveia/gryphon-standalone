@@ -63,6 +63,8 @@ Decision = Literal[
     "already-reviewed",
     "rounds-exhausted",
     "resume",
+    "merged",
+    "closed",
 ]
 
 
@@ -99,6 +101,9 @@ class Ledger:
     round: int
     flag: str
     findings: tuple[Finding, ...] = field(default_factory=tuple)
+    # ``True`` when the reviewing session authored commits inside the
+    # reviewed head. Optional on read; absent parses as ``False``.
+    self_review: bool = False
 
     @property
     def open_findings(self) -> tuple[Finding, ...]:
@@ -142,6 +147,7 @@ class Ledger:
             round=round_number,
             flag=flag,
             findings=tuple(findings),
+            self_review=self.self_review,
         )
 
 
@@ -237,39 +243,44 @@ def parse_block(text: str) -> Ledger:
             raise LedgerError(f"duplicate finding id {finding.id}")
         seen.add(finding.id)
 
+    # Optional so a ledger written before self_review existed still parses.
+    self_review = payload.get("self_review", False)
+    if not isinstance(self_review, bool):
+        raise LedgerError("self_review must be a boolean")
+
     return Ledger(
         head=head,
         base=_require_str(payload, "base"),
         round=round_number,
         flag=flag,
         findings=findings,
+        self_review=self_review,
     )
 
 
 def render(ledger: Ledger) -> str:
     """Serialize a ledger to the one-line block, escaped for the comment."""
-    document = json.dumps(
-        {
-            "v": SCHEMA_VERSION,
-            "head": ledger.head,
-            "base": ledger.base,
-            "round": ledger.round,
-            "flag": ledger.flag,
-            "findings": [
-                {
-                    "id": f.id,
-                    "status": f.status,
-                    "sev": f.sev,
-                    "title": f.title,
-                    "files": list(f.files),
-                    "origin": f.origin,
-                }
-                for f in ledger.findings
-            ],
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
+    payload: dict[str, Any] = {
+        "v": SCHEMA_VERSION,
+        "head": ledger.head,
+        "base": ledger.base,
+        "round": ledger.round,
+        "flag": ledger.flag,
+        "findings": [
+            {
+                "id": f.id,
+                "status": f.status,
+                "sev": f.sev,
+                "title": f.title,
+                "files": list(f.files),
+                "origin": f.origin,
+            }
+            for f in ledger.findings
+        ],
+    }
+    if ledger.self_review:
+        payload["self_review"] = True
+    document = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return f"{MARKER} {_escape_for_comment(document)} -->"
 
 
@@ -311,12 +322,30 @@ def decide(
     current_head: str,
     current_base: str,
     max_rounds: int | None = None,
+    pr_state: str | None = None,
 ) -> tuple[Decision, str]:
     """What this pass is. Returns the decision and a one-line reason.
 
     This is the table in SKILL.md's *Re-review* section, kept here so the
     watcher and the CI job cannot drift from the prose.
     """
+    # The PR's own state trumps every ledger consideration: a merged or
+    # closed PR has no gate left to protect, and a head compare against it
+    # is meaningless.
+    state = (pr_state or "").lower()
+    if state == "merged":
+        return (
+            "merged",
+            "the PR is already merged; a pass now is a post-merge note, "
+            "comment-flagged at most, and open findings belong to a "
+            "follow-up issue",
+        )
+    if state == "closed":
+        return (
+            "closed",
+            "the PR is closed unmerged; there is nothing to review",
+        )
+
     if ledger is None:
         return "first-pass", "no ledger in the thread; this is round 1"
 
@@ -372,6 +401,10 @@ def _main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--current-base", help="Current base ref")
     parser.add_argument(
+        "--pr-state",
+        help="PR state (open/merged/closed); merged and closed stop the pass",
+    )
+    parser.add_argument(
         "--max-rounds", type=int, help="Cap rounds before the loop stops"
     )
     parser.add_argument(
@@ -408,6 +441,7 @@ def _main(argv: list[str] | None = None) -> int:
             current_head=args.current_head,
             current_base=args.current_base,
             max_rounds=args.max_rounds,
+            pr_state=args.pr_state,
         )
         print(f"{decision}: {reason}")
     elif not args.quiet:

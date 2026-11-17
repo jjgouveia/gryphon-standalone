@@ -101,6 +101,22 @@
 
 ### Changed
 
+- `review-pr` and `review-multi` keep the packet as the lane's starting
+  point, not its boundary: a lane still reads outside the diff to confirm a
+  call path or a test, but does not re-run a test or re-grep a graph fact the
+  packet already records unless a finding depends on it. A failed lane is
+  retried alone, never by re-dispatching the set, and a harness that gives
+  every lane the orchestrator's model is reported as `single-model`. A
+  cancelled or timed-out CI job is not evidence and its log is not pulled.
+- `review-pr` ends the pass immediately when the PR is merged or closed
+  (`pr_state` in the ledger decision and in the watcher's detail fetch),
+  records `self_review` in the ledger when the reviewer authored commits
+  on the head being reviewed (publication is capped at `comment`), and
+  budgets setup: worktrees receive the parent's env files refreshed per
+  round plus a dedicated test database, and a diagnosed infrastructure
+  failure retries once before the check is recorded as not run. CI is
+  advisory and silent by default — it is collected and cited only under
+  `--ci-gate`.
 - `review-pr` and `review-multi` scope test execution to the diff's blast
   radius and never wait for CI. The tests that reach the changed symbols and
   the changed domain are the evidence for the pass; a CI status is a snapshot,
