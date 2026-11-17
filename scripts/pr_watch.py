@@ -194,11 +194,14 @@ def fetch_watched_pulls(
                     "api",
                     f"repos/{repo}/pulls/{number}",
                     "--jq",
-                    "{head: .head.sha, base: .base.ref, draft: .draft}",
+                    "{head: .head.sha, base: .base.ref, draft: .draft,"
+                    " state: .state, merged: .merged}",
                 ]
             )
         )
-        if detail.get("draft"):
+        # The search ran moments ago; a PR merged or closed in between must
+        # not earn a round.
+        if detail.get("draft") or detail.get("state") != "open" or detail.get("merged"):
             continue
         pulls.append(
             Pull(
@@ -337,18 +340,19 @@ def evaluate(
 
 
 def fetch_pull(repo: str, number: int) -> Pull | None:
-    """One PR's refs, or None when it is a draft."""
+    """One PR's refs, or None when it is a draft, merged or closed."""
     detail = json.loads(
         gh(
             [
                 "api",
                 f"repos/{repo}/pulls/{number}",
                 "--jq",
-                "{title: .title, head: .head.sha, base: .base.ref, draft: .draft}",
+                "{title: .title, head: .head.sha, base: .base.ref,"
+                " draft: .draft, state: .state, merged: .merged}",
             ]
         )
     )
-    if detail.get("draft"):
+    if detail.get("draft") or detail.get("state") != "open" or detail.get("merged"):
         return None
     return Pull(
         number=number,

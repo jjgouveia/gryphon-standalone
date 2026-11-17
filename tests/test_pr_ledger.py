@@ -391,6 +391,97 @@ def test_retarget_wins_over_the_round_cap():
     assert decision == "retargeted"
 
 
+# --- the PR's own state ends the pass before the ledger matters ---------
+
+
+def test_a_merged_pr_is_not_a_round():
+    decision, reason = decide(
+        make_ledger(),
+        current_head=OTHER_HEAD,
+        current_base="staging",
+        pr_state="MERGED",
+    )
+
+    assert decision == "merged"
+    assert "merged" in reason
+
+
+def test_merged_beats_the_missing_ledger():
+    decision, _ = decide(
+        None, current_head=HEAD, current_base="staging", pr_state="MERGED"
+    )
+
+    assert decision == "merged"
+
+
+def test_a_closed_pr_is_not_a_round():
+    decision, _ = decide(
+        make_ledger(),
+        current_head=OTHER_HEAD,
+        current_base="staging",
+        pr_state="closed",
+    )
+
+    assert decision == "closed"
+
+
+def test_an_open_pr_state_changes_nothing():
+    decision, _ = decide(
+        make_ledger(),
+        current_head=OTHER_HEAD,
+        current_base="staging",
+        pr_state="OPEN",
+    )
+
+    assert decision == "resume"
+
+
+def test_no_pr_state_behaves_as_before():
+    decision, _ = decide(
+        make_ledger(), current_head=OTHER_HEAD, current_base="staging"
+    )
+
+    assert decision == "resume"
+
+
+# --- self_review ----------------------------------------------------------
+
+
+def test_self_review_round_trips_through_render():
+    ledger = make_ledger(self_review=True)
+
+    recovered = extract(render(ledger))
+
+    assert recovered is not None
+    assert recovered.self_review is True
+
+
+def test_self_review_absent_parses_as_false():
+    recovered = extract(render(make_ledger()))
+
+    assert recovered is not None
+    assert recovered.self_review is False
+
+
+def test_self_review_must_be_a_boolean():
+    block = render(make_ledger())
+    payload = json.loads(
+        block[len("<!-- gryphon-review-state") : -len("-->")].strip()
+    )
+    payload["self_review"] = "yes"
+
+    with pytest.raises(LedgerError):
+        pr_ledger.parse_block(json.dumps(payload))
+
+
+def test_with_verdicts_keeps_self_review():
+    ledger = make_ledger(self_review=True)
+
+    nxt = ledger.with_verdicts((), flag="comment", round_number=2)
+
+    assert nxt.self_review is True
+
+
 # --- the cheap delta filter ---------------------------------------------
 
 
@@ -457,6 +548,15 @@ def test_skill_states_the_unattended_flag_policy():
     assert "## Unattended rounds" in skill
     assert "request-changes" in skill
     assert "never** `approve`" in skill
+
+
+def test_skill_states_the_ci_posture_and_the_opt_in_flag():
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "## CI posture" in skill
+    assert "--ci-gate" in skill
+    assert "advisory by default" in skill
+    assert "and silent" in skill
 
 
 def test_skill_documents_the_ledger_growth_constraint():

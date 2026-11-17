@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: Review a GitHub pull request or branch diff with independent fresh-context reviewers, using the knowledge graph for structural context, verify the change against base and head, and publish the review with gh. Outputs a structured review with blast-radius analysis. Covers first-pass reviews and re-review rounds that verify prior findings against a new head, resumable in a fresh session with --resume via the review's state ledger.
-argument-hint: "[PR URL, number, or branch name] [--resume]"
+argument-hint: "[PR URL, number, or branch name] [--resume] [--ci-gate]"
 hooks:
   Stop:
     - hooks:
@@ -76,8 +76,9 @@ conclusions:
   gaps, affected flows, and the graph's build branch/SHA;
 - deterministic results: `check_undefined.py` (clean / N introduced /
   not checked), and the blast-radius tests run locally with their
-  pass/fail/not-run status. `gh pr checks` may be included as a snapshot only
-  when a failure is clearly caused by this diff; the packet never waits for CI;
+  pass/fail/not-run status. CI status enters the packet only under
+  `--ci-gate` — without the flag it is not collected at all (see
+  *CI posture*);
 - which high-risk paths the diff touches (the list under *Paths that earn a
   deep read*);
 - a resumed round writes two packets: the **carried packet** (open finding
@@ -105,7 +106,17 @@ Default is three lanes: correctness, tests and blast radius. Use two
 lane is mandatory when the diff matches *Paths that earn a deep read*. The
 intent lane is for a PR that makes a promise; do not invent one. The model
 behind a lane is a cost choice; it does not have to match this session's
-model.
+model. If the harness gives every lane the orchestrator's model, say
+`single-model` in chat and in the review notes: the lanes are still
+independent - the fresh context is what makes them so - but the reader
+should know the model split was not available.
+
+The packet is where a lane starts, not the boundary of what it may read.
+A lane reads outside the diff to confirm a call path, a caller or a test.
+It does not re-run a test or re-grep a graph fact the packet already
+records unless a finding depends on it: re-deriving the same fact is not a
+second opinion. Every claim it reports is verified in the source at head;
+one it cannot verify comes back `unverified`, not as a finding.
 
 Each lane returns one finding per **class** of bug, with:
 
@@ -124,8 +135,10 @@ as `unverified`, not as a finding.
 ### Failures and fallback
 
 - A lane that times out, fails, or returns no report did **not** review.
-  Retry it once. If it fails again, record it as **not run** in chat and in
-  the review notes. Never count it as a lane with zero findings.
+  Retry that lane once. If it fails again, record it as **not run** in chat
+  and in the review notes. Never count it as a lane with zero findings, and
+  never re-dispatch the whole set because one lane failed: the lanes that
+  returned are evidence, and a second wave re-does their work.
 - If no lane can run, stop: an approval from a pass that never happened is
   the one failure that looks like success.
 - If the harness cannot spawn subagents, the pass can still run in one
@@ -134,6 +147,56 @@ as `unverified`, not as a finding.
   what was not separated, and do not claim the review had independent eyes.
   The same applies to a resumed round: verify carried findings in a fresh
   session when one is available.
+
+## Yak-shaving budget
+
+The pass pays for evidence, not for plumbing. Environment setup is a means
+with a documented recipe; a review that spends its session making the
+environment work is a stalled review, not a careful one.
+
+- **Setup runs once, up front, in order:** worktree → env files →
+  `review_env.py prepare` → dedicated test database → tests. Discovering a
+  missing `.env` from a failed pytest run means the recipe was skipped,
+  not that it failed.
+- **One diagnosed retry.** A command that failed for environment reasons
+  gets one fix and one retry. The second failure is recorded as
+  `not run: <cause>` in the packet and the pass continues. Three attempts
+  at the same plumbing is not persistence; it is the review stalling.
+- **Never re-derive a fact already collected.** The packet, the ledger and
+  the thread are the record. If context was compacted or a fact is lost,
+  read the artifact back instead of re-running the graph call, the `gh`
+  fetch or the diff that produced it: a repeated call on an unchanged head
+  returns the same result at full price.
+- **Do not install what a reuse path provides.** `review_env.py` exists
+  because a fresh `npm ci`/`poetry install` per worktree was the slowest
+  part of the review. Exits 2 and 4 mean "say what you will do instead",
+  not "install anyway".
+- **Fixing findings is a different job.** A review that ends in fix
+  commits turned the reviewer into the author mid-pass. If the same
+  session does it anyway, what follows is the reviewer verifying their own
+  code — `self_review` in the ledger is then mandatory, not optional (see
+  *State ledger*).
+
+## CI posture
+
+CI is advisory by default — and silent. Without the flag the pass never
+waits for checks, never treats a check as the merge gate, and says nothing
+about CI: not in the review body, not in a follow-up issue, not even to
+note that it did not run or that failures should be ignored. A cancelled,
+queued or timed-out job is not evidence of anything. The evidence for this
+pass is the local blast-radius tests and the lanes.
+
+`--ci-gate` is the opt-in, passed by the person asking for the review.
+With it, completed failing checks count as blocking input to the flag the
+way an introduced correctness finding would — and then, and only then, CI
+may be collected and cited in the body. The pass may wait for checks still
+running — a bounded wait: poll a few times over minutes, then record the
+checks as `pending` rather than blocking the round. A check that cannot
+produce a verdict (queued, cancelled, out of budget) cannot produce a gate
+either, flag or no flag.
+
+This holds in unattended rounds too: the watcher never consults CI, so
+there is nothing to opt into there.
 
 ## State ledger
 
@@ -186,6 +249,12 @@ decision, reason = decide(ledger, current_head=sha, current_base="staging")
   not `open`. The watcher already ignores it when deciding whether a PR is
   owed a round; leaving it `open` would claim the PR still has work it does
   not.
+- `self_review` (optional, v1) — `true` when the reviewing session authored
+  commits inside the reviewed head: fix-ups between rounds or a branch it
+  wrote end-to-end. `git log <base>..<head> --format=%an` shows it. Absent
+  parses as `false`. A self-review caps the flag at `comment`: requesting
+  changes on your own commits is theatre, and approving them proves
+  nothing.
 - `render()` escapes `<`, `>` and `&` inside the JSON strings as
   backslash-u plus the 4-hex codepoint (U+003C, U+003E, U+0026). The block
   lives in an HTML comment, so a literal `-->` in a finding title would
@@ -218,7 +287,10 @@ has somewhere safe to land.
   `gh pr view <n> --repo <owner>/<repo> --json title,body,author,baseRefName,headRefName,files,additions,deletions,state,commits`.
   The `files[].path` list is the authoritative change set — pass it to every
   graph call below as `changed_files`. Note `baseRefName` (the base) and
-  `headRefName`.
+  `headRefName`. `state` (`OPEN`/`MERGED`/`CLOSED`) is the first gate, not
+  an afterthought: it goes to `decide(...)` as `pr_state`, and a merged or
+  closed PR ends the pass before any other work — there is no merge left
+  to protect.
 - **Local branch**: `git diff --name-only <base>...<branch>` and use `<base>`
   as `base` in graph calls.
 - Never rely on graph auto-detect for a remote PR: it diffs the working
@@ -268,6 +340,11 @@ command works in a fresh session with no memory of the previous one.
      fixes. Two agents trading fixes can keep a PR alive indefinitely, and
      past the third round most of what a reviewer finds was already on the
      base.
+   - **merged** → `pr_state` says the PR already merged. Stop: a pass now
+     is a post-merge note, `comment`-flagged at most, and findings that
+     were still open belong to a follow-up issue — there is no head left
+     to gate.
+   - **closed** → the PR was closed unmerged. Stop.
    - **resume** → round `round + 1`. The open list is the array, the
      delta is `ledger.head..<current head>`.
 
@@ -599,6 +676,11 @@ checked, so the author can tell a deep pass from a shallow one.
    `get_impact_radius_tool` only when a high-risk item stays unclear.
    Budget: ~5 graph calls per review (excluding the rebuild).
 
+The packet records which of these calls ran and the head they described.
+On a resumed pass — or after losing in-context state — read the packet
+back instead of re-running them: a graph call on an unchanged head returns
+the same result at full price.
+
 Put the result in the packet. A risk score is not a finding: the
 correctness or blast-radius lane turns it into one.
 
@@ -615,9 +697,10 @@ lane that has to re-derive the diff is slower, not more independent.
   "already did X" or "nobody called Y" without base evidence.
 - Judge the diff against the PR description and code, not against the
   author's narrative alone.
-- `gh pr checks <n>` is a snapshot, not a gate. Do not wait for CI to finish;
-  the local blast-radius tests are the evidence for this pass. Mention CI only
-  when a failure is clearly caused by this diff.
+- Without `--ci-gate`, `gh pr checks` is not fetched and CI never appears
+  in the body or a follow-up issue — the local blast-radius tests are the
+  evidence for this pass. With the flag, only checks that produced a
+  verdict may be cited. See *CI posture*.
 - Large remote PRs: review in a worktree outside the repository
   (`git fetch origin <head>` +
   `git worktree add ../.wt-pr<n> origin/<head>`), not in a dirty workspace
@@ -739,6 +822,35 @@ The rules that keep this honest:
   cannot be shared safely); fall back to the normal install path. Exit `4`
   means the install failed; report it rather than implying tests ran.
 
+### Environment files and shared test databases
+
+A worktree checkout misses every gitignored file the suite needs, and the
+classic one is `.env`. Copy the parent checkout's env files into the
+worktree when you create it — not after a test run fails on a missing
+variable:
+
+```bash
+cp -f <repo>/.env* ../.wt-pr<n>/ 2>/dev/null   # POSIX
+```
+
+Refresh it again at the start of each later round: the parent's `.env`
+keeps drifting while the worktree's sits frozen, and a stale value fails
+quietly where a missing one would fail loudly.
+
+A shared test database is the same failure one level down, across
+processes instead of files. When the suite creates a named database (a
+`TEST.NAME` setting, pytest-django, a `--create-db` harness), give the
+worktree's runs their own name:
+
+```bash
+TEST_DB_NAME=<db>_pr<n> <venv>/python -m pytest <scope>
+```
+
+Two pytest processes pointed at one test database drop and recreate it
+under each other — the "cursor closed" / `InterfaceError` teardown errors
+that read as flaky tests. A per-worktree name costs nothing and removes
+the whole failure class.
+
 - If the PR touches testable behavior, run the affected domain tests before
   requesting new tests or approving.
 - To run tests that only exist in the head, apply
@@ -764,6 +876,12 @@ straight from a lane's report reads as a list of claims, not a review.
   `--comment` only when nothing in the review conditions the merge; when
   torn between "important" and "real gap", pick `--request-changes` and
   say in chat it can drop to comment.
+- If this session authored commits inside the reviewed head — fix-ups it
+  wrote between rounds or a branch it produced end-to-end — the pass is a
+  self-review: the flag caps at `--comment`, the draft says
+  `self-review` next to it, and `publish_review.py --self-review` puts it
+  in the ledger. Check `git log <base>..<head> --format=%an` rather than
+  assuming.
 - Ask whether to publish. Only after an explicit yes, publish through
   `scripts/publish_review.py`, which composes the ledger into the body and
   refuses a body it cannot read back:
