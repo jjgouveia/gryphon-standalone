@@ -1053,7 +1053,7 @@ def generate_hooks_config(repo_root: Path) -> dict[str, Any]:
                                 "cat >/dev/null || true; "
                                 "command -v gryphon >/dev/null 2>&1 || exit 0; "
                                 "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon update --skip-flows"
+                                " && gryphon update --skip-flows --min-interval 60"
                                 " --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\""
                                 " || true"
                             ),
@@ -1126,7 +1126,7 @@ def generate_codex_hooks_config(repo_root: Path) -> dict[str, Any]:
                             "command": (
                                 "cat >/dev/null || true; "
                                 "git rev-parse --git-dir >/dev/null 2>&1"
-                                " && gryphon update --skip-flows"
+                                " && gryphon update --skip-flows --min-interval 60"
                                 " || true"
                             ),
                             "timeout": 30,
@@ -1657,7 +1657,7 @@ set -euo pipefail
 
 cat > /dev/null || true
 
-gryphon update --skip-flows --repo "__CRG_REPO__" >/dev/null 2>&1 || true
+gryphon update --skip-flows --min-interval 60 --repo "__CRG_REPO__" >/dev/null 2>&1 || true
 echo '{"suppressOutput": true}'
 exit 0
 """
@@ -1868,7 +1868,7 @@ set -euo pipefail
 cat > /dev/null
 
 # Run update; swallow errors so the hook always succeeds.
-output=$(gryphon update --skip-flows 2>&1) || true
+output=$(gryphon update --skip-flows --min-interval 60 2>&1) || true
 
 # Emit valid JSON on stdout per Cursor hooks protocol.
 python3 -c "
@@ -2088,7 +2088,7 @@ export default (app: any) => {
   // 1. Auto-update graph after file edits
   app.on("file.edited", async ({ $ }: { $: any }) => {
     try {
-      await $`gryphon update --skip-flows`.quiet()
+      await $`gryphon update --skip-flows --min-interval 60`.quiet()
     } catch {
       // Swallow — graph may not be built yet for this project.
     }

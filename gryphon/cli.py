@@ -43,6 +43,8 @@ import fnmatch
 import json
 import logging
 import os
+import time
+from datetime import datetime
 from functools import partial
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
@@ -736,6 +738,27 @@ def _brief_status(
     return line
 
 
+def _graph_update_is_fresh(store, min_interval: float) -> bool:
+    """True when the graph's ``last_updated`` is younger than ``min_interval``.
+
+    Edit hooks call ``gryphon update`` on every file write; on a large graph
+    each call holds the SQLite write lock while it re-scans the tree, and
+    bursts of edits turn into a queue of writers that stalls every MCP
+    reader sharing the database. A short interval keeps repeated hook calls
+    cheap. Missing or unparsable metadata means "not fresh".
+    """
+    if not min_interval or min_interval <= 0:
+        return False
+    raw = store.get_metadata("last_updated")
+    if not raw:
+        return False
+    try:
+        last = datetime.strptime(raw, "%Y-%m-%dT%H:%M:%S").timestamp()
+    except ValueError:
+        return False
+    return (time.time() - last) < min_interval
+
+
 def main() -> None:
     """Main CLI entry point."""
     _configure_utf8_stdio()
@@ -931,6 +954,16 @@ def main() -> None:
         "--data-dir",
         default=None,
         help="External directory to store graph database (useful for network shares)"
+    )
+    update_cmd.add_argument(
+        "--min-interval",
+        type=float,
+        default=0,
+        metavar="SECONDS",
+        help="Skip the update when the graph was refreshed less than "
+             "SECONDS ago. Edit hooks fire on every write, so a small "
+             "interval collapses a burst of edits into one update. "
+             "Default 0 (always update).",
     )
     _add_embedding_refresh_args(update_cmd)
 
@@ -1932,6 +1965,10 @@ def main() -> None:
                     print(f"Errors: {len(result['errors'])}")
 
         elif args.command == "update":
+            if _graph_update_is_fresh(store, getattr(args, "min_interval", 0)):
+                if not args.quiet:
+                    print("Up to date (--min-interval); skipping update")
+                return
             pp = (
                 "none"
                 if getattr(args, "skip_postprocess", False)

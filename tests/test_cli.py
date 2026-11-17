@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import sys
+import time
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -303,6 +304,62 @@ class TestBuildUpdateCommands:
         out = capsys.readouterr().out
         assert "Full rebuild" in out
         assert "Incremental:" not in out
+
+    def test_update_min_interval_skips_a_fresh_graph(self, capsys):
+        # Edit hooks fire update on every write; --min-interval collapses a
+        # burst into one update so hooks stop queueing writers on the graph.
+        argv = [
+            "gryphon",
+            "update",
+            "--skip-flows",
+            "--min-interval",
+            "60",
+            "--repo",
+            "repo-root",
+        ]
+        store = MagicMock()
+        store.get_metadata.return_value = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime()
+        )
+
+        with patch.object(sys, "argv", argv):
+            with patch("gryphon.graph.GraphStore") as mock_store_cls:
+                mock_store_cls.return_value = store
+                with patch("gryphon.incremental.get_db_path") as mock_db:
+                    mock_db.return_value = MagicMock()
+                    with patch(
+                        "gryphon.tools.build.build_or_update_graph",
+                    ) as mock_build:
+                        cli.main()
+
+        mock_build.assert_not_called()
+        assert "skipping update" in capsys.readouterr().out
+
+    def test_update_min_interval_updates_a_stale_graph(self):
+        argv = [
+            "gryphon",
+            "update",
+            "--min-interval",
+            "60",
+            "--repo",
+            "repo-root",
+        ]
+        store = MagicMock()
+        store.get_metadata.return_value = "2020-01-01T00:00:00"
+        result = {"files_updated": 0, "total_nodes": 1, "total_edges": 0}
+
+        with patch.object(sys, "argv", argv):
+            with patch("gryphon.graph.GraphStore") as mock_store_cls:
+                mock_store_cls.return_value = store
+                with patch("gryphon.incremental.get_db_path") as mock_db:
+                    mock_db.return_value = MagicMock()
+                    with patch(
+                        "gryphon.tools.build.build_or_update_graph",
+                        return_value=result,
+                    ) as mock_build:
+                        cli.main()
+
+        mock_build.assert_called_once()
 
 
 class TestDetectChangesCommand:
