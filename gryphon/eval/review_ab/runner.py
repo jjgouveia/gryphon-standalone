@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections import Counter
@@ -335,8 +336,13 @@ def _outside(path: str, roots: tuple[str, ...]) -> bool:
 
 def _allowed_roots(sandbox: ArmSandbox) -> tuple[str, ...]:
     # Claude Code persists large tool outputs under ~/.claude/projects and the
-    # reviewer reads them back; that is its own transcript, not a leak.
-    return (_norm(str(sandbox.repo)), _norm(str(Path.home() / ".claude" / "projects")))
+    # reviewer reads them back; devin does the same under the temp dir's
+    # devin.exe-overflows. Both are the CLI's own transcript, not a leak.
+    return (
+        _norm(str(sandbox.repo)),
+        _norm(str(Path.home() / ".claude" / "projects")),
+        _norm(str(Path(tempfile.gettempdir()) / "devin.exe-overflows")),
+    )
 
 
 def audit_tool_calls(
