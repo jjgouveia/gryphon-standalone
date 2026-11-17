@@ -113,6 +113,13 @@ def add_parser(sub) -> argparse.ArgumentParser:
     judge.add_argument("--effort", default=DEFAULT_EFFORT, help="Judge effort level")
     judge.add_argument("--workdir", default=None, help="Directory for sanitized clones")
     judge.add_argument("--claude-bin", default="claude", help="claude executable")
+    judge.add_argument(
+        "--backend", choices=["claude", "devin"], default="claude",
+        help="Agent CLI that judges: claude -p or devin -p",
+    )
+    judge.add_argument(
+        "--devin-bin", default="devin", help="devin executable (devin backend)",
+    )
 
     mine = rsub.add_parser("mine", help="SZZ: later fix commits blamed back to each case")
     mine.add_argument("--cases", default=str(DEFAULT_CASES), help="Cases YAML file")
@@ -252,7 +259,10 @@ def handle(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         run_meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
         cases = [c for c in load_cases(Path(args.cases)) if c.id in run_meta["cases"]]
         settings = judge_settings(
-            RunSettings(effort=args.effort, claude_bin=args.claude_bin),
+            RunSettings(
+                effort=args.effort, claude_bin=args.claude_bin,
+                backend=args.backend, devin_bin=args.devin_bin,
+            ),
             model=args.model or JUDGE_MODEL,
         )
         for case in _select(cases, args.case):

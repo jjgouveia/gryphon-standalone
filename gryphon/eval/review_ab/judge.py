@@ -324,44 +324,144 @@ def judge_case(
     started = time.monotonic()
     timed_out = False
     exit_code = None
-    with open(stream_path, "w", encoding="utf-8") as out, open(
-        out_dir / f"{case.id}.stderr", "w", encoding="utf-8"
-    ) as err:
-        try:
-            proc = _run_claude(
-                build_command(sandbox, settings, schema=JUDGE_SCHEMA),
-                cwd=str(sandbox.repo), input=prompt, stdout=out, stderr=err,
-                text=True, encoding="utf-8", errors="replace",
-                env=_child_env(sandbox), timeout=settings.timeout_s,
-            )
-            exit_code = proc.returncode
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            logger.warning("judge for %s timed out", case.id)
 
-    with open(stream_path, encoding="utf-8", errors="replace") as f:
-        parsed = parse_stream(f)
-    result = parsed["result"] or {}
-    judgment = result.get("structured_output") if isinstance(result, dict) else None
-    status = summarize(parsed, exit_code=exit_code, timed_out=timed_out)["status"]
+    if settings.backend == "devin":
+        judgment, status, num_turns, wall, total_cost = _judge_devin(
+            sandbox, settings, prompt, out_dir, case.id, stream_path,
+        )
+        timed_out = status == "timeout"
+    else:
+        with open(stream_path, "w", encoding="utf-8") as out, open(
+            out_dir / f"{case.id}.stderr", "w", encoding="utf-8"
+        ) as err:
+            try:
+                proc = _run_claude(
+                    build_command(sandbox, settings, schema=JUDGE_SCHEMA),
+                    cwd=str(sandbox.repo), input=prompt, stdout=out, stderr=err,
+                    text=True, encoding="utf-8", errors="replace",
+                    env=_child_env(sandbox), timeout=settings.timeout_s,
+                )
+                exit_code = proc.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                logger.warning("judge for %s timed out", case.id)
+
+        with open(stream_path, encoding="utf-8", errors="replace") as f:
+            parsed = parse_stream(f)
+        result = parsed["result"] or {}
+        judgment = result.get("structured_output") if isinstance(result, dict) else None
+        status = summarize(parsed, exit_code=exit_code, timed_out=timed_out)["status"]
+        num_turns = result.get("num_turns")
+        total_cost = result.get("total_cost_usd")
+
     if status == "no_structured_output":
         status = "no_judgment"
     payload = {
         "case_id": case.id,
         "run_id": run_dir.name,
+        "judge_backend": settings.backend,
         "judge_model": settings.model,
         "judge_effort": settings.effort,
         "judge_version": JUDGE_VERSION,
         "status": status,
-        "wall_seconds": round(time.monotonic() - started, 1),
-        "total_cost_usd": result.get("total_cost_usd"),
-        "num_turns": result.get("num_turns"),
+        "wall_seconds": (
+            wall if settings.backend == "devin"
+            else round(time.monotonic() - started, 1)
+        ),
+        "total_cost_usd": total_cost,
+        "num_turns": num_turns,
         "assignment": check_assignment(judgment, labeled) if judgment else None,
         "judgment": judgment,
     }
     path = out_dir / f"{case.id}.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
+
+
+_JUDGE_CONTRACT = """\
+
+Return the judgment as one fenced ```json block and nothing after it, shaped:
+{{"issues": [{{"id": ..., "title": ..., "file": ..., "verdict": "real"|"false"|
+"unverifiable", "severity": "blocker"|"major"|"minor"|"none", "rationale": ...,
+"known_issue": <id or null>, "reported_by": [{{"review": ..., "finding": <n>}}]}}],
+"reviews": [{{"review": ..., "scores": {{"correctness": 1-5, "impact": 1-5,
+"tests": 1-5, "signal": 1-5, "actionability": 1-5}}, "comment": ...}}],
+"known_verdicts": [{{"id": ..., "is_defect": true|false, "rationale": ...}}]}}
+"""
+
+
+def _extract_judgment(text: str) -> dict | None:
+    """The ``{"issues", "reviews", "known_verdicts"}`` object from the answer."""
+    from . import devin as dvn
+
+    for match in reversed(list(dvn._JSON_BLOCK_RE.finditer(text))):
+        try:
+            obj = dvn._loads_lenient(match.group(1))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and "issues" in obj and "reviews" in obj:
+            obj.setdefault("known_verdicts", [])
+            return obj
+    tail = text[text.rfind("{"):]
+    try:
+        obj = dvn._loads_lenient(tail)
+        if isinstance(obj, dict) and "issues" in obj and "reviews" in obj:
+            obj.setdefault("known_verdicts", [])
+            return obj
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
+def _judge_devin(
+    sandbox, settings: RunSettings, prompt: str, out_dir: Path, stem: str,
+    stream_path: Path,
+) -> tuple[dict | None, str, int | None, float, float | None]:
+    """One ``devin -p`` judging pass; returns (judgment, status, turns, secs, cost)."""
+    from . import devin as dvn
+
+    # The judge sees every arm's findings but must verify in the source only:
+    # baseline permissions — no gryphon MCP, no edits, no network.
+    dvn.write_devin_config(sandbox, "baseline")
+    prompt_path = out_dir / f"{stem}.devin-prompt.txt"
+    prompt_path.write_text(prompt + _JUDGE_CONTRACT, encoding="utf-8")
+    export_path = out_dir / f"{stem}.atif.json"
+
+    env = _child_env(sandbox)
+    env.update(dvn.isolated_user_env(sandbox.root))
+    cmd = dvn.build_devin_command(
+        sandbox, settings.model,
+        prompt_file=prompt_path, export_path=export_path,
+        devin_bin=settings.devin_bin,
+    )
+    started = time.monotonic()
+    timed_out = False
+    exit_code = None
+    with open(stream_path, "w", encoding="utf-8") as out, open(
+        out_dir / f"{stem}.stderr", "w", encoding="utf-8"
+    ) as err:
+        try:
+            proc = subprocess.run(
+                cmd, cwd=str(sandbox.repo), stdout=out, stderr=err,
+                text=True, encoding="utf-8", errors="replace",
+                stdin=subprocess.DEVNULL, env=env,
+                timeout=settings.timeout_s,
+            )
+            exit_code = proc.returncode
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            logger.warning("judge for %s timed out", stem)
+
+    parsed = dvn.parse_atif(export_path)
+    flat = summarize(parsed, exit_code=exit_code, timed_out=timed_out)
+    judgment = _extract_judgment(parsed.get("final_text") or "")
+    status = "timeout" if timed_out else ("ok" if judgment else "no_structured_output")
+    if exit_code not in (0, None) and not timed_out:
+        status = f"error:{exit_code}"
+    return (
+        judgment, status, flat.get("num_turns"),
+        round(time.monotonic() - started, 1), flat.get("total_cost_usd"),
+    )
 
 
 def judge_settings(base: RunSettings, model: str = JUDGE_MODEL) -> RunSettings:
