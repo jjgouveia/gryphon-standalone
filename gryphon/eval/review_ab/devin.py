@@ -155,6 +155,10 @@ def build_devin_command(
         # allow/deny rules still decide exec commands and MCP tools.
         "--permission-mode", "auto",
         "--respect-workspace-trust", "false",
+        # Run the agent inside this process, not the shared background daemon:
+        # a timeout kill then reaches the real agent (and no state bleeds
+        # between arms through a reused daemon).
+        "--process-model", "in-process",
         "--prompt-file", str(prompt_file.resolve()),
         "--export", str(export_path.resolve()),
     ]
