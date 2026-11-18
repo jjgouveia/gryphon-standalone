@@ -499,6 +499,48 @@ def summarize(parsed: dict, *, exit_code: int | None, timed_out: bool) -> dict:
     }
 
 
+def _install_devin_instructions(sandbox: ArmSandbox):
+    """Write the install's instruction block into the clone's
+    ``.windsurfrules`` — the file ``gryphon install`` owns for the windsurf
+    platform and Devin loads as an always-on rule — and return a callable
+    that undoes it.
+
+    The graph clone is shared with arms that must not see the block, so the
+    file goes back to its tracked content (or away) right after the run.
+    """
+    from gryphon.skills import (
+        _CLAUDE_MD_SECTION,
+        _CLAUDE_MD_SECTION_MARKER,
+        _INSTRUCTION_GUARDRAILS,
+        _INSTRUCTION_WORKFLOW,
+        _inject_instructions,
+    )
+
+    # Candidate text under test: the shipped factual section plus the
+    # mandatory-workflow paragraph, the change "graph-first by default" would
+    # make to `gryphon install`. graph vs graph_md isolates its effect.
+    section = _CLAUDE_MD_SECTION.replace(
+        _INSTRUCTION_GUARDRAILS, _INSTRUCTION_WORKFLOW + "\n\n" + _INSTRUCTION_GUARDRAILS,
+    )
+    path = sandbox.repo / ".windsurfrules"
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", ".windsurfrules"],
+        cwd=str(sandbox.repo), capture_output=True,
+    ).returncode == 0
+    _inject_instructions(path, _CLAUDE_MD_SECTION_MARKER, section)
+
+    def restore() -> None:
+        if tracked:
+            subprocess.run(
+                ["git", "checkout", "--", ".windsurfrules"],
+                cwd=str(sandbox.repo), capture_output=True, check=True,
+            )
+        else:
+            path.unlink(missing_ok=True)
+
+    return restore
+
+
 def _run_devin(
     case: ReviewCase,
     sandbox: ArmSandbox,
@@ -585,10 +627,10 @@ def run_arm(
         raise ValueError(
             f"arm {arm!r} needs isolation='project': --restricted skips CLAUDE.md"
         )
-    if settings.backend == "devin" and arm in CLAUDE_MD_ARMS:
+    if settings.backend == "devin" and arm in CLAUDE_MD_ARMS - {"graph_md"}:
         raise ValueError(
             f"arm {arm!r} is a claude-install ablation; the devin backend "
-            "runs baseline, graph and graph_required"
+            "runs baseline, graph, graph_md and graph_required"
         )
     files = changed_files(sandbox)
     prompt = build_prompt(
@@ -610,9 +652,14 @@ def run_arm(
     python = gryphon_python(arm, settings)
 
     if settings.backend == "devin":
-        parsed, exit_code, timed_out = _run_devin(
-            case, sandbox, settings, arm, stem, prompt_path, run_dir,
-        )
+        restore = _install_devin_instructions(sandbox) if arm == "graph_md" else None
+        try:
+            parsed, exit_code, timed_out = _run_devin(
+                case, sandbox, settings, arm, stem, prompt_path, run_dir,
+            )
+        finally:
+            if restore:
+                restore()
     else:
         restore = _install_claude_md(sandbox, python) if arm in CLAUDE_MD_ARMS else None
         with open(stream_path, "w", encoding="utf-8") as out, open(

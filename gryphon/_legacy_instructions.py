@@ -599,6 +599,62 @@ exact-name search, the callers and tests of that code.
 <!-- /gryphon MCP tools -->
 """
 
+_SECTION_15 = """<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
+
+This repository has a gryphon code graph: a static index of
+functions, classes, calls, imports and tests built with Tree-sitter. It answers structural
+questions (who calls this, which tests reach it, what a change can affect) that a text search
+answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
+"callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
+`review_diff_tool(base=<ref>)` for the callers and test gaps of a diff.
+
+In Claude Code, gryphon's hooks add graph facts to some tool results: after a `git diff`, the
+changed code called from outside the diff and the changes no test reaches; on a file read or an
+exact-name search, the callers and tests of that code.
+
+### Verify in the source
+
+- Narrow scope with the graph, then read the source. Do not change code from graph output alone.
+- For any non-trivial change, read the implementation and the relevant tests before concluding.
+- Verify the exact source when touching behavior, database logic, migrations, retries, fallbacks,
+  recovery, or compatibility code.
+- When the graph and the source disagree, the source wins. The graph may be stale or may not
+  model that relationship.
+- An empty graph result can mean "not indexed" or "not statically visible", not "does not exist".
+<!-- /gryphon MCP tools -->
+"""
+
+# shipped until the graph-first workflow mandate was added
+_SECTION_16 = """---
+applyTo: '**'
+description: >-
+  Use gryphon MCP tools for token-efficient
+  codebase exploration and code review.
+---
+
+<!-- gryphon MCP tools -->
+## MCP Tools: gryphon
+
+This repository has a gryphon code graph: a static index of
+functions, classes, calls, imports and tests built with Tree-sitter. It answers structural
+questions (who calls this, which tests reach it, what a change can affect) that a text search
+answers only in part. For one such question: `query_graph_tool(pattern="callers_of"|
+"callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
+`review_diff_tool(base=<ref>)` for the callers and test gaps of a diff.
+
+### Verify in the source
+
+- Narrow scope with the graph, then read the source. Do not change code from graph output alone.
+- For any non-trivial change, read the implementation and the relevant tests before concluding.
+- Verify the exact source when touching behavior, database logic, migrations, retries, fallbacks,
+  recovery, or compatibility code.
+- When the graph and the source disagree, the source wins. The graph may be stale or may not
+  model that relationship.
+- An empty graph result can mean "not indexed" or "not statically visible", not "does not exist".
+<!-- /gryphon MCP tools -->
+"""
+
 # Longest first: a shorter variant must never shadow a longer one that
 # contains it. ``skills`` relies on this ordering when it picks a match.
 LEGACY_INSTRUCTION_SECTIONS: tuple[str, ...] = (
@@ -616,4 +672,6 @@ LEGACY_INSTRUCTION_SECTIONS: tuple[str, ...] = (
     _SECTION_10,
     _SECTION_14,
     _SECTION_13,
+    _SECTION_15,
+    _SECTION_16,
 )

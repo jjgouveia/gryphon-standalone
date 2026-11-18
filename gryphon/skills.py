@@ -1419,6 +1419,22 @@ answers only in part. For one such question: `query_graph_tool(pattern="callers_
 "callees_of"|"imports_of"|"tests_for", target=<name>)`, `get_impact_radius_tool`, or
 `review_diff_tool(base=<ref>)` for the callers and test gaps of a diff."""
 
+# Mandatory-workflow variant, used by the review-eval ``graph_md`` arm to test
+# whether a graph-first mandate moves voluntary adoption (the earlier "use
+# graph tools FIRST" wording was ignored and reverted — see git history). Not
+# shipped in the installed sections until the experiment proves it.
+_INSTRUCTION_WORKFLOW = """### Start with the graph
+
+- Any task that touches unfamiliar code starts with
+  `get_minimal_context_tool(task=<goal>)` — before Grep, Glob or file reads.
+- Before concluding anything about a function or class (reviewing, renaming,
+  judging what a change affects), call `query_graph_tool` with `callers_of`,
+  and `tests_for` when coverage matters.
+- For code review, call `detect_changes_tool` first, then
+  `get_review_context_tool` for snippets — before opening the changed files.
+- Then verify in the source at the lines the graph points to. Reach for
+  Grep/Read directly only for non-code files and text the graph cannot index."""
+
 _INSTRUCTION_GUARDRAILS = """### Verify in the source
 
 - Narrow scope with the graph, then read the source. Do not change code from graph output alone.

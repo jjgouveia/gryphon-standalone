@@ -984,6 +984,40 @@ def test_graph_md_restores_a_tracked_claude_md(tmp_path, source_repo, monkeypatc
     assert _git(sb.repo, "status", "--porcelain") == ""
 
 
+def test_graph_md_devin_writes_windsurfrules_only_during_the_run(
+    tmp_path, case, monkeypatch,
+):
+    monkeypatch.setattr(sandbox, "_build_graph", lambda sb, timeout: None)
+    sb = prepare_arm(case, "graph_md", tmp_path / "work")
+    seen = {}
+
+    def fake_devin(case, sandbox, settings, arm, stem, prompt_path, run_dir):
+        seen["rules"] = (sandbox.repo / ".windsurfrules").read_text(encoding="utf-8")
+        return {
+            "tool_calls": [], "messages": [], "assistant_usage": [],
+            "hook_events": [], "init": {},
+            "result": {}, "final_text": "", "status": "ok", "num_turns": 0,
+        }, 0, False
+
+    monkeypatch.setattr(runner, "_run_devin", fake_devin)
+    settings = RunSettings(backend="devin", isolation="project")
+    rec = run_arm(case, sb, settings, arm="graph_md", rep=0, run_dir=tmp_path / "r")
+    assert "Start with the graph" in seen["rules"]
+    assert "## MCP Tools: gryphon" in seen["rules"]
+    assert not (sb.repo / ".windsurfrules").exists()
+    assert _git(sb.repo, "status", "--porcelain") == ""
+    assert rec["arm"] == "graph_md"
+
+
+def test_devin_rejects_other_claude_md_arms(tmp_path, case, monkeypatch):
+    monkeypatch.setattr(sandbox, "_build_graph", lambda sb, timeout: None)
+    for arm in ("graph_md_enrich", "graph_install", "graph_install_ref"):
+        sb = prepare_arm(case, arm, tmp_path / "work" / arm)
+        with pytest.raises(ValueError, match="claude-install ablation"):
+            run_arm(case, sb, RunSettings(backend="devin", isolation="project"),
+                    arm=arm, rep=0, run_dir=tmp_path / "r" / arm)
+
+
 def test_graph_install_uses_the_install_verbatim(tmp_path: Path):
     from gryphon.skills import generate_hooks_config
 
