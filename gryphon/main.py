@@ -1250,6 +1250,54 @@ def _apply_tool_filter(tools: str | None = None) -> None:
             mcp.local_provider.remove_tool(name)
 
 
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        import ctypes
+
+        # PROCESS_QUERY_LIMITED_INFORMATION works for other users' processes too.
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return False
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _start_orphan_watchdog(interval_s: float = 20.0) -> None:
+    """Exit the process once the parent that spawned it is gone.
+
+    Stdio MCP servers are supposed to exit on stdin EOF, but clients that keep
+    the pipe open past the session's lifetime (shared daemons on Windows, IDE
+    restarts) leave the server running forever — each orphan holds memory and,
+    with --auto-watch, a filesystem watcher on the repo. A dead spawn-time
+    parent is a reliable orphan signal: the MCP client launches the server
+    directly, so nothing legitimate should still hold it.
+    Set GRYPHON_NO_ORPHAN_WATCHDOG=1 to opt out.
+    """
+    import threading
+    import time
+
+    if os.environ.get("GRYPHON_NO_ORPHAN_WATCHDOG"):
+        return
+    parent = os.getppid()
+    if not _pid_alive(parent):
+        return  # spawned detached; no parent to watch
+
+    def _check() -> None:
+        while True:
+            time.sleep(interval_s)
+            if not _pid_alive(parent):
+                logger.info("Parent process %d is gone; exiting.", parent)
+                os._exit(0)
+
+    threading.Thread(target=_check, daemon=True, name="orphan-watchdog").start()
+
 
 def main(
     repo_root: str | None = None,
@@ -1288,6 +1336,8 @@ def main(
 
     previous_stdio_state = _incremental._MCP_STDIO_ACTIVE
     _incremental._MCP_STDIO_ACTIVE = transport == "stdio"
+    if transport == "stdio":
+        _start_orphan_watchdog()
     watch_store: GraphStore | None = None
     try:
         if auto_watch:

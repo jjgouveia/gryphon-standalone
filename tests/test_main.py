@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import threading
 
 import pytest
@@ -542,3 +543,33 @@ class TestEmbedGraphTool:
 
         assert result["status"] == "ok"
         assert captured["repo_root"] == str(tmp_path)
+
+
+class TestOrphanWatchdog:
+    def test_pid_alive_current_process(self):
+        from gryphon.main import _pid_alive
+
+        assert _pid_alive(os.getpid())
+
+    def test_pid_alive_dead_pid(self):
+        from gryphon.main import _pid_alive
+
+        assert not _pid_alive(0)
+        # 4_000_000+ is far above any real PID on Windows and POSIX.
+        assert not _pid_alive(99_999_999)
+
+    def test_no_watchdog_when_parent_gone(self, monkeypatch):
+        import gryphon.main as crg_main
+
+        monkeypatch.setattr(crg_main.os, "getppid", lambda: 99_999_999)
+        spawned = []
+        monkeypatch.setattr(threading, "Thread", lambda *a, **k: spawned.append(a))
+        crg_main._start_orphan_watchdog()
+        assert spawned == []
+
+    def test_watchdog_disabled_by_env(self, monkeypatch):
+        import gryphon.main as crg_main
+
+        monkeypatch.setenv("GRYPHON_NO_ORPHAN_WATCHDOG", "1")
+        monkeypatch.setattr(crg_main.os, "getppid", lambda: os.getpid())
+        crg_main._start_orphan_watchdog()  # must return without raising
