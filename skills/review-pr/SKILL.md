@@ -653,10 +653,15 @@ checked, so the author can tell a deep pass from a shallow one.
        outside: the graph watcher follows the whole tree, and a copy that is
        not a registered worktree (or an older gryphon) would be indexed into
        the parent graph. Pass `repo_root` explicitly to all graph calls, and
-       remove the graph worktree when the review is done:
+       remove the graph worktree when the review is done with the helper:
        ```bash
-       git worktree remove --force ../.wt-pr<n>-base
+       python <gryphon>/scripts/review_env.py remove-worktree \
+         --repo ../.wt-pr<n>-base --force
        ```
+       The helper unlinks any shared `node_modules`/virtualenv before Git
+       deletes the tree. Never run `git worktree remove --force` on a worktree
+       whose `node_modules` is a link: on Windows Git follows the junction and
+       empties the checkout it points at.
      - If the build commit is gone from the clone (history rewrite / shallow
        fetch), a diff-based update cannot run: do a full CLI build with
        `gryphon build --repo <path> --skip-postprocess`. Do not use the MCP
@@ -707,8 +712,11 @@ lane that has to re-derive the diff is slower, not more independent.
   and never inside the checkout; keeping it outside avoids the parent graph
   watcher entirely. Prepare dependencies with `scripts/review_env.py` (see
   *Dependency reuse*) instead of installing them per worktree. Remove the
-  worktree when the review is done:
-  `git worktree remove --force ../.wt-pr<n>`.
+  worktree when the review is done with the helper, never with raw Git:
+  `python <gryphon>/scripts/review_env.py remove-worktree --repo ../.wt-pr<n> --force`.
+  A shared `node_modules` is a Windows junction; `git worktree remove --force`
+  follows it and empties the parent checkout, while the helper unlinks it
+  first and verifies the target survived.
 
 ### Undefined names: the check a diff cannot do
 
@@ -812,6 +820,10 @@ The rules that keep this honest:
 - Never run `npm ci`, `pnpm install` or `poetry install` through a linked
   `node_modules`/virtualenv: the install would write into the parent checkout.
   The helper installs in the cache or refuses.
+- Before deleting the worktree, run `review_env.py remove-worktree` (or
+  `release` when another tool removes it). A linked `node_modules` is a Windows
+  junction; Git's own worktree removal follows it and empties the parent
+  checkout. The helper unlinks first and verifies the target afterwards.
 - Never reuse an environment without syncing it when the lock hash differs. A
   stale environment runs the review against package versions the PR does not
   use and hides the break the review exists to catch.
