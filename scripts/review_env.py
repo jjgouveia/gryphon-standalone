@@ -42,7 +42,10 @@ Safety rules this file enforces:
 * the cache must live outside the repository, so the graph watcher and
   ``git status`` do not see it;
 * a missing cache is built once per key, under a lock, so two worktrees cannot
-  race the same install.
+  race the same install;
+* removing a worktree unlinks the shared environments first: on Windows Git
+  treats a junction as a directory, follows it during
+  ``git worktree remove --force``, and empties the checkout it points at.
 
 Exit codes::
 
@@ -76,6 +79,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 
 PROBE_TIMEOUT = 20
 INSTALL_TIMEOUT = 3600
+WORKTREE_TIMEOUT = 600
 CACHE_ENV = "GRYPHON_REVIEW_ENV_CACHE"
 MARKER = ".gryphon-review-env.json"
 MARKER_VERSION = 1
@@ -84,6 +88,7 @@ NODE_EXTRA_FILES = (".npmrc", ".yarnrc.yml", "bunfig.toml", "pnpm-workspace.yaml
 NODE_INPUT_DIRS = ("patches",)
 NODE_COPY_DIRS = ("patches", "scripts", "prisma")
 PYTHON_FILES = ("pyproject.toml", "poetry.lock", ".python-version", "poetry.toml")
+WORKTREE_LINK_NAMES = ("node_modules", ".venv", "venv")
 _TEXT = {"capture_output": True, "text": True, "encoding": "utf-8", "errors": "replace"}
 
 
@@ -364,6 +369,48 @@ def _backup_real_dir(path: Path) -> Path:
         backup = path.with_name(f"{path.name}.gryphon-old-{int(time.time())}")
     path.rename(backup)
     return backup
+
+
+def _link_entries(repo: Path) -> list[dict[str, Any]]:
+    """Describe the shared-environment links this helper may have created.
+
+    Only the names it manages are considered. A junction looks like a normal
+    directory to most Windows APIs and to Git, but removing the link itself
+    never touches the tree it points at.
+    """
+    entries: list[dict[str, Any]] = []
+    for name in WORKTREE_LINK_NAMES:
+        path = repo / name
+        if _is_dir_link(path):
+            entries.append({"path": path, "target": _link_target(path)})
+    return entries
+
+
+def release_links(repo: Path) -> list[dict[str, Any]]:
+    """Unlink shared environments without touching what they point at.
+
+    Run this before deleting a worktree. ``git worktree remove --force``
+    follows a Windows junction and empties the directory it points at;
+    ``os.rmdir`` on the junction removes only the link. A real directory is
+    never removed here.
+    """
+    released: list[dict[str, Any]] = []
+    for entry in _link_entries(repo):
+        path = entry["path"]
+        _remove_dir_link(path)
+        if _is_dir_link(path) or path.exists():
+            raise ReviewEnvError(f"the link at {path} survived removal")
+        released.append(entry)
+    return released
+
+
+def _target_entry_count(target: Any) -> int | None:
+    if not isinstance(target, Path) or not target.is_dir():
+        return None
+    try:
+        return sum(1 for _ in os.scandir(target))
+    except OSError:
+        return None
 
 
 def _platform_tags() -> tuple[str, str]:
@@ -1253,6 +1300,12 @@ def build_plan(
                 "the dependency key changed; the first worktree at this state pays one "
                 "install, the rest reuse it"
             )
+        if node.get("link_target") is not None and repo != main:
+            notes.append(
+                "node_modules is a link: remove this worktree with `review_env.py "
+                f"remove-worktree --repo {repo} --force`, never with `git worktree remove "
+                "--force`, which follows the link on Windows and empties its target"
+            )
     if python is not None and python["action"] == "will-create":
         notes.append(
             "one Poetry environment is cached per lock state and shared across worktrees; "
@@ -1413,6 +1466,75 @@ def restore(main: Path, *, as_json: bool) -> int:
     return 0
 
 
+def remove_worktree(repo: Path, *, force: bool) -> dict[str, Any]:
+    """Release the links, then let Git remove the worktree.
+
+    Git on Windows recurses through a junction during
+    ``git worktree remove --force`` and deletes the contents of the checkout
+    the review shared its ``node_modules`` with. Unlinking first keeps the
+    deletion inside the worktree; the fingerprint check afterwards proves the
+    target survived.
+    """
+    repo = repo.resolve()
+    main = find_main_checkout(repo)
+    if not (repo / ".git").exists():
+        raise ReviewEnvError(f"{repo} is not a git worktree")
+    if repo == main:
+        raise ReviewEnvError("refusing to remove the main checkout; pass a linked worktree")
+    before = {
+        str(entry["path"]): _target_entry_count(entry["target"]) for entry in _link_entries(repo)
+    }
+    released = release_links(repo)
+    command = ["git", "-C", str(main), "worktree", "remove"]
+    if force:
+        command.append("--force")
+    command.append(str(repo))
+    previous = Path.cwd()
+    try:
+        # A process whose current directory is inside the worktree keeps a
+        # handle on it and makes Git's final rmdir fail on Windows.
+        os.chdir(main)
+        proc = _run(command, cwd=main, timeout=WORKTREE_TIMEOUT)
+    finally:
+        try:
+            os.chdir(previous)
+        except OSError:
+            os.chdir(main)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        message = detail[0] if detail else f"git worktree remove exited {proc.returncode}"
+        raise ReviewEnvError(
+            f"git worktree remove failed for {repo}: {message} (links were released; "
+            "re-run prepare if the worktree stays)"
+        )
+    lost = []
+    for entry in released:
+        target = entry["target"]
+        if isinstance(target, Path) and (target == repo or repo in target.parents):
+            # The target lives inside the worktree, so Git removing it with the
+            # worktree is expected; only shared targets outside must survive.
+            continue
+        count_before = before.get(str(entry["path"]))
+        count_after = _target_entry_count(target)
+        if count_before is not None and (count_after is None or count_after < count_before):
+            lost.append((target, count_before, count_after))
+    if lost:
+        target, count_before, count_after = lost[0]
+        after = count_after if count_after is not None else "missing"
+        raise ReviewEnvError(
+            f"the link target {target} lost entries while the worktree was removed "
+            f"({count_before} -> {after}); check it before doing anything else"
+        )
+    if repo.exists():
+        raise ReviewEnvError(f"git reported success but {repo} still exists")
+    return {
+        "repo": repo,
+        "main_checkout": main,
+        "released": released,
+        "removed": True,
+    }
+
+
 # --- rendering -------------------------------------------------------------
 
 
@@ -1485,9 +1607,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "action",
         nargs="?",
-        choices=("plan", "prepare", "restore"),
+        choices=("plan", "prepare", "restore", "release", "remove-worktree"),
         default="prepare",
-        help="plan (no writes), prepare (default), or restore a --fast environment",
+        help=(
+            "plan (no writes), prepare (default), restore a --fast environment, release "
+            "the environment links, or remove a review worktree safely"
+        ),
     )
     parser.add_argument("--repo", default=".", help="Worktree or checkout (default: .)")
     parser.add_argument("--base", default=None, help="Base ref, for the changed-on-branch note")
@@ -1496,7 +1621,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Move a real node_modules aside before linking (it is renamed, never deleted)",
+        help=(
+            "prepare: move a real node_modules aside before linking (it is renamed, never "
+            "deleted); remove-worktree: pass --force to git worktree remove"
+        ),
     )
     parser.add_argument(
         "--fast",
@@ -1518,6 +1646,31 @@ def main(argv: list[str] | None = None) -> int:
         main_checkout = find_main_checkout(repo)
         if args.action == "restore":
             return restore(main_checkout, as_json=args.json)
+        if args.action == "release":
+            released = release_links(repo)
+            release_payload = {
+                "repo": repo,
+                "main_checkout": main_checkout,
+                "released": released,
+            }
+            if args.json:
+                print(json.dumps(_jsonable(release_payload), indent=2, ensure_ascii=False))
+            elif released:
+                for entry in released:
+                    print(f"review_env: unlinked {entry['path']} (target: {entry['target']})")
+                print("review_env: link targets were not modified")
+            else:
+                print(f"review_env: no environment links to release in {repo}")
+            return 0
+        if args.action == "remove-worktree":
+            removed = remove_worktree(repo, force=args.force)
+            if args.json:
+                print(json.dumps(_jsonable(removed), indent=2, ensure_ascii=False))
+            else:
+                for entry in removed["released"]:
+                    print(f"review_env: unlinked {entry['path']} (target: {entry['target']})")
+                print(f"review_env: removed {repo}")
+            return 0
         cache = _resolve_cache(args.cache_dir, repo, main_checkout)
         plan = build_plan(
             repo,
