@@ -197,6 +197,7 @@ def test_remove_worktree_unlinks_before_git_deletes(
     assert review_env._is_dir_link(worktree / "node_modules")
 
     assert review_env.main(["remove-worktree", "--repo", str(worktree), "--force"]) == 0
+    assert "unlinked" in capsys.readouterr().out
     assert not worktree.exists()
     assert sentinel.read_text(encoding="utf-8") == "main tree"
 
