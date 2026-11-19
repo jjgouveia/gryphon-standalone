@@ -239,6 +239,10 @@ def test_windows_server_still_prewarms_before_mcp_run(monkeypatch, tmp_path):
     monkeypatch.delenv("CRG_TOOLS", raising=False)
     monkeypatch.setattr(crg_main, "_default_repo_root", None)
     monkeypatch.setattr(crg_main.sys, "platform", "win32")
+    # main() starts the orphan watchdog, which probes the parent with Win32
+    # APIs that only exist on a real Windows interpreter. The ordering under
+    # test does not involve it.
+    monkeypatch.setattr(crg_main, "_start_orphan_watchdog", lambda: None)
     monkeypatch.setattr(
         crg_main.asyncio,
         "WindowsSelectorEventLoopPolicy",
