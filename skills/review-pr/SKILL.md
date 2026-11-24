@@ -859,6 +859,15 @@ under each other — the "cursor closed" / `InterfaceError` teardown errors
 that read as flaky tests. A per-worktree name costs nothing and removes
 the whole failure class.
 
+`TEST_DB_NAME` only wins if the app reads the shell environment. Some
+projects bootstrap settings from `.env` and let the file win (Celer's
+`bootstrap_backend_env()` does this): the worktree `.env` silently
+replaces `TEST_DB_NAME`, and pytest runs against the shared database
+while claiming isolation. Use the project's shell-priority switch
+(Celer: `CELER_ENV_PRIORITY=shell`) or edit the worktree `.env`, then
+confirm the new database exists (e.g. in `pg_database`) before trusting
+the run. The first run creates it and runs migrations; budget for that.
+
 - If the PR touches testable behavior, run the affected domain tests before
   requesting new tests or approving.
 - To run tests that only exist in the head, apply
