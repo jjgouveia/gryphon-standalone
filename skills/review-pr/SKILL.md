@@ -807,6 +807,14 @@ Use the interpreter it prints for the tests:
 <venv>/bin/python -m pytest ...           # POSIX
 ```
 
+On Windows, run that command from `cmd.exe` or PowerShell, not Git Bash. Git
+Bash prepends `C:\Program Files\Git\usr\bin` to `PATH`, and the MSYS2 DLLs
+there can shadow the native DLLs a package ships. `python-magic` is the known
+case: it loads `msys-magic-1.dll` and hangs in `magic_open` at import, burning
+CPU while the test makes no progress. If the package ships its DLL inside the
+environment (e.g. `<venv>\Lib\site-packages\magic\libmagic\libmagic.dll`), put
+that directory first in `PATH` before running pytest.
+
 The rules that keep this honest:
 
 - Never run `npm ci`, `pnpm install` or `poetry install` through a linked
