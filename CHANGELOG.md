@@ -211,6 +211,14 @@
 
 ### Fixed
 
+- `scripts/review_env.py` no longer leaves a shared `node_modules` behind when
+  a review worktree is deleted. `git worktree remove --force` follows a
+  Windows junction and empties the checkout it points at — it emptied a main
+  checkout's `node_modules` twice. The new `release` action removes only the
+  link, and `remove-worktree` releases before calling Git and verifies that the
+  target kept its entries. The `review-pr` skill now removes worktrees through
+  the helper instead of raw `git worktree remove`.
+
 - A review worktree created inside the checkout is no longer indexed into
   the parent graph. Linked worktrees (`.git` file pointing at
   `.git/worktrees`) and nested clones (`.git` directory) are skipped by the

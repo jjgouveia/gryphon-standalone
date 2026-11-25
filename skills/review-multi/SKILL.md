@@ -47,11 +47,14 @@ with `python <gryphon>/scripts/review_env.py prepare --repo <worktree> --base
 `node_modules` and reuses the Poetry environment when the dependency key
 matches, and builds one cached environment per changed lock. Do not let each
 reviewer install into the same worktree, and never install through a linked
-`node_modules`. After `prepare`, tell the user in chat whether the environment
-was reused or built, using the action mapping in `review-pr` *Dependency
-reuse*. Copy the parent's `.env*` into the worktree and give its test runs
-a dedicated database name, per `review-pr` *Environment files and shared
-test databases*.
+`node_modules`. When the worktree is no longer needed, remove it with
+`python <gryphon>/scripts/review_env.py remove-worktree --repo <worktree> --force`,
+not raw `git worktree remove`: the helper unlinks the junction first so Git
+cannot empty the parent checkout. After `prepare`, tell the user in chat
+whether the environment was reused or built, using the action mapping in
+`review-pr` *Dependency reuse*. Copy the parent's `.env*` into the worktree
+and give its test runs a dedicated database name, per `review-pr` *Environment
+files and shared test databases*.
 
 ## 2. Two independent reviewers, in parallel
 

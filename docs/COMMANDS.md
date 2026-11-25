@@ -31,6 +31,9 @@ Review a PR or branch diff.
   spawn subagents
 - Reuses dependencies across review worktrees (`scripts/review_env.py`,
   keyed by the lock hash and runtime) instead of installing them per worktree
+- Removes a review worktree through `review_env.py remove-worktree`, which
+  unlinks the shared `node_modules` first so Git cannot follow the junction
+  into the parent checkout
 
 ### `/review-multi`
 Review a PR or branch diff with two independent reviewers.

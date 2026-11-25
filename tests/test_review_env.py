@@ -146,6 +146,85 @@ def test_remove_link_does_not_delete_the_target(tmp_path: Path) -> None:
     assert (target / "keep.txt").read_text(encoding="utf-8") == "keep"
 
 
+def test_release_unlinks_without_touching_the_target(
+    repo_pair: tuple[Path, Path], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main, worktree = repo_pair
+    sentinel = main / "node_modules" / "sentinel.txt"
+    sentinel.parent.mkdir()
+    sentinel.write_text("main tree", encoding="utf-8")
+    cache = tmp_path / "cache"
+    assert review_env.main(["prepare", "--repo", str(worktree), "--cache-dir", str(cache)]) == 0
+    capsys.readouterr()
+    assert review_env._is_dir_link(worktree / "node_modules")
+
+    assert review_env.main(["release", "--repo", str(worktree), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["released"]
+    assert not review_env._is_dir_link(worktree / "node_modules")
+    assert not (worktree / "node_modules").exists()
+    assert sentinel.read_text(encoding="utf-8") == "main tree"
+
+    assert review_env.main(["release", "--repo", str(worktree), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["released"] == []
+    assert sentinel.read_text(encoding="utf-8") == "main tree"
+
+
+def test_release_leaves_a_real_node_modules_alone(
+    repo_pair: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    _main, worktree = repo_pair
+    real = worktree / "node_modules"
+    real.mkdir()
+    (real / "keep.txt").write_text("keep", encoding="utf-8")
+
+    assert review_env.main(["release", "--repo", str(worktree), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["released"] == []
+    assert (real / "keep.txt").read_text(encoding="utf-8") == "keep"
+
+
+def test_remove_worktree_unlinks_before_git_deletes(
+    repo_pair: tuple[Path, Path], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main, worktree = repo_pair
+    sentinel = main / "node_modules" / "sentinel.txt"
+    sentinel.parent.mkdir()
+    sentinel.write_text("main tree", encoding="utf-8")
+    cache = tmp_path / "cache"
+    assert review_env.main(["prepare", "--repo", str(worktree), "--cache-dir", str(cache)]) == 0
+    capsys.readouterr()
+    assert review_env._is_dir_link(worktree / "node_modules")
+
+    assert review_env.main(["remove-worktree", "--repo", str(worktree), "--force"]) == 0
+    assert "unlinked" in capsys.readouterr().out
+    assert not worktree.exists()
+    assert sentinel.read_text(encoding="utf-8") == "main tree"
+
+
+def test_remove_worktree_refuses_the_main_checkout(
+    repo_pair: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    main, _worktree = repo_pair
+    assert review_env.main(["remove-worktree", "--repo", str(main), "--force"]) == 4
+    assert main.is_dir()
+    assert "refusing" in capsys.readouterr().err
+
+
+def test_remove_worktree_without_a_linked_environment(
+    repo_pair: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    main, worktree = repo_pair
+    (main / "node_modules").mkdir()
+
+    assert review_env.main(["remove-worktree", "--repo", str(worktree), "--force", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["released"] == []
+    assert payload["removed"] is True
+    assert not worktree.exists()
+    assert (main / "node_modules").is_dir()
+
+
 @pytest.mark.parametrize(
     ("lockfile", "expected"),
     [
@@ -493,5 +572,6 @@ def test_review_skill_documents_dependency_reuse() -> None:
     assert "Tell the user what happened" in text
     assert "reused-cache" in text
     assert "installing" in text
+    assert "remove-worktree" in text
     multi = (ROOT / "skills" / "review-multi" / "SKILL.md").read_text(encoding="utf-8")
     assert "tell the user" in multi.lower()
